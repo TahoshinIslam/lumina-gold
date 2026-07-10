@@ -75,7 +75,7 @@ export default function BestSellers() {
                 </svg>
               </button>
 
-              <Link href={`/product/${product.sku}`} className="lum-prod-link">
+              <Link href={`/products/${product.slug}`} className="lum-prod-link">
                 <div className="lum-prod-media">
                   <div className="lum-prod-zoom lum-img-ph">
                     <img src={product.images[0]} alt={product.name} />

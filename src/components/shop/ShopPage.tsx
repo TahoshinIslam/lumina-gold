@@ -27,18 +27,39 @@ import { useWishlist } from './useWishlist';
  * Facets whose options have no matches under the OTHER active filters
  * are shown disabled with a zero count.
  */
-export default function ShopPage() {
+/**
+ * @param lockedFilters filters forced by the route (e.g. /jewelry/gold locks
+ *   material=Gold). They are ALWAYS applied, never shown as removable chips,
+ *   and their facet is hidden — the URL only carries the *other* facets, so
+ *   the clean path stays canonical while every other filter still works.
+ * @param heading overrides the auto-generated listing title.
+ */
+export default function ShopPage(
+  { lockedFilters, heading }: { lockedFilters?: Filters; heading?: string } = {},
+) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const filters = useMemo(() => parseFilters(searchParams), [searchParams]);
+  const urlFilters = useMemo(() => parseFilters(searchParams), [searchParams]);
+  const lockedKeys = useMemo(
+    () => new Set(Object.keys(lockedFilters ?? {})),
+    [lockedFilters],
+  );
+  // Effective = route-locked filters + whatever the user toggled (URL).
+  const filters = useMemo(
+    () => ({ ...urlFilters, ...(lockedFilters ?? {}) }),
+    [urlFilters, lockedFilters],
+  );
   const sort = (searchParams.get('sort') as SortKey) || 'featured';
   const q = searchParams.get('q') ?? '';
   const { wished, toggleWish } = useWishlist();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const facets = useMemo(() => visibleFacets(filters), [filters]);
+  const facets = useMemo(
+    () => visibleFacets(filters).filter(facet => !lockedKeys.has(facet.key)),
+    [filters, lockedKeys],
+  );
 
   const products = useMemo(
     () => sortProducts(searchProducts(applyFilters(CATALOG, filters), q), sort),
@@ -49,7 +70,11 @@ export default function ShopPage() {
     const extra: Record<string, string> = {};
     if (nextSort !== 'featured') extra.sort = nextSort;
     if (q) extra.q = q;
-    const query = serializeFilters(nextFilters, extra);
+    // Never serialize route-locked filters — they live in the path.
+    const urlOnly: Filters = Object.fromEntries(
+      Object.entries(nextFilters).filter(([key]) => !lockedKeys.has(key)),
+    );
+    const query = serializeFilters(urlOnly, extra);
     router.replace(`${pathname}${query}`, { scroll: false });
   };
 
@@ -69,7 +94,7 @@ export default function ShopPage() {
     return applyFilters(CATALOG, others).length;
   };
 
-  const activeChips = FACETS.flatMap(facet =>
+  const activeChips = FACETS.filter(facet => !lockedKeys.has(facet.key)).flatMap(facet =>
     (filters[facet.key] ?? []).map(value => ({
       facetKey: facet.key,
       value,
@@ -83,7 +108,7 @@ export default function ShopPage() {
       <div className="lum-listing-head">
         <div>
           <div className="lum-eyebrow-label" style={{ marginBottom: 10 }}>The Boutique</div>
-          <h1 className="lum-h2 lum-listing-title">{q ? `Results for “${q}”` : filterTitle(filters)}</h1>
+          <h1 className="lum-h2 lum-listing-title">{q ? `Results for “${q}”` : (heading ?? filterTitle(filters))}</h1>
           <div className="lum-listing-count">
             {products.length} {products.length === 1 ? 'creation' : 'creations'}
           </div>

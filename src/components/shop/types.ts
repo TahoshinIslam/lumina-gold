@@ -9,7 +9,14 @@
  * combination of attribute filters.
  */
 
-export type Material = 'Gold' | 'Diamond' | 'Platinum' | 'Silver';
+/**
+ * Material is a METAL only. A diamond (or any gemstone) is NOT a material —
+ * it is an independent `gemstones` attribute, because a diamond piece always
+ * has a metal too (e.g. a diamond ring is 18K White Gold set with diamonds).
+ */
+export type Material = 'Gold' | 'Platinum' | 'Silver';
+
+export type GemstoneKind = 'Diamond' | 'Ruby' | 'Emerald' | 'Sapphire' | 'Pearl';
 
 export type MetalPurity = '24K' | '22K' | '21K' | '18K' | '14K';
 
@@ -72,11 +79,13 @@ export interface DiamondSpec {
 export interface Product {
   id: string;
   sku: string;
+  slug: string;              // URL identity: /products/[slug]
   name: string;
   description: string;
 
   /* Independent attribute dimensions */
-  material: Material;
+  material: Material;        // the METAL
+  gemstones?: GemstoneKind[]; // stones set into the piece (Diamond, Ruby, …)
   purity?: MetalPurity;      // metal pieces
   goldColor?: GoldColor;     // gold pieces
   gender: Gender;

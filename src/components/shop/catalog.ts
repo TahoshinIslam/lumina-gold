@@ -1,4 +1,4 @@
-import { Product } from './types';
+import { GemstoneKind, Material, Product } from './types';
 
 /**
  * Mock catalog — ~36 sample products spanning every attribute dimension
@@ -11,23 +11,59 @@ import { Product } from './types';
  */
 
 let n = 0;
+const usedSlugs = new Set<string>();
+
+/** name → URL-safe slug, de-accented and de-duplicated. */
+function slugify(name: string): string {
+  const base = name
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents (Séraphine → Seraphine)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  let slug = base;
+  let i = 2;
+  while (usedSlugs.has(slug)) slug = `${base}-${i++}`;
+  usedSlugs.add(slug);
+  return slug;
+}
+
 /**
- * Small builder: fills id/sku/images so entries below stay readable.
+ * Builder input allows the legacy `material: 'Diamond'` written in the data
+ * below; it is normalized to a metal (Gold) plus a `gemstones: ['Diamond']`
+ * attribute, so "diamond" is a gemstone filter — never a metal.
+ */
+type ProductInput =
+  Omit<Product, 'id' | 'sku' | 'slug' | 'images' | 'material' | 'gemstones'>
+  & { sku?: string; material: Material | 'Diamond'; gemstones?: GemstoneKind[] };
+
+/**
+ * Small builder: fills id/sku/slug/images so entries below stay readable.
  * Images live in per-product folders — /uploads/products/<SKU>/<size>/<n>.jpg
  * (sizes: original, zoom, large, medium, thumb). Attributes like material,
  * recipient, or purity are DATABASE FILTERS, never folder names.
  */
-function p(prod: Omit<Product, 'id' | 'sku' | 'images'> & { sku?: string }): Product {
+function p(prod: ProductInput): Product {
   n++;
   const sku = prod.sku ?? `LUM-${String(n).padStart(4, '0')}`;
+  const { material: rawMaterial, gemstones: rawGemstones, ...rest } = prod;
+
+  // Legacy 'Diamond' material → real metal (Gold) + Diamond gemstone.
+  const material: Material = rawMaterial === 'Diamond' ? 'Gold' : rawMaterial;
+  const gemstones: GemstoneKind[] | undefined =
+    rawGemstones ??
+    (rawMaterial === 'Diamond' || rest.diamond ? ['Diamond'] : undefined);
+
   return {
     id: String(n),
     sku,
+    slug: slugify(prod.name),
+    material,
+    ...(gemstones ? { gemstones } : {}),
     images: [
       `/uploads/products/${sku}/large/1.jpg`,
       `/uploads/products/${sku}/large/2.jpg`,
     ],
-    ...prod,
+    ...rest,
   };
 }
 
@@ -292,6 +328,11 @@ export const CATALOG: Product[] = [
 
 export function getProductBySku(sku: string): Product | undefined {
   return CATALOG.find(product => product.sku === sku);
+}
+
+/** Primary product lookup — /products/[slug] is the canonical URL. */
+export function getProductBySlug(slug: string): Product | undefined {
+  return CATALOG.find(product => product.slug === slug);
 }
 
 /** Related products: same type or same collection, excluding itself. */

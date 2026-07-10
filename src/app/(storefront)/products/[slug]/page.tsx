@@ -3,26 +3,26 @@ import type { Metadata } from 'next';
 import Header from '@/components/lumina/Header';
 import Footer from '@/components/lumina/Footer';
 import ProductDetail from '@/components/shop/ProductDetail';
-import { CATALOG, getProductBySku } from '@/components/shop/catalog';
+import { CATALOG, getProductBySlug } from '@/components/shop/catalog';
 
 export function generateStaticParams() {
-  return CATALOG.map(product => ({ sku: product.sku }));
+  return CATALOG.map(product => ({ slug: product.slug }));
 }
 
 export async function generateMetadata(
-  { params }: { params: Promise<{ sku: string }> },
+  { params }: { params: Promise<{ slug: string }> },
 ): Promise<Metadata> {
-  const { sku } = await params;
-  const product = getProductBySku(sku);
+  const { slug } = await params;
+  const product = getProductBySlug(slug);
   return { title: product ? `${product.name} — LUMINA` : 'LUMINA' };
 }
 
-/** /product/[sku] — premium product detail page (IA spec Step 10). */
+/** /products/[slug] — premium product detail page (IA spec Step 10). */
 export default async function ProductPage(
-  { params }: { params: Promise<{ sku: string }> },
+  { params }: { params: Promise<{ slug: string }> },
 ) {
-  const { sku } = await params;
-  const product = getProductBySku(sku);
+  const { slug } = await params;
+  const product = getProductBySlug(slug);
   if (!product) notFound();
 
   return (

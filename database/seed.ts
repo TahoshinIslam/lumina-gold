@@ -55,8 +55,8 @@ async function main() {
       if (occId) await db.query('INSERT IGNORE INTO product_occasions VALUES (?, ?)', [productId, occId]);
     }
 
-    // variant
-    const metalName = p.material === 'Diamond' ? 'Gold' : p.material;
+    // variant — material is a metal (diamonds are seeded as stones below).
+    const metalName = p.material;
     const metalId = await lookup('metals', metalName);
     let purityId: number | null = null;
     const purityName = p.purity ?? (p.material === 'Platinum' ? 'PT950' : p.material === 'Silver' ? 'S925' : null);

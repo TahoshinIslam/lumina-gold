@@ -1,4 +1,4 @@
-import { Product } from './types';
+import { GemstoneKind, Product } from './types';
 
 /**
  * Filter engine for the product listing.
@@ -51,9 +51,14 @@ const opts = (values: string[]): FacetOption[] => values.map(value => ({ value }
 
 export const FACETS: Facet[] = [
   {
-    key: 'material', label: 'Material',
-    options: opts(['Gold', 'Diamond', 'Platinum', 'Silver']),
+    key: 'material', label: 'Metal',
+    options: opts(['Gold', 'Platinum', 'Silver']),
     match: (product, value) => product.material === value,
+  },
+  {
+    key: 'gemstone', label: 'Gemstone',
+    options: opts(['Diamond', 'Ruby', 'Emerald', 'Sapphire', 'Pearl']),
+    match: (product, value) => product.gemstones?.includes(value as GemstoneKind) ?? false,
   },
   {
     key: 'type', label: 'Jewellery Type',
@@ -191,6 +196,7 @@ export function searchProducts(products: Product[], q: string): Product[] {
       product.name, product.material, product.type, product.collection,
       product.style, product.gender, product.purity, product.goldColor,
       ...product.occasions,
+      ...(product.gemstones ?? []),
     ].filter(Boolean).join(' ').toLowerCase();
     return words.every(w => hay.includes(w));
   });
@@ -207,13 +213,17 @@ const DIAMOND_ONLY = new Set(['diamondType', 'shape', 'carat', 'dcolor', 'clarit
 
 export function visibleFacets(filters: Filters): Facet[] {
   const materials = filters.material ?? [];
+  const gemstones = filters.gemstone ?? [];
   const hasGold = materials.includes('Gold');
-  const hasDiamond = materials.includes('Diamond');
   const noMaterial = materials.length === 0;
+  const hasDiamond = gemstones.includes('Diamond');
+  const noGemstone = gemstones.length === 0;
 
   return FACETS.filter(facet => {
+    // Gold purity/color: only when browsing gold (or no metal chosen).
     if (GOLD_ONLY.has(facet.key)) return noMaterial || hasGold;
-    if (DIAMOND_ONLY.has(facet.key)) return noMaterial || hasDiamond;
+    // Diamond 4C facets: only when the Diamond gemstone is in play.
+    if (DIAMOND_ONLY.has(facet.key)) return noGemstone || hasDiamond;
     return true;
   });
 }
@@ -247,9 +257,11 @@ export function sortProducts(products: Product[], sort: SortKey): Product[] {
 export function filterTitle(filters: Filters): string {
   const purity = filters.purity?.length === 1 ? filters.purity[0] : '';
   const material = filters.material?.length === 1 ? filters.material[0] : '';
+  const gemstone = filters.gemstone?.length === 1 ? filters.gemstone[0] : '';
   const type = filters.type?.length === 1 ? `${filters.type[0]}s` : '';
   const collection = filters.collection?.length === 1 ? filters.collection[0] : '';
-  const parts = [purity, material, type].filter(Boolean).join(' ');
+  // Lead word: metal if chosen, else gemstone (e.g. "Diamond Rings").
+  const parts = [purity, material || gemstone, type].filter(Boolean).join(' ');
   if (parts) return parts;
   if (collection) return `${collection} Collection`;
   const occasion = filters.occasion?.length === 1 ? filters.occasion[0] : '';

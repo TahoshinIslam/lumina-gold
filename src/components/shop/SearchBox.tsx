@@ -84,7 +84,7 @@ export default function SearchBox() {
                 ) : (
                   <>
                     {results.map(p => (
-                      <Link key={p.sku} href={`/product/${p.sku}`} className="lum-search-item" onClick={() => setOpen(false)}>
+                      <Link key={p.sku} href={`/products/${p.slug}`} className="lum-search-item" onClick={() => setOpen(false)}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={p.images[0]} alt="" />
                         <span className="lum-search-item-info">

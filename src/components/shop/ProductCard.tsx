@@ -36,7 +36,7 @@ export default function ProductCard({
         </svg>
       </button>
 
-      <Link href={`/product/${product.sku}`} className="lum-pcard-link">
+      <Link href={`/products/${product.slug}`} className="lum-pcard-link">
         <div className="lum-prod-media">
           <div className="lum-prod-zoom lum-img-ph">
             <img src={product.images[0]} alt={product.name} />

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useStore, cartLineKey } from './StoreContext';
+import { getProductBySku } from './catalog';
 import { formatPrice } from './types';
 
 export default function CartPage() {
@@ -29,12 +30,15 @@ export default function CartPage() {
         <div className="lum-cart-items">
           {cart.map(item => {
             const key = cartLineKey(item);
+            const slug = getProductBySku(item.sku)?.slug;
             return (
               <div key={key} className="lum-cart-row">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={item.image} alt={item.name} className="lum-cart-thumb" />
                 <div className="lum-cart-row-info">
-                  <Link href={`/product/${item.sku}`} className="lum-cart-name">{item.name}</Link>
+                  {slug
+                    ? <Link href={`/products/${slug}`} className="lum-cart-name">{item.name}</Link>
+                    : <span className="lum-cart-name">{item.name}</span>}
                   <div className="lum-cart-meta">
                     {item.size ? `Size ${item.size}` : ''}{item.engraving ? ` · “${item.engraving}”` : ''}
                   </div>
