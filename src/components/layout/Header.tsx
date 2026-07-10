@@ -9,6 +9,7 @@ import {
   PrimaryNavItem,
 } from '@/config/navigation';
 import { useStore } from '@/stores/StoreContext';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import SearchBox from '@/features/search/components/SearchBox';
 import CartDrawer from '@/features/cart/components/CartDrawer';
 
@@ -26,14 +27,12 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const { cartCount, wishCount } = useStore();
+  const isDesktop = useMediaQuery('(min-width: 900px)');
 
   // Close the mobile menu automatically when resizing back to desktop.
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 900px)');
-    const onChange = () => { if (mq.matches) setMenuOpen(false); };
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
+    if (isDesktop) setMenuOpen(false);
+  }, [isDesktop]);
 
   const renderItem = (item: PrimaryNavItem) => (
     <div key={item.label} className="lum-nav-item">
