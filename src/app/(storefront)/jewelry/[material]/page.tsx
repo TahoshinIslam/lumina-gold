@@ -1,11 +1,11 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import Header from '@/components/lumina/Header';
-import Footer from '@/components/lumina/Footer';
-import ShopPage from '@/components/shop/ShopPage';
-import type { Filters } from '@/components/shop/filtering';
-import { GEMSTONE_SLUGS, MATERIAL_SLUGS } from '@/components/shop/taxonomy';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import ShopPage from '@/features/catalog/components/ShopPage';
+import type { Filters } from '@/features/catalog/filtering';
+import { GEMSTONE_SLUGS, MATERIAL_SLUGS } from '@/features/catalog/taxonomy';
 
 /** Pre-render one page per metal + gemstone slug. */
 export function generateStaticParams() {

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import Header from '@/components/lumina/Header';
-import Footer from '@/components/lumina/Footer';
-import WishlistPage from '@/components/shop/WishlistPage';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import WishlistPage from '@/features/wishlist/components/WishlistPage';
 
 export const metadata: Metadata = { title: 'Wishlist — LUMINA' };
 

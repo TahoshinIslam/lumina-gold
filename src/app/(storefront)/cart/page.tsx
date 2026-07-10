@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import Header from '@/components/lumina/Header';
-import Footer from '@/components/lumina/Footer';
-import CartPage from '@/components/shop/CartPage';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import CartPage from '@/features/cart/components/CartPage';
 
 export const metadata: Metadata = { title: 'Your Bag — LUMINA' };
 

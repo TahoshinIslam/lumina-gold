@@ -1,4 +1,4 @@
-import { MOBILE_LINKS } from './data';
+import { MOBILE_LINKS } from '@/components/brand/data';
 
 /**
  * Footer — shimmering wordmark, cities line, copyright and quick links.

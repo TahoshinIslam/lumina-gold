@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useStore } from './StoreContext';
-import { formatPrice } from './types';
+import { useStore } from '@/stores/StoreContext';
+import { formatPrice } from '@/types/product';
 import { createBooking } from '@/app/(checkout)/checkout/actions';
 
 /** Live mm:ss countdown to a target ISO time. */

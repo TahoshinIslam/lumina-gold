@@ -1,4 +1,4 @@
-import { APPOINTMENT_FEATURES } from './data';
+import { APPOINTMENT_FEATURES } from '@/components/brand/data';
 
 /**
  * Appointment — "The Salon Awaits You": private-audience pitch, feature

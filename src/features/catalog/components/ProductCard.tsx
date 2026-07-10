@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Product, formatPrice } from './types';
+import { Product, formatPrice } from '@/types/product';
 
 /**
  * ProductCard — grid tile used on listing pages and "You may also like".

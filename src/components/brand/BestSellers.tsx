@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { CATALOG } from '../shop/catalog';
-import { Product } from '../shop/types';
-import { useWishlist } from '../shop/useWishlist';
+import { CATALOG } from '@/features/catalog/catalog';
+import { Product } from '@/types/product';
+import { useWishlist } from '@/features/wishlist/useWishlist';
 
 /**
  * BestSellers — "Luxury Jewellery" tabbed showcase (reference: centered

@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { CATALOG } from './catalog';
+import { CATALOG } from '@/features/catalog/catalog';
 import {
   FACETS,
   Filters,
@@ -15,9 +15,9 @@ import {
   serializeFilters,
   sortProducts,
   visibleFacets,
-} from './filtering';
-import ProductCard from './ProductCard';
-import { useWishlist } from './useWishlist';
+} from '@/features/catalog/filtering';
+import ProductCard from '@/features/catalog/components/ProductCard';
+import { useWishlist } from '@/features/wishlist/useWishlist';
 
 /**
  * ShopPage — the single product-listing experience (IA spec Step 8).

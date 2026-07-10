@@ -1,4 +1,4 @@
-import { COLLECTIONS } from './data';
+import { COLLECTIONS } from '@/components/brand/data';
 
 /**
  * Collections — "Three Expressions of Light". Staggered card grid

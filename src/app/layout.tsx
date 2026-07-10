@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./lumina.css";
-import { StoreProvider } from "@/components/shop/StoreContext";
+import { StoreProvider } from "@/stores/StoreContext";
 
 export const metadata: Metadata = {
   title: "LUMINA — Haute Joaillerie",

@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getRelatedProducts, getProductBySku } from './catalog';
-import ProductCard from './ProductCard';
-import { MetalPurity, Product, formatPrice } from './types';
-import { useStore } from './StoreContext';
+import { getRelatedProducts, getProductBySku } from '@/features/catalog/catalog';
+import ProductCard from '@/features/catalog/components/ProductCard';
+import { MetalPurity, Product, formatPrice } from '@/types/product';
+import { useStore } from '@/stores/StoreContext';
 
 /**
  * ProductDetail — premium product page (IA spec Step 10).

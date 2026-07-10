@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { TESTIMONIALS } from './data';
+import { TESTIMONIALS } from '@/components/brand/data';
 
 /** Gold monogram avatar — initials in a circle (no client photos needed). */
 function Monogram({ name }: { name: string }) {

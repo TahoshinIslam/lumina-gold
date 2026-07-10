@@ -1,4 +1,4 @@
-import { GemstoneKind, JewelleryType, Material } from './types';
+import { GemstoneKind, JewelleryType, Material } from '@/types/product';
 
 /**
  * URL taxonomy for the two browse axes: METAL/gemstone (/jewelry/[material])

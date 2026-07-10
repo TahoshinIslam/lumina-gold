@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useStore, cartLineKey } from './StoreContext';
-import { getProductBySku } from './catalog';
-import { formatPrice } from './types';
+import { useStore, cartLineKey } from '@/stores/StoreContext';
+import { getProductBySku } from '@/features/catalog/catalog';
+import { formatPrice } from '@/types/product';
 
 export default function CartPage() {
   const { cart, cartSubtotal, updateQty, removeFromCart } = useStore();

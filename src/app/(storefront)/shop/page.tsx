@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import Header from '@/components/lumina/Header';
-import Footer from '@/components/lumina/Footer';
-import ShopPage from '@/components/shop/ShopPage';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import ShopPage from '@/features/catalog/components/ShopPage';
 
 export const metadata: Metadata = {
   title: 'The Boutique — LUMINA',

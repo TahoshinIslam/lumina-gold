@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { MARQUEE_ITEMS } from './data';
+import { MARQUEE_ITEMS } from '@/components/brand/data';
 
 /**
  * Marquee — infinite ticker strip. The row renders twice and the track

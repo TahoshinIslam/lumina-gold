@@ -3,22 +3,22 @@
 import { useRef } from 'react';
 import '@/app/lumina.css';
 
-import { useLuminaEffects } from './useLuminaEffects';
-import Preloader from './Preloader';
-import Header from './Header';
-import Hero from './Hero';
-import ShopByCategory from './ShopByCategory';
-import Marquee from './Marquee';
-import Collections from './Collections';
-import ParallaxShowcase from './ParallaxShowcase';
-import Craftsmanship from './Craftsmanship';
-import BestSellers from './BestSellers';
-import Quote from './Quote';
-import Heritage from './Heritage';
-import Testimonials from './Testimonials';
-import LatestNews from './LatestNews';
-import Appointment from './Appointment';
-import Footer from './Footer';
+import { useLuminaEffects } from '@/hooks/useLuminaEffects';
+import Preloader from '@/components/brand/Preloader';
+import Header from '@/components/layout/Header';
+import Hero from '@/components/brand/Hero';
+import ShopByCategory from '@/components/brand/ShopByCategory';
+import Marquee from '@/components/brand/Marquee';
+import Collections from '@/components/brand/Collections';
+import ParallaxShowcase from '@/components/brand/ParallaxShowcase';
+import Craftsmanship from '@/components/brand/Craftsmanship';
+import BestSellers from '@/components/brand/BestSellers';
+import Quote from '@/components/brand/Quote';
+import Heritage from '@/components/brand/Heritage';
+import Testimonials from '@/components/brand/Testimonials';
+import LatestNews from '@/components/brand/LatestNews';
+import Appointment from '@/components/brand/Appointment';
+import Footer from '@/components/layout/Footer';
 
 /**
  * LuminaPage — composition root for the LUMINA landing page.

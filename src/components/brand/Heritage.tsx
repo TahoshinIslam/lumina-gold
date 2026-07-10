@@ -1,4 +1,4 @@
-import { HERITAGE_STATS } from './data';
+import { HERITAGE_STATS } from '@/components/brand/data';
 
 /**
  * Heritage — "Four Decades of Light": maison history, count-up stats

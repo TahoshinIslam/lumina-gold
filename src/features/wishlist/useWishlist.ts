@@ -1,6 +1,6 @@
 'use client';
 
-import { useStore } from './StoreContext';
+import { useStore } from '@/stores/StoreContext';
 
 /**
  * Wishlist hook — thin wrapper over the shared StoreContext so existing

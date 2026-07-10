@@ -1,4 +1,4 @@
-import { GemstoneKind, Product } from './types';
+import { GemstoneKind, Product } from '@/types/product';
 
 /**
  * Filter engine for the product listing.

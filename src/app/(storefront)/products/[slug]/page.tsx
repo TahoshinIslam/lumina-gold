@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import Header from '@/components/lumina/Header';
-import Footer from '@/components/lumina/Footer';
-import ProductDetail from '@/components/shop/ProductDetail';
-import { CATALOG, getProductBySlug } from '@/components/shop/catalog';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import ProductDetail from '@/features/product/components/ProductDetail';
+import { CATALOG, getProductBySlug } from '@/features/catalog/catalog';
 
 export function generateStaticParams() {
   return CATALOG.map(product => ({ slug: product.slug }));

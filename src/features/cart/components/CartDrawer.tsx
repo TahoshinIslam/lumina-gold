@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useStore, cartLineKey } from './StoreContext';
-import { formatPrice } from './types';
+import { useStore, cartLineKey } from '@/stores/StoreContext';
+import { formatPrice } from '@/types/product';
 
 /** CartDrawer — slide-in bag panel, opened from the header cart icon. */
 export default function CartDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {

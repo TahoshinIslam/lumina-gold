@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CATALOG } from './catalog';
-import { formatPrice } from './types';
+import { CATALOG } from '@/features/catalog/catalog';
+import { formatPrice } from '@/types/product';
 
 /**
  * SearchBox — magnifier button that opens an overlay with a live, instant

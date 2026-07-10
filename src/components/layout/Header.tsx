@@ -7,10 +7,10 @@ import {
   PRIMARY_NAV_LEFT,
   PRIMARY_NAV_RIGHT,
   PrimaryNavItem,
-} from '../shop/navigation';
-import { useStore } from '../shop/StoreContext';
-import SearchBox from '../shop/SearchBox';
-import CartDrawer from '../shop/CartDrawer';
+} from '@/config/navigation';
+import { useStore } from '@/stores/StoreContext';
+import SearchBox from '@/features/search/components/SearchBox';
+import CartDrawer from '@/features/cart/components/CartDrawer';
 
 /**
  * Header — two-tier navigation.

@@ -1,4 +1,4 @@
-import { GemstoneKind, Material, Product } from './types';
+import { GemstoneKind, Material, Product } from '@/types/product';
 
 /**
  * Mock catalog — ~36 sample products spanning every attribute dimension

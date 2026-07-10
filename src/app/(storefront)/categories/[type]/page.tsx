@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import Header from '@/components/lumina/Header';
-import Footer from '@/components/lumina/Footer';
-import ShopPage from '@/components/shop/ShopPage';
-import { CATEGORY_SLUGS, pluralType } from '@/components/shop/taxonomy';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import ShopPage from '@/features/catalog/components/ShopPage';
+import { CATEGORY_SLUGS, pluralType } from '@/features/catalog/taxonomy';
 
 /** Pre-render one page per jewellery category slug. */
 export function generateStaticParams() {

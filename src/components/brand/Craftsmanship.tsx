@@ -1,4 +1,4 @@
-import { CRAFT_FEATURES } from './data';
+import { CRAFT_FEATURES } from '@/components/brand/data';
 
 /**
  * Craftsmanship / Savoir-Faire — artisan photo with floating "600+ hours"

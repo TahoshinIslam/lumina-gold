@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import Header from '@/components/lumina/Header';
-import Footer from '@/components/lumina/Footer';
-import { CATEGORY_SLUGS, pluralType } from '@/components/shop/taxonomy';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import { CATEGORY_SLUGS, pluralType } from '@/features/catalog/taxonomy';
 
 export const metadata: Metadata = {
   title: 'Shop by Category — LUMINA',

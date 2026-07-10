@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useStore } from './StoreContext';
-import { getProductBySku } from './catalog';
-import { Product } from './types';
-import ProductCard from './ProductCard';
+import { useStore } from '@/stores/StoreContext';
+import { getProductBySku } from '@/features/catalog/catalog';
+import { Product } from '@/types/product';
+import ProductCard from '@/features/catalog/components/ProductCard';
 
 export default function WishlistPage() {
   const { wished, toggleWish } = useStore();

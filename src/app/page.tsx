@@ -1,4 +1,4 @@
-import LuminaPage from "@/components/lumina/LuminaPage";
+import LuminaPage from "@/components/brand/LuminaPage";
 
 export default function Home() {
   return <LuminaPage />;
