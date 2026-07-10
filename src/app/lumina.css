@@ -160,7 +160,10 @@ a:hover { color: #C89B3C; }
   letter-spacing: 0.08em; color: #8A7457; white-space: nowrap;
 }
 .lum-header-contact span { display: inline-flex; align-items: center; gap: 7px; }
-.lum-header-contact svg { stroke: #B0955C; flex-shrink: 0; }
+.lum-header-contact span svg { stroke: #B0955C; flex-shrink: 0; }
+.lum-header-social { display: inline-flex; align-items: center; gap: 13px; margin-bottom: 2px; }
+.lum-header-social a { color: #B0955C; display: inline-flex; transition: color 0.3s ease, transform 0.3s ease; }
+.lum-header-social a:hover { color: #8F6F31; transform: translateY(-1px); }
 
 /* Row 2: note · menu · promo */
 .lum-header-row2 {
