@@ -38,7 +38,7 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
     <div key={item.label} className="lum-nav-item">
       <Link href={item.href} className="lum-nav-link">
         {item.label}
-        {(item.mega || item.dropdown) && (
+        {item.mega.length > 0 && (
           <svg className="lum-nav-caret" width="9" height="9" viewBox="0 0 10 10"
                fill="none" stroke="currentColor" strokeWidth="1.4"
                strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -47,8 +47,8 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
         )}
       </Link>
 
-      {/* Full-width mega menu (Gold / Diamond) */}
-      {item.mega && (
+      {/* Full-width horizontal mega menu */}
+      {item.mega.length > 0 && (
         <div className="lum-mega">
           <div className="lum-mega-inner">
             {item.mega.map(column => (
@@ -62,17 +62,6 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Simple dropdown (Collections) */}
-      {item.dropdown && (
-        <div className="lum-dropdown">
-          {item.dropdown.map(link => (
-            <Link key={link.label} href={link.href} className="lum-mega-link">
-              {link.label}
-            </Link>
-          ))}
         </div>
       )}
     </div>

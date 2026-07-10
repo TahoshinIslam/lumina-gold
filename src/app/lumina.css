@@ -1120,15 +1120,15 @@ a:hover { color: #D2B077; }
   box-shadow: 0 8px 34px rgba(168, 134, 61, 0.16);
 }
 
-.lum-nav-item { display: inline-block; position: relative; }
+.lum-nav-item { display: inline-block; }
 .lum-nav-brand-wrap:hover .lum-brand { filter: brightness(1.05); }
 
-/* Mega panel (Shop by Material) — a contained card anchored to its trigger */
+/* Full-width horizontal mega bar — spans the viewport under the header */
 .lum-mega {
-  position: absolute; left: 0; top: 100%; z-index: 60;
-  width: max-content; max-width: min(720px, 92vw);
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 60;
   background: linear-gradient(180deg, #0B0B0D 0%, #0B0B0D 100%);
-  border: 1px solid rgba(200, 155, 60, 0.28); border-radius: 0 0 5px 5px;
+  border-top: 1px solid rgba(200, 155, 60, 0.25);
+  border-bottom: 1px solid rgba(200, 155, 60, 0.3);
   box-shadow: 0 30px 60px rgba(155, 120, 55, 0.18);
   opacity: 0; visibility: hidden; transform: translateY(8px);
   transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s;
@@ -1144,10 +1144,11 @@ a:hover { color: #D2B077; }
   opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto;
 }
 .lum-mega-inner {
+  max-width: 1200px; margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 26px 34px;
-  padding: 30px 34px 34px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 30px clamp(24px, 3vw, 56px);
+  padding: 42px clamp(20px, 4vw, 60px) 48px;
 }
 .lum-mega-heading {
   font-family: 'Fraunces', serif; font-weight: 500; font-size: 11px;
