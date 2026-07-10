@@ -590,7 +590,7 @@ a:hover { color: #D2B077; }
   position: relative; padding: 26px 0;
   border-top: 1px solid rgba(200, 155, 60, 0.28);
   border-bottom: 1px solid rgba(200, 155, 60, 0.28);
-  background: rgba(254, 252, 248, 0.5); overflow: hidden;
+  background: rgba(22, 22, 25, 0.5); overflow: hidden;
 }
 .lum-marquee-track { display: flex; width: max-content; animation: lum-marquee 36s linear infinite; }
 .lum-marquee-row {
@@ -641,7 +641,7 @@ a:hover { color: #D2B077; }
   position: absolute; top: 22px; left: 22px;
   font-family: 'Fraunces', serif; font-style: italic; font-size: 18px;
   color: rgba(143, 111, 49, 0.85);
-  background: rgba(254, 252, 248, 0.75); backdrop-filter: blur(4px);
+  background: rgba(22, 22, 25, 0.75); backdrop-filter: blur(4px);
   padding: 4px 14px; border-radius: 2px; letter-spacing: 0.1em;
 }
 .lum-col-body { display: flex; flex-direction: column; gap: 10px; }
@@ -717,7 +717,7 @@ a:hover { color: #D2B077; }
 .lum-figure:hover .lum-figure-zoom { transform: scale(1.05); }
 .lum-stat-card {
   position: absolute; bottom: -26px; right: -6px;
-  background: rgba(254, 252, 248, 0.92); backdrop-filter: blur(8px);
+  background: rgba(22, 22, 25, 0.92); backdrop-filter: blur(8px);
   border: 1px solid rgba(200, 155, 60, 0.35); border-radius: 3px;
   padding: 20px 26px; box-shadow: 0 18px 50px rgba(160, 126, 60, 0.25);
   display: flex; flex-direction: column; gap: 4px;
@@ -816,7 +816,7 @@ a:hover { color: #D2B077; }
 .lum-wish {
   position: absolute; top: 26px; right: 26px; z-index: 3;
   width: 44px; height: 44px; border-radius: 50%; border: 0;
-  background: rgba(254, 252, 248, 0.9);
+  background: rgba(22, 22, 25, 0.9);
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 5px 16px rgba(160, 126, 60, 0.22); cursor: pointer;
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -916,7 +916,7 @@ a:hover { color: #D2B077; }
   flex: 0 0 var(--slide-w); margin: 0;
   display: flex; flex-direction: column; align-items: center; gap: 26px;
   text-align: center;
-  background: rgba(254, 252, 248, 0.9);
+  background: rgba(22, 22, 25, 0.9);
   border: 1px solid rgba(200, 155, 60, 0.28); border-radius: 3px;
   padding: clamp(36px, 5vw, 60px) clamp(24px, 4vw, 70px);
   box-shadow: 0 18px 48px rgba(160, 126, 60, 0.12);
@@ -937,7 +937,7 @@ a:hover { color: #D2B077; }
   flex-shrink: 0; width: 52px; height: 52px;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid rgba(120, 95, 45, 0.55); border-radius: 2px;
-  background: rgba(254, 252, 248, 0.8); cursor: pointer;
+  background: rgba(22, 22, 25, 0.8); cursor: pointer;
   font-size: 18px; color: #AAA49B;
   transition: background 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
 }
@@ -994,7 +994,7 @@ a:hover { color: #D2B077; }
 }
 .lum-news-card {
   position: relative; display: flex; flex-direction: column;
-  background: rgba(254, 252, 248, 0.92);
+  background: rgba(22, 22, 25, 0.92);
   border: 1px solid rgba(200, 155, 60, 0.25); border-radius: 3px;
   overflow: hidden; box-shadow: 0 16px 42px rgba(160, 126, 60, 0.1);
   transition: box-shadow 1s ease, transform 1s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1213,7 +1213,7 @@ a:hover { color: #D2B077; }
 }
 .lum-sort select {
   font-family: 'Archivo', serif; font-size: 13px; color: #9E7539;
-  background: rgba(254, 252, 248, 0.8);
+  background: rgba(22, 22, 25, 0.8);
   border: 1px solid rgba(200, 155, 60, 0.4); border-radius: 2px;
   padding: 10px 14px; cursor: pointer;
 }
@@ -1222,12 +1222,12 @@ a:hover { color: #D2B077; }
 .lum-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; }
 .lum-chip {
   font-family: 'Archivo', serif; font-size: 12px; letter-spacing: 0.08em;
-  color: #9E7539; background: rgba(233, 206, 148, 0.28);
+  color: #E8D4A2; background: rgba(210, 176, 119, 0.16);
   border: 1px solid rgba(200, 155, 60, 0.45); border-radius: 999px;
   padding: 7px 16px; cursor: pointer;
   transition: background 0.4s ease, border-color 0.4s ease;
 }
-.lum-chip:hover { background: rgba(233, 206, 148, 0.5); border-color: #D2B077; }
+.lum-chip:hover { background: rgba(210, 176, 119, 0.28); border-color: #D2B077; }
 .lum-chip--clear { background: transparent; color: #AAA49B; }
 
 /* Sidebar + results layout */
@@ -1243,14 +1243,14 @@ a:hover { color: #D2B077; }
 .lum-filters {
   position: sticky; top: 120px;
   border: 1px solid rgba(200, 155, 60, 0.25); border-radius: 3px;
-  background: rgba(254, 252, 248, 0.6); padding: 8px 22px;
+  background: rgba(22, 22, 25, 0.6); padding: 8px 22px;
 }
 .lum-filter-group { border-bottom: 1px solid rgba(200, 155, 60, 0.2); }
 .lum-filter-group:last-child { border-bottom: none; }
 .lum-filter-group summary {
   list-style: none; cursor: pointer; padding: 15px 0;
   font-family: 'Fraunces', serif; font-weight: 500; font-size: 11.5px;
-  letter-spacing: 0.24em; text-transform: uppercase; color: #9E7539;
+  letter-spacing: 0.24em; text-transform: uppercase; color: #E8D4A2;
   display: flex; justify-content: space-between; align-items: center;
 }
 .lum-filter-group summary::-webkit-details-marker { display: none; }
@@ -1371,7 +1371,7 @@ a:hover { color: #D2B077; }
 .lum-choice {
   min-width: 46px; padding: 9px 14px; text-align: center;
   font-family: 'Archivo', serif; font-size: 13px; color: #AAA49B;
-  background: rgba(254, 252, 248, 0.7);
+  background: rgba(22, 22, 25, 0.7);
   border: 1px solid rgba(200, 155, 60, 0.35); border-radius: 2px;
   cursor: pointer; transition: border-color 0.35s ease, background 0.35s ease, color 0.35s ease;
 }
@@ -1385,7 +1385,7 @@ a:hover { color: #D2B077; }
 
 .lum-engraving {
   font-family: 'Fraunces', serif; font-style: italic; font-size: 16px;
-  color: #AAA49B; background: rgba(254, 252, 248, 0.7);
+  color: #AAA49B; background: rgba(22, 22, 25, 0.7);
   border: 1px solid rgba(200, 155, 60, 0.35); border-radius: 2px;
   padding: 12px 16px; outline: none; max-width: 340px;
 }
@@ -1569,7 +1569,7 @@ a:hover { color: #D2B077; }
   padding: 10px 16px; cursor: pointer; font-family: 'Archivo', serif; font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; color: #AAA49B; }
 .lum-filter-heading { font-family: 'Fraunces', serif; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: #9E7539; padding: 14px 0 10px; border-top: 1px solid rgba(200,155,60,0.16); }
+  color: #E8D4A2; padding: 14px 0 10px; border-top: 1px solid rgba(200,155,60,0.16); }
 .lum-filter-group:first-child .lum-filter-heading { border-top: none; padding-top: 0; }
 .lum-filters-head { display: none; align-items: center; justify-content: space-between; margin-bottom: 12px;
   font-family: 'Fraunces', serif; letter-spacing: 0.12em; color: #E7E2D8; }
