@@ -46,8 +46,8 @@
    * Licensed display/body faces (SangBleu Kingdom, Suisse Int'l) slot in
    * via @font-face / next/font when the files are provided. Fallbacks keep
    * the site rendering until then. */
-  --font-display: 'SangBleu Kingdom', 'Suisse Works', Georgia, 'Times New Roman', serif;
-  --font-body:    'Suisse Intl', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'SangBleu Kingdom', 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body:    'Suisse Intl', 'Archivo', 'Helvetica Neue', Arial, sans-serif;
 
   /* ── Type scale ──────────────────────────────────────────────── */
   --text-display:  clamp(4rem, 9vw, 8.5rem);
