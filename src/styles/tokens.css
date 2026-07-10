@@ -1,0 +1,100 @@
+/* ============================================================================
+ * LUMINA design tokens — "Obsidian · Champagne · Oxblood" luxury direction.
+ *
+ * Foundation only: this file DEFINES the system (colors, type scale, gradients).
+ * Components are re-themed to consume these tokens in a later, staged pass.
+ * Balance target — 70% obsidian/carbon/ivory · 20% product/neutral · 8%
+ * champagne · 2% oxblood/diamond accents. Never flood the UI with gold.
+ * ==========================================================================*/
+
+:root {
+  /* ── Dark grounds ─────────────────────────────────────────────── */
+  --color-obsidian: #09090a;   /* primary background            */
+  --color-carbon:   #121214;   /* secondary background          */
+  --color-graphite: #1a1a1d;   /* elevated surfaces             */
+
+  /* ── Light grounds ────────────────────────────────────────────── */
+  --color-ivory:  #f4f0e8;     /* primary light background      */
+  --color-pearl:  #f3f0ea;     /* dark-mode text                */
+  --color-stone:  #aaa49b;     /* muted dark-mode text          */
+
+  /* ── Metals & gems ────────────────────────────────────────────── */
+  --color-champagne:    #d2b077; /* main luxury accent          */
+  --color-antique-gold: #98703d; /* dark gold accent            */
+  --color-deep-gold:    #6f4d29;
+  --color-platinum:     #c8cdd0; /* platinum accent             */
+  --color-diamond:      #e8f0f4; /* diamond accent              */
+
+  /* ── Editorial ───────────────────────────────────────────────── */
+  --color-oxblood:  #3a1019;
+  --color-burgundy: #561827;
+
+  /* ── Borders ─────────────────────────────────────────────────── */
+  --color-border-dark:  #302a24; /* smoked bronze               */
+  --color-border-light: #d8d0c3;
+
+  /* ── Semantic aliases ────────────────────────────────────────── */
+  --background-primary:   var(--color-obsidian);
+  --background-secondary: var(--color-carbon);
+  --surface-elevated:     var(--color-graphite);
+  --text-primary:         var(--color-pearl);
+  --text-secondary:       var(--color-stone);
+  --accent-primary:       var(--color-champagne);
+  --accent-secondary:     var(--color-oxblood);
+
+  /* ── Typography families ──────────────────────────────────────────
+   * Licensed display/body faces (SangBleu Kingdom, Suisse Int'l) slot in
+   * via @font-face / next/font when the files are provided. Fallbacks keep
+   * the site rendering until then. */
+  --font-display: 'SangBleu Kingdom', 'Suisse Works', Georgia, 'Times New Roman', serif;
+  --font-body:    'Suisse Intl', 'Helvetica Neue', Arial, sans-serif;
+
+  /* ── Type scale ──────────────────────────────────────────────── */
+  --text-display:  clamp(4rem, 9vw, 8.5rem);
+  --text-h1:       clamp(3.2rem, 6.5vw, 6.5rem);
+  --text-h2:       clamp(2.5rem, 4.5vw, 4.75rem);
+  --text-h3:       clamp(1.75rem, 3vw, 2.75rem);
+  --text-body-lg:  1.125rem;
+  --text-body:     1rem;
+  --text-small:    0.875rem;
+  --text-label:    0.75rem;
+
+  /* ── Signature gradients ─────────────────────────────────────── */
+
+  /* 1 · Dark luxury hero ground (bronze + oxblood glow) */
+  --grad-hero-dark:
+    radial-gradient(circle at 78% 18%, rgba(150, 104, 55, 0.18), transparent 32%),
+    radial-gradient(circle at 15% 80%, rgba(58, 16, 25, 0.20), transparent 38%),
+    linear-gradient(135deg, #080809 0%, #111012 42%, #191315 72%, #0a090a 100%);
+
+  /* 2 · Champagne-metal (borders, badges, selected states — sparingly) */
+  --grad-champagne:
+    linear-gradient(105deg, #775027 0%, #b98a4e 24%, #eed29a 48%,
+                    #fff0c7 58%, #c69857 76%, #7c552c 100%);
+
+  /* 2b · Champagne text fill */
+  --grad-champagne-text:
+    linear-gradient(105deg, #8d6232, #d7b477 42%, #fff0c4 55%, #ac7b40);
+
+  /* 3 · Diamond / platinum (diamond & platinum collection pages) */
+  --grad-diamond:
+    linear-gradient(135deg, #f8f7f3 0%, #dfe5e8 27%, #ffffff 52%,
+                    #c4cbd0 76%, #eef2f3 100%);
+
+  /* 4 · Editorial oxblood (bridal / high-jewelry) */
+  --grad-oxblood:
+    radial-gradient(circle at 65% 25%, rgba(119, 37, 54, 0.42), transparent 38%),
+    linear-gradient(145deg, #12080b 0%, #310d16 48%, #16090d 100%);
+
+  /* 5 · Warm ivory (light product listings — richer than pure white) */
+  --grad-ivory:
+    linear-gradient(180deg, #f7f4ed 0%, #f0ebe1 55%, #f7f5f0 100%);
+}
+
+/* ── Utility: champagne gradient text (reserve for 1–2 words) ─────── */
+.luxury-gold-text {
+  background: var(--grad-champagne-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
