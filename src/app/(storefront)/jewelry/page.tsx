@@ -27,26 +27,22 @@ export default function JewelryIndex() {
             </div>
           </div>
 
-          <div className="lum-filter-heading" style={{ marginTop: 24 }}>Metals</div>
-          <div className="lum-results-grid" style={{ marginTop: 12 }}>
+          <div className="lum-browse-section">Metals</div>
+          <div className="lum-browse-grid">
             {metals.map(([slug, label]) => (
-              <Link key={slug} href={`/jewelry/${slug}`} className="lum-pcard-link">
-                <div className="lum-pcard" style={{ padding: 28, textAlign: 'center' }}>
-                  <div className="lum-prod-name" style={{ fontSize: 20 }}>{label}</div>
-                  <div className="lum-prod-cat">Explore {label} →</div>
-                </div>
+              <Link key={slug} href={`/jewelry/${slug}`} className="lum-browse-tile">
+                <div className="lum-browse-tile-name">{label}</div>
+                <div className="lum-browse-tile-cta">Explore {label} →</div>
               </Link>
             ))}
           </div>
 
-          <div className="lum-filter-heading" style={{ marginTop: 36 }}>Gemstones</div>
-          <div className="lum-results-grid" style={{ marginTop: 12 }}>
+          <div className="lum-browse-section">Gemstones</div>
+          <div className="lum-browse-grid">
             {gemstones.map(([slug, label]) => (
-              <Link key={slug} href={`/jewelry/${slug}`} className="lum-pcard-link">
-                <div className="lum-pcard" style={{ padding: 28, textAlign: 'center' }}>
-                  <div className="lum-prod-name" style={{ fontSize: 20 }}>{label}</div>
-                  <div className="lum-prod-cat">Explore {label} →</div>
-                </div>
+              <Link key={slug} href={`/jewelry/${slug}`} className="lum-browse-tile">
+                <div className="lum-browse-tile-name">{label}</div>
+                <div className="lum-browse-tile-cta">Explore {label} →</div>
               </Link>
             ))}
           </div>

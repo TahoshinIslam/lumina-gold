@@ -78,13 +78,6 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
           <div className="lum-header-contact">
             <span>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 21C12 21 5 14.8 5 9.5C5 5.9 8.1 3 12 3C15.9 3 19 5.9 19 9.5C19 14.8 12 21 12 21Z" />
-                <circle cx="12" cy="9.5" r="2.6" />
-              </svg>
-              Gulshan Avenue, Dhaka
-            </span>
-            <span>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 4H9L11 9L8.5 10.5C9.6 12.8 11.2 14.4 13.5 15.5L15 13L20 15V19C20 20.1 19.1 21 18 21C10.3 20.5 3.5 13.7 3 6C3 4.9 3.9 4 5 4Z" />
               </svg>
               +880 1712-345678
@@ -144,7 +137,7 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
           <nav className="lum-nav-links">
             {[...PRIMARY_NAV_LEFT, ...PRIMARY_NAV_RIGHT].map(renderItem)}
           </nav>
-          <div className="lum-header-promo">Special offers every week — up to 40% off</div>
+          <div />
         </div>
       </header>
 

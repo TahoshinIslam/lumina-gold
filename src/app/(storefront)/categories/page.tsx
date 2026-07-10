@@ -26,13 +26,12 @@ export default function CategoriesIndex() {
             </div>
           </div>
 
-          <div className="lum-results-grid" style={{ marginTop: 24 }}>
+          <div className="lum-browse-section">Categories</div>
+          <div className="lum-browse-grid">
             {categories.map(([slug, type]) => (
-              <Link key={slug} href={`/categories/${slug}`} className="lum-pcard-link">
-                <div className="lum-pcard" style={{ padding: 28, textAlign: 'center' }}>
-                  <div className="lum-prod-name" style={{ fontSize: 20 }}>{pluralType(type)}</div>
-                  <div className="lum-prod-cat">Explore {pluralType(type)} →</div>
-                </div>
+              <Link key={slug} href={`/categories/${slug}`} className="lum-browse-tile">
+                <div className="lum-browse-tile-name">{pluralType(type)}</div>
+                <div className="lum-browse-tile-cta">Explore {pluralType(type)} →</div>
               </Link>
             ))}
           </div>

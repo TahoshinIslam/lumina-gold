@@ -1593,3 +1593,42 @@ a:hover { color: #C89B3C; }
   letter-spacing: 0.1em; color: #8F6F31; margin: 6px 0 4px;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── 20. Browse hubs (/jewelry & /categories) ────────────────────────── */
+.lum-browse-section {
+  font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.22em;
+  text-transform: uppercase; color: #B0955C;
+  margin: 44px 0 20px; padding-bottom: 12px;
+  border-bottom: 1px solid rgba(200, 155, 60, 0.16);
+}
+.lum-browse-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(206px, 1fr));
+  gap: clamp(16px, 2vw, 26px);
+}
+.lum-browse-tile {
+  position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px; text-align: center;
+  min-height: 188px; padding: 32px 22px; color: inherit;
+  background: linear-gradient(158deg, #FBF8F2 0%, #F3EADA 100%);
+  border: 1px solid rgba(200, 155, 60, 0.28); border-radius: 3px;
+  transition: transform 0.45s cubic-bezier(0.2,0.7,0.2,1),
+              box-shadow 0.45s ease, border-color 0.45s ease;
+}
+.lum-browse-tile::before {
+  content: ''; width: 9px; height: 9px; margin-bottom: 4px; transform: rotate(45deg);
+  background: linear-gradient(135deg, #D9B76B, #A8863D);
+  box-shadow: 0 0 0 4px rgba(200, 155, 60, 0.12);
+}
+.lum-browse-tile:hover {
+  transform: translateY(-4px); color: inherit;
+  border-color: rgba(200, 155, 60, 0.62);
+  box-shadow: 0 20px 44px -24px rgba(143, 111, 49, 0.6);
+}
+.lum-browse-tile-name {
+  font-family: 'Cormorant Garamond', serif; font-size: 27px;
+  letter-spacing: 0.02em; color: #2A2118; line-height: 1.1;
+}
+.lum-browse-tile-cta {
+  font-family: 'Spectral', serif; font-size: 10.5px; letter-spacing: 0.2em;
+  text-transform: uppercase; color: #A8863D;
+}
