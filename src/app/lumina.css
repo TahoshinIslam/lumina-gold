@@ -185,12 +185,16 @@ a:hover { color: #D2B077; }
   letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap;
 }
 .lum-nav-link {
+  display: inline-flex; align-items: center; gap: 5px;
   color: #AAA49B; padding-bottom: 3px; border-bottom: 1px solid transparent;
   transition: color 0.5s ease, border-color 0.5s ease, letter-spacing 0.5s ease;
 }
 .lum-nav-link:hover {
   color: #D2B077; border-color: rgba(168, 134, 61, 0.5); letter-spacing: 0.24em;
 }
+.lum-nav-caret { flex-shrink: 0; opacity: 0.65; transition: transform 0.4s ease, opacity 0.4s ease; }
+.lum-nav-item:hover .lum-nav-caret,
+.lum-nav-item:focus-within .lum-nav-caret { transform: rotate(180deg); opacity: 1; }
 .lum-nav-brand-wrap { display: flex; align-items: center; gap: 14px; }
 .lum-diamond {
   width: 7px; height: 7px; transform: rotate(45deg);
@@ -1116,30 +1120,34 @@ a:hover { color: #D2B077; }
   box-shadow: 0 8px 34px rgba(168, 134, 61, 0.16);
 }
 
-.lum-nav-item { display: inline-block; }
+.lum-nav-item { display: inline-block; position: relative; }
 .lum-nav-brand-wrap:hover .lum-brand { filter: brightness(1.05); }
 
-/* Full-width mega panel (Gold / Diamond) */
+/* Mega panel (Shop by Material) — a contained card anchored to its trigger */
 .lum-mega {
-  position: absolute; left: 0; right: 0; top: 100%;
+  position: absolute; left: 0; top: 100%; z-index: 60;
+  width: max-content; max-width: min(720px, 92vw);
   background: linear-gradient(180deg, #0B0B0D 0%, #0B0B0D 100%);
-  border-top: 1px solid rgba(200, 155, 60, 0.25);
-  border-bottom: 1px solid rgba(200, 155, 60, 0.3);
+  border: 1px solid rgba(200, 155, 60, 0.28); border-radius: 0 0 5px 5px;
   box-shadow: 0 30px 60px rgba(155, 120, 55, 0.18);
   opacity: 0; visibility: hidden; transform: translateY(8px);
   transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s;
   pointer-events: none;
+}
+/* Invisible bridge across the header padding gap so the pointer can travel
+   from the nav link down to the panel without dropping :hover. */
+.lum-mega::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 26px;
 }
 .lum-nav-item:hover .lum-mega,
 .lum-nav-item:focus-within .lum-mega {
   opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto;
 }
 .lum-mega-inner {
-  max-width: 1360px; margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 36px clamp(20px, 2.5vw, 48px);
-  padding: 40px clamp(20px, 4vw, 60px) 46px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 26px 34px;
+  padding: 30px 34px 34px;
 }
 .lum-mega-heading {
   font-family: 'Fraunces', serif; font-weight: 500; font-size: 11px;
@@ -1158,7 +1166,7 @@ a:hover { color: #D2B077; }
 
 /* Small centered dropdown (Collections) */
 .lum-dropdown {
-  position: absolute; top: 100%; left: 50%; transform: translate(-50%, 8px);
+  position: absolute; top: 100%; left: 50%; transform: translate(-50%, 8px); z-index: 60;
   min-width: 220px; padding: 22px 28px;
   background: linear-gradient(180deg, #0B0B0D 0%, #0B0B0D 100%);
   border: 1px solid rgba(200, 155, 60, 0.3);
@@ -1166,6 +1174,9 @@ a:hover { color: #D2B077; }
   opacity: 0; visibility: hidden;
   transition: opacity 0.35s ease, transform 0.35s ease, visibility 0.35s;
   pointer-events: none;
+}
+.lum-dropdown::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 26px;
 }
 .lum-nav-item:hover .lum-dropdown,
 .lum-nav-item:focus-within .lum-dropdown {

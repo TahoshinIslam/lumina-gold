@@ -36,7 +36,16 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
 
   const renderItem = (item: PrimaryNavItem) => (
     <div key={item.label} className="lum-nav-item">
-      <Link href={item.href} className="lum-nav-link">{item.label}</Link>
+      <Link href={item.href} className="lum-nav-link">
+        {item.label}
+        {(item.mega || item.dropdown) && (
+          <svg className="lum-nav-caret" width="9" height="9" viewBox="0 0 10 10"
+               fill="none" stroke="currentColor" strokeWidth="1.4"
+               strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M1.5 3.5 5 6.75 8.5 3.5" />
+          </svg>
+        )}
+      </Link>
 
       {/* Full-width mega menu (Gold / Diamond) */}
       {item.mega && (
@@ -101,12 +110,6 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
             </div>
             <span>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 4H9L11 9L8.5 10.5C9.6 12.8 11.2 14.4 13.5 15.5L15 13L20 15V19C20 20.1 19.1 21 18 21C10.3 20.5 3.5 13.7 3 6C3 4.9 3.9 4 5 4Z" />
-              </svg>
-              +880 1712-345678
-            </span>
-            <span>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M12 7v5l3.5 2" />
               </svg>
@@ -163,7 +166,7 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
 
         {/* ── Row 2: note · menu · promo ── */}
         <div className="lum-header-row2">
-          <div className="lum-header-note">Est. 1985 · Haute Joaillerie</div>
+          <div />
           <nav className="lum-nav-links">
             {[...PRIMARY_NAV_LEFT, ...PRIMARY_NAV_RIGHT].map(renderItem)}
           </nav>
