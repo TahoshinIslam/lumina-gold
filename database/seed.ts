@@ -3,7 +3,7 @@
  * Run: npx tsx database/seed.ts   (idempotent — wipes and re-inserts products)
  */
 import mysql from 'mysql2/promise';
-import { CATALOG } from '../components/shop/catalog';
+import { CATALOG } from '../src/components/shop/catalog';
 
 const TYPE_TO_CATEGORY: Record<string, string> = {
   Ring: 'Rings', Earring: 'Earrings', Necklace: 'Necklaces', Pendant: 'Pendants',
