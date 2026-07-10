@@ -297,13 +297,13 @@ export const CATALOG: Product[] = [
   }),
   p({
     name: 'Argent Cuff', description: 'A sculptural sterling silver cuff from the atelier’s young line.',
-    material: 'Silver', gender: 'Unisex', type: 'Bracelet',
+    material: 'Silver', silverType: 'Sterling Silver', gender: 'Unisex', type: 'Bracelet',
     collection: 'Minimal', occasions: ['Daily Wear'], style: 'Designer',
     price: 18600, weightGrams: 22.0, availability: 'In Stock', stock: 15, isNew: true,
   }),
   p({
     name: 'Argent Charm Chain', description: 'A silver charm chain for kids, with a tiny gold-washed star.',
-    material: 'Silver', gender: 'Kids', type: 'Chain',
+    material: 'Silver', silverType: 'Sterling Silver', gender: 'Kids', type: 'Chain',
     collection: 'Classic', occasions: ['Festival', 'Daily Wear'], style: 'Designer',
     price: 9400, weightGrams: 6.2, availability: 'In Stock', stock: 28,
   }),

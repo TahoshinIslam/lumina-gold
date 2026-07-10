@@ -62,7 +62,7 @@ export const FACETS: Facet[] = [
   },
   {
     key: 'type', label: 'Jewellery Type',
-    options: opts(['Ring', 'Necklace', 'Bracelet', 'Pendant', 'Chain', 'Locket', 'Bangle', 'Nose Pin', 'Earring']),
+    options: opts(['Ring', 'Necklace', 'Bracelet', 'Pendant', 'Chain', 'Locket', 'Bangle', 'Nose Pin', 'Earring', 'Jewelry Set']),
     match: (product, value) => product.type === value,
   },
   {
@@ -78,6 +78,11 @@ export const FACETS: Facet[] = [
       { value: 'Rose Gold', label: 'Rose' },
     ],
     match: (product, value) => product.goldColor === value,
+  },
+  {
+    key: 'silverType', label: 'Silver Type',
+    options: opts(['Sterling Silver', 'Fine Silver']),
+    match: (product, value) => product.silverType === value,
   },
   {
     key: 'gender', label: 'Recipient',
@@ -209,12 +214,14 @@ export function searchProducts(products: Product[], q: string): Product[] {
    facets appear. */
 
 const GOLD_ONLY = new Set(['purity', 'color']);
+const SILVER_ONLY = new Set(['silverType']);
 const DIAMOND_ONLY = new Set(['diamondType', 'shape', 'carat', 'dcolor', 'clarity', 'cert']);
 
 export function visibleFacets(filters: Filters): Facet[] {
   const materials = filters.material ?? [];
   const gemstones = filters.gemstone ?? [];
   const hasGold = materials.includes('Gold');
+  const hasSilver = materials.includes('Silver');
   const noMaterial = materials.length === 0;
   const hasDiamond = gemstones.includes('Diamond');
   const noGemstone = gemstones.length === 0;
@@ -222,6 +229,8 @@ export function visibleFacets(filters: Filters): Facet[] {
   return FACETS.filter(facet => {
     // Gold purity/color: only when browsing gold (or no metal chosen).
     if (GOLD_ONLY.has(facet.key)) return noMaterial || hasGold;
+    // Silver type: only when browsing silver (or no metal chosen).
+    if (SILVER_ONLY.has(facet.key)) return noMaterial || hasSilver;
     // Diamond 4C facets: only when the Diamond gemstone is in play.
     if (DIAMOND_ONLY.has(facet.key)) return noGemstone || hasDiamond;
     return true;

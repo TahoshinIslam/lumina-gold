@@ -34,6 +34,7 @@ export const CATEGORY_SLUGS: Record<string, JewelleryType> = {
   pendants: 'Pendant',
   lockets: 'Locket',
   'nose-pins': 'Nose Pin',
+  'jewelry-sets': 'Jewelry Set',
 };
 
 /** Plural display label for a jewellery type, e.g. "Nose Pin" → "Nose Pins". */

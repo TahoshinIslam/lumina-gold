@@ -33,7 +33,11 @@ export type JewelleryType =
   | 'Locket'
   | 'Bangle'
   | 'Nose Pin'
-  | 'Earring';
+  | 'Earring'
+  | 'Jewelry Set';
+
+/** Silver sub-type (purity/grade), shown only when browsing Silver. */
+export type SilverType = 'Sterling Silver' | 'Fine Silver';
 
 export type CollectionName =
   | 'Royal Heritage'
@@ -88,6 +92,7 @@ export interface Product {
   gemstones?: GemstoneKind[]; // stones set into the piece (Diamond, Ruby, …)
   purity?: MetalPurity;      // metal pieces
   goldColor?: GoldColor;     // gold pieces
+  silverType?: SilverType;   // silver pieces
   gender: Gender;
   type: JewelleryType;
   collection: CollectionName;
