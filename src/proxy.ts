@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * Protect /admin/* behind the session cookie. The expected token is
  * sha256("lumina-admin:" + ADMIN_PASSWORD) — computed with WebCrypto
- * because middleware runs on the edge runtime.
+ * because proxy runs on the edge runtime.
  */
 async function expectedToken(): Promise<string> {
   const password = process.env.ADMIN_PASSWORD || 'lumina123';
@@ -14,7 +14,7 @@ async function expectedToken(): Promise<string> {
     .join('');
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith('/admin') || pathname === '/admin/login') {
     return NextResponse.next();
