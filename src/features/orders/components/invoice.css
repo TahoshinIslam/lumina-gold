@@ -108,17 +108,61 @@
 .inv-sign { margin-top: 16px; font-size: 10px; color: #6b6a63; }
 .inv-sign-line { width: 150px; border-top: 1px solid #171714; margin-bottom: 5px; }
 
-/* Print: the sheet IS the page. */
+/* Print: the sheet IS the page.
+ *
+ * The invoice has to print as ONE page from wherever it is rendered — and the
+ * admin's copy is nested inside the admin shell, which cannot be escaped (the
+ * route must stay under /admin for the auth proxy). That chrome added 46mm above
+ * the sheet, pushing a 297mm document to 368mm and spilling the footer onto a
+ * second page.
+ *
+ * So the document isolates itself: everything on the page is hidden, the invoice
+ * alone is made visible again, and it is pinned to the corner of the sheet. This
+ * works no matter how deeply it is nested, and no matter what a parent layout
+ * puts around it.
+ */
 @page { size: A4; margin: 0; }
+
 @media print {
-  .inv-root { padding: 0; background: #fff; }
-  .inv-bar { display: none; }
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+
+  /* The admin shell is REMOVED, not hidden: `visibility: hidden` leaves the box
+     in the layout, and its 46mm of chrome would still push the sheet down and
+     spill the footer onto a second page. These selectors only exist on a page
+     that renders an invoice — this stylesheet is imported by the document. */
+  /* Everything in the shell EXCEPT the pane holding the document. Structural,
+     not by class name: the sidebar's markup comes from a vendored component and
+     its data-slots are not ours to depend on. Its 502mm of height was producing
+     a blank second page all by itself. */
+  .adm-shell > *:not(.adm-inset) { display: none !important; }
+  .adm-topbar,
+  .adm-toast-stack { display: none !important; }
+
+  .adm-shell,
+  .adm-inset,
+  .adm-main {
+    display: block !important;
+    margin: 0 !important; padding: 0 !important;
+    min-height: 0 !important; height: auto !important; width: auto !important;
+    box-shadow: none !important; border: 0 !important; background: #fff !important;
+  }
+
+  .inv-root { padding: 0; margin: 0; background: #fff; }
+  .inv-bar { display: none !important; }
+
   .inv-page {
-    width: 210mm; min-height: 297mm; margin: 0; box-shadow: none;
+    width: 210mm; margin: 0; box-shadow: none;
+    /* Height is whatever the content needs — a fixed 297mm plus any rounding is
+       what produces a stray blank second page. */
+    min-height: 0; height: auto;
     /* Chrome drops backgrounds by default; the header bar and the total block
        are structural here, not decoration. */
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
+  /* On screen the codes sit at the foot of the sheet (margin-top: auto). In print
+     they simply follow the content, so a short invoice stays on one page. */
+  .inv-codes { margin-top: 0; padding-top: 8mm; }
+
   .inv-table { page-break-inside: auto; }
   .inv-table tr { page-break-inside: avoid; }
 }
