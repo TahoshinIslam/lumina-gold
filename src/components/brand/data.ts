@@ -96,13 +96,13 @@ export const TESTIMONIALS: Testimonial[] = [
   },
   {
     quote:
-      'Their private salon experience is unlike anything in Paris. Three generations of my family now wear LUMINA.',
+      'Their private salon experience is unlike anything in Paris. Three generations of my family now wear Nahar Jewellers.',
     name: 'M. Hartwell',
     city: 'New York',
   },
   {
     quote:
-      "I have collected high jewelry for twenty years. LUMINA's gold work is the finest I have ever held.",
+      "I have collected high jewelry for twenty years. Nahar Jewellers' gold work is the finest I have ever held.",
     name: 'S. Al-Rashid',
     city: 'Paris',
   },

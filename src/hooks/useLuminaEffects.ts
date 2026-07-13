@@ -47,13 +47,19 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
 
     // ── Broken image fallback ─────────────────────────────────────────
     // Missing /uploads/* files fall back to the gold gradient behind them.
-    $$('img').forEach(img => {
-      const image = img as HTMLImageElement;
-      const hide = () => { image.style.visibility = 'hidden'; };
-      if (image.complete && image.naturalWidth === 0) hide();
-      image.addEventListener('error', hide);
-      cleanup.push(() => image.removeEventListener('error', hide));
-    });
+    // Deferred a tick: hiding an <img> writes an inline style, and any image
+    // still inside an unhydrated <Suspense> boundary would then mismatch on
+    // hydration. By the next macrotask those boundaries have hydrated.
+    const sweepImages = setTimeout(() => {
+      $$('img').forEach(img => {
+        const image = img as HTMLImageElement;
+        const hide = () => { image.style.visibility = 'hidden'; };
+        if (image.complete && image.naturalWidth === 0) hide();
+        image.addEventListener('error', hide);
+        cleanup.push(() => image.removeEventListener('error', hide));
+      });
+    }, 0);
+    cleanup.push(() => clearTimeout(sweepImages));
 
     // ── Preloader lift ────────────────────────────────────────────────
     const pre = $('.lum-preloader');
@@ -114,8 +120,8 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
           ctx.beginPath();
           ctx.arc(p.x * W(), p.y * H(), p.r * dpr, 0, Math.PI * 2);
           ctx.fillStyle = p.hue === 'gold'
-            ? `rgba(200, 155, 60, ${alpha.toFixed(3)})`
-            : `rgba(255, 250, 235, ${alpha.toFixed(3)})`;
+            ? `rgba(218, 168, 88, ${alpha.toFixed(3)})`
+            : `rgba(250, 238, 208, ${alpha.toFixed(3)})`;
           ctx.fill();
         }
         // Random cross-shaped sparkles, more frequent while scrolling fast
@@ -155,10 +161,15 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
     const ring = $('.lum-cursor-ring');
 
     if (fine && dot && ring && !reduced) {
-      root.style.cursor = 'none';
-      $$('a, svg, button, [data-tilt], [data-magnetic], [data-spothost]').forEach(el => {
-        el.style.cursor = 'none';
-      });
+      // Hide the native cursor with a single class on the (already-hydrated)
+      // root, never by writing inline styles onto descendants. Content inside
+      // a <Suspense> boundary hydrates AFTER this effect runs, so touching
+      // those nodes here makes React find attributes it never rendered — a
+      // hydration mismatch. The `.lum-no-cursor *` rule does the same job with
+      // zero DOM mutation.
+      root.classList.add('lum-no-cursor');
+      cleanup.push(() => root.classList.remove('lum-no-cursor'));
+
       const move = (e: MouseEvent) => {
         mx = e.clientX; my = e.clientY;
         if (!cursorShown) {
@@ -171,11 +182,11 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
         if (overLink) {
           ring.style.width = '52px'; ring.style.height = '52px';
           ring.style.margin = '-26px 0 0 -26px';
-          ring.style.borderColor = 'rgba(200, 155, 60, 0.95)';
+          ring.style.borderColor = 'rgba(218, 168, 88, 0.95)';
         } else {
           ring.style.width = '34px'; ring.style.height = '34px';
           ring.style.margin = '-17px 0 0 -17px';
-          ring.style.borderColor = 'rgba(200, 155, 60, 0.55)';
+          ring.style.borderColor = 'rgba(218, 168, 88, 0.55)';
         }
       };
       window.addEventListener('mousemove', move, { passive: true });

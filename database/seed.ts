@@ -95,8 +95,8 @@ async function main() {
 
     if (p.diamond) {
       const shapeId = await lookup('stone_shapes', p.diamond.shape);
-      const scolorId = await lookup('stone_colors', p.diamond.color);
-      const clarityId = await lookup('stone_clarities', p.diamond.clarity);
+      const scolorId = await lookup('stone_colors', p.diamond.color ?? '');
+      const clarityId = await lookup('stone_clarities', p.diamond.clarity ?? '');
       const typeId = await lookup('stone_types', 'Diamond');
       await db.query(
         `INSERT INTO variant_stones (variant_id, stone_type_id, stone_shape_id, stone_color_id, stone_clarity_id, is_lab_grown, carat_total, quantity, is_center_stone)

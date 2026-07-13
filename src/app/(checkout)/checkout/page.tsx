@@ -3,7 +3,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CheckoutPage from '@/features/checkout/components/CheckoutPage';
 
-export const metadata: Metadata = { title: 'Checkout — LUMINA' };
+export const metadata: Metadata = { title: 'Checkout — Nahar Jewellers' };
 
 export default function Checkout() {
   return (

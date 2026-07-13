@@ -5,7 +5,7 @@ import Footer from '@/components/layout/Footer';
 import { CATEGORY_SLUGS, pluralType } from '@/features/catalog/taxonomy';
 
 export const metadata: Metadata = {
-  title: 'Shop by Category — LUMINA',
+  title: 'Shop by Category — Nahar Jewellers',
   description: 'Browse haute joaillerie by category — rings, necklaces, earrings, bracelets and more.',
 };
 

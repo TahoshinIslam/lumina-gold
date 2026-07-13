@@ -3,7 +3,10 @@
 import { db, query } from '@/server/db/client';
 import { HOLD_MINUTES } from '@/server/dal/bookings';
 
-export interface CheckoutItem { sku: string; qty: number; size?: string; engraving?: string }
+export interface CheckoutItem {
+  sku: string; qty: number; size?: string; purity?: string; engraving?: string;
+  unitPrice?: number; // size/purity-adjusted price the customer saw (clamped server-side)
+}
 export interface CheckoutCustomer {
   name: string; phone: string; email?: string; address: string; note?: string;
 }
@@ -21,8 +24,24 @@ export async function createBooking(
   customer: CheckoutCustomer,
 ): Promise<{ ok: boolean; orderNo?: string; holdMinutes?: number; reservedUntil?: string; error?: string }> {
   if (!items?.length) return { ok: false, error: 'Your bag is empty.' };
-  if (!customer.name?.trim() || !customer.phone?.trim()) {
-    return { ok: false, error: 'Name and phone are required so we can confirm your booking.' };
+
+  // Mirrors the checkout form's client-side rules. The browser checks are for
+  // the customer's benefit; these are the ones that actually guard the data,
+  // since a server action can be called directly.
+  const name = customer.name?.trim() ?? '';
+  const phone = (customer.phone ?? '').replace(/[^\d]/g, '').replace(/^880/, '0');
+  const email = customer.email?.trim() ?? '';
+  const address = customer.address?.trim() ?? '';
+
+  if (name.length < 2) return { ok: false, error: 'Please enter your full name.' };
+  if (!/^01[3-9]\d{8}$/.test(phone)) {
+    return { ok: false, error: 'Enter a valid 11-digit mobile number, e.g. 01712345678.' };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    return { ok: false, error: 'Please enter a valid email address.' };
+  }
+  if (address.length < 4) {
+    return { ok: false, error: 'Tell us the boutique or area for collection or delivery.' };
   }
 
   const skus = [...new Set(items.map(i => i.sku))];
@@ -41,7 +60,18 @@ export async function createBooking(
     const r = bySku.get(i.sku);
     if (!r) throw new Error(`Product ${i.sku} is no longer available`);
     const qty = Math.max(1, Math.min(20, Math.floor(i.qty)));
-    return { ...r, qty, size: i.size, engraving: i.engraving, lineTotal: r.price * qty };
+    // Honour the size/purity-adjusted price the customer saw, but never trust
+    // it blindly — clamp to a sane band around the DB base price. (Final price
+    // is anyway confirmed by the concierge.)
+    const base = Number(r.price);
+    const asked = Number(i.unitPrice);
+    const unit = Number.isFinite(asked)
+      ? Math.round(Math.min(base * 3, Math.max(base * 0.5, asked)))
+      : base;
+    // Record the chosen configuration in the item name for the concierge.
+    const config = [i.purity, i.size ? `Size ${i.size}` : ''].filter(Boolean).join(', ');
+    const name = config ? `${r.name} (${config})` : r.name;
+    return { ...r, name, qty, size: i.size, engraving: i.engraving, unit, lineTotal: unit * qty };
   });
 
   const subtotal = lines.reduce((n, l) => n + l.lineTotal, 0);
@@ -57,8 +87,8 @@ export async function createBooking(
         (order_no, status, reserved_until, currency, subtotal, discount_total, tax_total, shipping_total, grand_total,
          shipping_name, shipping_phone, shipping_address, customer_note, placed_at)
        VALUES (?, 'reserved', DATE_ADD(NOW(), INTERVAL ? MINUTE), 'BDT', ?, 0, ?, 0, ?, ?, ?, ?, ?, NOW())`,
-      [orderNo, HOLD_MINUTES, subtotal, tax, grand, customer.name.trim(),
-       customer.phone.trim(), customer.address?.trim() || null, customer.note?.trim() || null],
+      [orderNo, HOLD_MINUTES, subtotal, tax, grand, name,
+       phone, address, customer.note?.trim() || null],
     );
     const orderId = (ores as { insertId: number }).insertId;
 
@@ -66,7 +96,7 @@ export async function createBooking(
       await conn.query(
         `INSERT INTO order_items (order_id, variant_id, product_name, variant_sku, quantity, unit_price, line_total, engraving)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [orderId, l.variant_id, l.name, l.variant_sku, l.qty, l.price, l.lineTotal, l.engraving || null],
+        [orderId, l.variant_id, l.name, l.variant_sku, l.qty, l.unit, l.lineTotal, l.engraving || null],
       );
       await conn.query(
         `INSERT INTO inventory_reservations (variant_id, warehouse_id, quantity, order_id, status, expires_at)

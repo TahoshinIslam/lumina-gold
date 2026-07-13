@@ -4,7 +4,7 @@ import { CSSProperties } from 'react';
 function Star({ size, style }: { size: number; style: CSSProperties }) {
   return (
     <svg className="lum-twinkle" width={size} height={size} viewBox="0 0 24 24" style={style} aria-hidden>
-      <path d="M12 0 L14 10 L24 12 L14 14 L12 24 L10 14 L0 12 L10 10 Z" fill="#FFF6DC" />
+      <path d="M12 0 L14 10 L24 12 L14 14 L12 24 L10 14 L0 12 L10 10 Z" fill="#F0D9A6" />
     </svg>
   );
 }
@@ -20,7 +20,7 @@ export default function Hero() {
     <section className="lum-hero" id="hero">
       {/* Fixed image layer (GPU-composited parallax; clipped by the section) */}
       <div className="lum-fixed-bg lum-fixed-bg--hero" aria-hidden />
-      <div className="lum-hero-ghost">LUMINA</div>
+      <div className="lum-hero-ghost">NAHAR</div>
 
       {/* Eyebrow label */}
       <div className="lum-hero-label">

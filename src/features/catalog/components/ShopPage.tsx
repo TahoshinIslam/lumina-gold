@@ -2,9 +2,10 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { CATALOG } from '@/features/catalog/catalog';
+import type { Product } from '@/types/product';
 import {
   FACETS,
+  FacetOption,
   Filters,
   SORT_OPTIONS,
   SortKey,
@@ -16,6 +17,9 @@ import {
   sortProducts,
   visibleFacets,
 } from '@/features/catalog/filtering';
+import { groupForFilters } from '@/features/catalog/presets';
+import type { Crumb } from '@/features/catalog/breadcrumbs';
+import Breadcrumbs from '@/features/catalog/components/Breadcrumbs';
 import ProductCard from '@/features/catalog/components/ProductCard';
 import { useWishlist } from '@/features/wishlist/useWishlist';
 
@@ -33,9 +37,25 @@ import { useWishlist } from '@/features/wishlist/useWishlist';
  *   and their facet is hidden — the URL only carries the *other* facets, so
  *   the clean path stays canonical while every other filter still works.
  * @param heading overrides the auto-generated listing title.
+ * @param initialProducts the scoped, DB-backed product set for this route
+ *   (fetched server-side — see e.g. src/app/(storefront)/shop/page.tsx).
+ *   Filtering/sorting/facet-counts all run client-side over this array for
+ *   instant checkbox toggling, same as the old in-memory mock did.
+ * @param crumbs breadcrumb trail for this route (e.g. Home / Diamond / Diamond
+ *   Earring). Omitted on /shop, which has no single place in the hierarchy.
+ * @param facetOptions DB-scoped option lists for facets whose values are
+ *   admin-editable (type/collection/purity/color/gender) — e.g. so the Gold
+ *   page's Jewellery Type facet never lists a type with zero Gold products.
+ *   Facets not present here keep their static option list from FACETS.
  */
 export default function ShopPage(
-  { lockedFilters, heading }: { lockedFilters?: Filters; heading?: string } = {},
+  { lockedFilters, heading, crumbs, initialProducts, facetOptions }: {
+    lockedFilters?: Filters;
+    heading?: string;
+    crumbs?: Crumb[];
+    initialProducts: Product[];
+    facetOptions?: Partial<Record<string, string[]>>;
+  },
 ) {
   const router = useRouter();
   const pathname = usePathname();
@@ -57,13 +77,36 @@ export default function ShopPage(
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const facets = useMemo(
-    () => visibleFacets(filters).filter(facet => !lockedKeys.has(facet.key)),
-    [filters, lockedKeys],
+    () => visibleFacets(filters)
+      .filter(facet => !lockedKeys.has(facet.key))
+      .map(facet => {
+        const scoped = facetOptions?.[facet.key];
+        if (!scoped) return facet;
+        // The DB hands these back in row order, which for a graded facet reads
+        // as nonsense (SI1, VVS1, IF). Re-sort into the canonical order the
+        // static list declares — best grade first — and park anything the
+        // static list doesn't know about at the end, in the order given.
+        const rank = (value: string) => {
+          const index = facet.options.findIndex(o => o.value === value);
+          return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+        };
+        const options: FacetOption[] = [...scoped]
+          .sort((a, b) => rank(a) - rank(b))
+          .map(value => ({
+            value,
+            label: facet.options.find(o => o.value === value)?.label,
+          }));
+        return { ...facet, options };
+      })
+      // A DB-scoped facet with nothing in it (no diamond piece in this scope has
+      // a recorded clarity, say) would otherwise render as a bare heading.
+      .filter(facet => facet.options.length > 0),
+    [filters, lockedKeys, facetOptions],
   );
 
   const products = useMemo(
-    () => sortProducts(searchProducts(applyFilters(CATALOG, filters), q), sort),
-    [filters, sort, q],
+    () => sortProducts(searchProducts(applyFilters(initialProducts, filters), q), sort),
+    [initialProducts, filters, sort, q],
   );
 
   const navigate = (nextFilters: Filters, nextSort: SortKey = sort) => {
@@ -91,7 +134,7 @@ export default function ShopPage(
   /** Count of results if `value` were added to `facetKey` (facet-excluded). */
   const optionCount = (facetKey: string, value: string) => {
     const others: Filters = { ...filters, [facetKey]: [value] };
-    return applyFilters(CATALOG, others).length;
+    return applyFilters(initialProducts, others).length;
   };
 
   const activeChips = FACETS.filter(facet => !lockedKeys.has(facet.key)).flatMap(facet =>
@@ -102,8 +145,31 @@ export default function ShopPage(
     })),
   );
 
+  /* Quick picks — once a shopper is inside a material (Gold/Diamond/Platinum),
+   * offer that material's merchandised entries as one-tap narrowing. Each is
+   * just a preset over the same facets, so it toggles like any other filter and
+   * an empty one is disabled rather than leading to a dead end. */
+  const quickPicks = useMemo(() => {
+    const hit = groupForFilters(filters);
+    if (!hit) return [];
+    const [, group] = hit;
+    return group.entries.map(entry => {
+      const [key, values] = Object.entries(entry.filters)[0];
+      const value = values[0];
+      return {
+        key, value,
+        short: entry.short,
+        active: filters[key]?.includes(value) ?? false,
+        count: applyFilters(initialProducts, { ...filters, [key]: [value] }).length,
+        locked: lockedKeys.has(key),
+      };
+    }).filter(pick => !pick.locked);
+  }, [filters, lockedKeys, initialProducts]);
+
   return (
     <div className="lum-listing">
+      {crumbs && <Breadcrumbs items={crumbs} />}
+
       {/* Page head: title, count, sort */}
       <div className="lum-listing-head">
         <div>
@@ -130,6 +196,24 @@ export default function ShopPage(
           </label>
         </div>
       </div>
+
+      {/* Quick picks for the current material — Gold Ring, Gold Churi, … */}
+      {quickPicks.length > 0 && (
+        <div className="lum-quickpicks" aria-label="Quick filters">
+          {quickPicks.map(pick => (
+            <button
+              key={`${pick.key}:${pick.value}`}
+              className={`lum-quickpick${pick.active ? ' is-active' : ''}`}
+              disabled={pick.count === 0 && !pick.active}
+              aria-pressed={pick.active}
+              onClick={() => toggleValue(pick.key, pick.value)}
+            >
+              {pick.short}
+              <span className="lum-quickpick-n">{pick.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Active filter chips */}
       {activeChips.length > 0 && (

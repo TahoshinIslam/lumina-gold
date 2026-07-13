@@ -10,7 +10,7 @@ export default async function AdminLoginPage({
     <div className="adm-login">
       <div className="adm-login-card">
         <div className="adm-brand" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
-          LUMINA<small>ADMIN PANEL</small>
+          NAHAR JEWELLERS<small>ADMIN PANEL</small>
         </div>
         {error && <div className="adm-error">Wrong password — try again.</div>}
         <form action={loginAction} style={{ display: 'grid', gap: 14 }}>

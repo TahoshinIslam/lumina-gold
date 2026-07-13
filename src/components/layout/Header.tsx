@@ -25,8 +25,7 @@ import CartDrawer from '@/features/cart/components/CartDrawer';
  */
 export default function Header({ variant = 'landing' }: { variant?: 'landing' | 'shop' }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
-  const { cartCount, wishCount } = useStore();
+  const { cartCount, wishCount, cartOpen, openCart, closeCart } = useStore();
   const isDesktop = useMediaQuery('(min-width: 900px)');
 
   // Close the mobile menu automatically when resizing back to desktop.
@@ -106,9 +105,9 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
             </span>
           </div>
 
-          <Link href="/" className="lum-nav-brand-wrap" aria-label="LUMINA home">
+          <Link href="/" className="lum-nav-brand-wrap" aria-label="Nahar Jewellers home">
             <div className="lum-diamond" />
-            <div className="lum-brand">LUMINA</div>
+            <div className="lum-brand">NAHAR JEWELLERS</div>
             <div className="lum-diamond" />
           </Link>
 
@@ -132,7 +131,7 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
             </Link>
 
             {/* Bag */}
-            <button className="lum-icon-btn" aria-label={`Bag (${cartCount})`} onClick={() => setCartOpen(true)}>
+            <button className="lum-icon-btn" aria-label={`Bag (${cartCount})`} onClick={openCart}>
               <svg className="lum-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" strokeWidth="1.4">
                 <path d="M5 8H19L20 21H4L5 8Z" />
                 <path d="M8.5 10V6.5C8.5 4.6 10 3 12 3C14 3 15.5 4.6 15.5 6.5V10" />
@@ -183,7 +182,7 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
         <div className="lum-mobile-cities">Paris · Genève · New York</div>
       </div>
 
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+      <CartDrawer open={cartOpen} onClose={closeCart} />
     </>
   );
 }

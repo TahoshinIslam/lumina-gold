@@ -35,9 +35,22 @@ export const CATEGORY_SLUGS: Record<string, JewelleryType> = {
   lockets: 'Locket',
   'nose-pins': 'Nose Pin',
   'jewelry-sets': 'Jewelry Set',
+  'pendant-sets': 'Pendant Set',
+  'necklace-sets': 'Necklace Set',
+  tanmaniya: 'Tanmaniya',
+  coins: 'Coin',
+  accessories: 'Accessory',
+};
+
+/** Types whose plural is not just "+s". */
+const PLURALS: Partial<Record<JewelleryType, string>> = {
+  Tanmaniya: 'Tanmaniya',
+  Accessory: 'Accessories',
+  Other: 'Other Pieces',
+  Bangle: 'Bangles & Churi',
 };
 
 /** Plural display label for a jewellery type, e.g. "Nose Pin" → "Nose Pins". */
 export function pluralType(type: JewelleryType): string {
-  return `${type}s`;
+  return PLURALS[type] ?? `${type}s`;
 }

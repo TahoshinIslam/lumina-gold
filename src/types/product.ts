@@ -24,27 +24,28 @@ export type GoldColor = 'Yellow Gold' | 'White Gold' | 'Rose Gold';
 
 export type Gender = 'Women' | 'Men' | 'Kids' | 'Unisex';
 
-export type JewelleryType =
-  | 'Ring'
-  | 'Necklace'
-  | 'Bracelet'
-  | 'Pendant'
-  | 'Chain'
-  | 'Locket'
-  | 'Bangle'
-  | 'Nose Pin'
-  | 'Earring'
-  | 'Jewelry Set';
+/**
+ * A jewellery type is the FORM of the piece — never the metal, the stone, or
+ * who it is for. "Gold Ring" is type Ring + material Gold; "Gold Mens" is not a
+ * type at all, it is gender Men. Keeping this axis clean is what lets one piece
+ * appear under every entry point it legitimately belongs to.
+ *
+ * Churi is the local name for a bangle, so it maps to `Bangle` and is merely
+ * *labelled* "Churi" on the gold and platinum menus.
+ *
+ * This is a plain `string` (not a closed union) because it is sourced from
+ * the admin-editable `categories` table — a fixed union would drift the
+ * moment an admin adds a new category. The well-known values below (Ring,
+ * Necklace, …) remain the vocabulary the filter engine and product detail
+ * page key off of; anything else an admin creates just flows through as-is.
+ */
+export type JewelleryType = string;
 
 /** Silver sub-type (purity/grade), shown only when browsing Silver. */
 export type SilverType = 'Sterling Silver' | 'Fine Silver';
 
-export type CollectionName =
-  | 'Royal Heritage'
-  | 'Classic'
-  | 'Minimal'
-  | 'Wedding'
-  | 'Luxury';
+/** Sourced from the admin-editable `collections` table — same reasoning as `JewelleryType`. */
+export type CollectionName = string;
 
 export type Occasion =
   | 'Wedding'
@@ -53,31 +54,66 @@ export type Occasion =
   | 'Daily Wear'
   | 'Festival';
 
-export type Style =
-  | 'Solitaire'
-  | 'Cocktail'
-  | 'Halo'
-  | 'Vintage'
-  | 'Designer'
-  | 'Polki'
-  | 'Color Stone';
+/** Sourced from the `styles` lookup table (admin-picked, not admin-CRUD, but has more seed values than the original closed union). */
+export type Style = string;
 
 export type DiamondOrigin = 'Natural' | 'Lab Grown';
-export type DiamondShape = 'Round' | 'Princess' | 'Oval' | 'Pear' | 'Emerald' | 'Heart';
-export type DiamondColor = 'D' | 'E' | 'F' | 'G' | 'H';
-export type DiamondClarity = 'IF' | 'VVS1' | 'VVS2' | 'VS1' | 'VS2' | 'SI1';
+export type DiamondShape = string;
+export type DiamondColor = string;
+export type DiamondClarity = string;
 
-export type Availability = 'In Stock' | 'Made To Order' | 'Ready to Ship';
-export type Certification = 'GIA' | 'IGI' | 'HRD';
+export type Availability = 'In Stock' | 'Made To Order' | 'Ready to Ship' | 'Out of Stock';
+export type Certification = 'GIA' | 'IGI' | 'HRD' | 'SGL' | 'AGS' | 'Other';
+export type DiamondCut = string;
 
 /** Diamond specification — present only on diamond-set pieces. */
 export interface DiamondSpec {
-  caratWeight: number;
+  caratWeight: number;     // carat weight per stone
   shape: DiamondShape;
-  color: DiamondColor;
-  clarity: DiamondClarity;
+  color?: DiamondColor;
+  clarity?: DiamondClarity;
+  cut?: DiamondCut;
   origin: DiamondOrigin;
-  certification: Certification;
+  certification?: Certification;
+  certificateNumber?: string;
+  quantity?: number;       // number of stones
+  caratTotal?: number;     // total diamond weight (CTW)
+}
+
+/**
+ * A measured dimension of the piece — Height, Width, Thickness, Pin Length,
+ * Gauge. Descriptive, NOT selectable: it is shown under Specifications and
+ * never creates a variant, which is what stops a 3-height x 3-width x
+ * 2-thickness locket from becoming 18 SKUs of an item sold one way.
+ */
+export interface ProductSpec {
+  label: string;
+  value: string;
+}
+
+/** One purchasable attribute value on a variant, e.g. { code: 'ring_size', label: 'Ring Size', value: '7' }. */
+export interface VariantAttribute {
+  code: string;
+  label: string;
+  value: string;
+}
+
+/**
+ * A real, admin-priced purchasable combination (e.g. 24K + Size 6) — its own
+ * price, stock, SKU, weight, barcode and status. `attributes` is generic so a
+ * second (or third) variant axis beyond Purity never needs a schema change.
+ */
+export interface ProductVariant {
+  id: string;
+  sku: string;
+  purity?: MetalPurity;
+  price: number;
+  comparePrice?: number;     // strike-through "was" price
+  stock: number;
+  weightGrams?: number;
+  barcode?: string;
+  status: 'active' | 'inactive';
+  attributes: VariantAttribute[];
 }
 
 export interface Product {
@@ -100,9 +136,11 @@ export interface Product {
   style?: Style;
 
   /* Commerce */
-  price: number;             // BDT (৳)
+  price: number;             // BDT (৳) — original/list price
   weightGrams: number;       // metal weight
   diamond?: DiamondSpec;
+  /** Measured dimensions — display only, never a variant axis. */
+  specifications?: ProductSpec[];
   availability: Availability;
   stock: number;
 
@@ -112,9 +150,49 @@ export interface Product {
   /* Merchandising flags */
   isNew?: boolean;
   featured?: boolean;
+  isBestSeller?: boolean;
+  hasDiscount?: boolean;
+  discountPrice?: number;    // price after discount, only set when hasDiscount
+  discountPercent?: number;  // 0-100, only set when hasDiscount
+
+  /* Variants — only populated on the product detail fetch (getProductBySlug).
+     `price`/`stock` above stay "the default variant's" for cards/listings. */
+  variants?: ProductVariant[];
+  priceFrom?: number;        // lowest active-variant price, for "From ৳X" cards
+  variantCount?: number;
 }
 
 /** Format a BDT price with lakh-style grouping: ৳ 1,25,000 */
 export function formatPrice(price: number): string {
   return '৳ ' + new Intl.NumberFormat('en-IN').format(price);
+}
+
+/**
+ * Which "new arrival" badge/glow treatment a card gets. Diamond takes
+ * priority over gold — a new gold ring set with diamonds is more usefully
+ * flagged as "Diamond" than a generic "New", since the stone is the more
+ * distinctive, higher-value detail a shopper scans for.
+ */
+export type ProductBadgeKind = 'diamond' | 'gold' | 'new' | null;
+
+export function productBadge(product: Pick<Product, 'isNew' | 'material' | 'gemstones'>): ProductBadgeKind {
+  if (!product.isNew) return null;
+  if (product.gemstones?.includes('Diamond')) return 'diamond';
+  if (product.material === 'Gold') return 'gold';
+  return 'new';
+}
+
+/**
+ * How the metal is named to a shopper.
+ *
+ * On a plain metal piece the metal IS the piece, so it stands alone ("Gold").
+ * On a gemstone piece it is only the setting, and naming it bare reads as if
+ * the piece were sold as that metal — a diamond bracelet listed as "Platinum"
+ * looks like a platinum bracelet. So it is named as the body it actually is:
+ * "Platinum Body", "White Gold Body". The colour wins over the bare metal where
+ * the admin set one, since "White Gold" is what the shopper is looking for.
+ */
+export function metalLabel(product: Pick<Product, 'material' | 'goldColor' | 'gemstones'>): string {
+  const metal = product.goldColor ?? product.material;
+  return product.gemstones?.length ? `${metal} Body` : metal;
 }

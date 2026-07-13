@@ -62,7 +62,14 @@ export const FACETS: Facet[] = [
   },
   {
     key: 'type', label: 'Jewellery Type',
-    options: opts(['Ring', 'Necklace', 'Bracelet', 'Pendant', 'Chain', 'Locket', 'Bangle', 'Nose Pin', 'Earring', 'Jewelry Set']),
+    options: [
+      ...opts(['Ring', 'Necklace', 'Bracelet', 'Pendant', 'Chain', 'Locket']),
+      // Churi is the local name customers search for; the value stays 'Bangle'
+      // so gold churi and diamond bangles remain one filterable type.
+      { value: 'Bangle', label: 'Bangle / Churi' },
+      ...opts(['Nose Pin', 'Earring', 'Jewelry Set', 'Pendant Set', 'Necklace Set',
+        'Tanmaniya', 'Coin', 'Accessory', 'Other']),
+    ],
     match: (product, value) => product.type === value,
   },
   {
@@ -118,8 +125,12 @@ export const FACETS: Facet[] = [
     match: (product, value) => product.diamond?.origin === value,
   },
   {
+    // Static lists here are only a fallback: every listing route passes
+    // DB-scoped options (getFacetOptions), so the sidebar offers the grades and
+    // shapes that actually exist rather than a hand-kept vocabulary that drifts
+    // out of sync with the admin's lookup tables.
     key: 'shape', label: 'Diamond Shape',
-    options: opts(['Round', 'Princess', 'Oval', 'Pear', 'Emerald', 'Heart']),
+    options: opts(['Round', 'Oval', 'Princess', 'Pear', 'Emerald', 'Heart', 'Cushion', 'Marquise']),
     match: (product, value) => product.diamond?.shape === value,
   },
   {
@@ -133,13 +144,20 @@ export const FACETS: Facet[] = [
   },
   {
     key: 'dcolor', label: 'Diamond Color',
-    options: opts(['D', 'E', 'F', 'G', 'H']),
+    options: opts(['D', 'E', 'F', 'G', 'H', 'I', 'J']),
     match: (product, value) => product.diamond?.color === value,
   },
   {
     key: 'clarity', label: 'Diamond Clarity',
-    options: opts(['IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1']),
+    options: opts(['IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2']),
     match: (product, value) => product.diamond?.clarity === value,
+  },
+  {
+    // How many stones are set in the piece — a 10-stone bracelet and a
+    // solitaire are different products to a shopper even at the same carat.
+    key: 'stones', label: 'Number of Stones',
+    options: opts(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
+    match: (product, value) => String(product.diamond?.quantity ?? '') === value,
   },
   {
     key: 'availability', label: 'Availability',
@@ -215,7 +233,7 @@ export function searchProducts(products: Product[], q: string): Product[] {
 
 const GOLD_ONLY = new Set(['purity', 'color']);
 const SILVER_ONLY = new Set(['silverType']);
-const DIAMOND_ONLY = new Set(['diamondType', 'shape', 'carat', 'dcolor', 'clarity', 'cert']);
+const DIAMOND_ONLY = new Set(['diamondType', 'shape', 'carat', 'dcolor', 'clarity', 'stones', 'cert']);
 
 export function visibleFacets(filters: Filters): Facet[] {
   const materials = filters.material ?? [];
@@ -225,14 +243,19 @@ export function visibleFacets(filters: Filters): Facet[] {
   const noMaterial = materials.length === 0;
   const hasDiamond = gemstones.includes('Diamond');
   const noGemstone = gemstones.length === 0;
+  // "Unnarrowed" = the shopper hasn't picked a metal or a gemstone yet, so we
+  // show every facet. Once they browse a specific material (Gold, Platinum,
+  // Silver) or gemstone (Diamond), only that material's facets remain.
+  const unnarrowed = noMaterial && noGemstone;
 
   return FACETS.filter(facet => {
-    // Gold purity/color: only when browsing gold (or no metal chosen).
-    if (GOLD_ONLY.has(facet.key)) return noMaterial || hasGold;
-    // Silver type: only when browsing silver (or no metal chosen).
-    if (SILVER_ONLY.has(facet.key)) return noMaterial || hasSilver;
-    // Diamond 4C facets: only when the Diamond gemstone is in play.
-    if (DIAMOND_ONLY.has(facet.key)) return noGemstone || hasDiamond;
+    // Gold purity/color: only when browsing gold (or nothing chosen yet).
+    if (GOLD_ONLY.has(facet.key)) return unnarrowed || hasGold;
+    // Silver type: only when browsing silver (or nothing chosen yet).
+    if (SILVER_ONLY.has(facet.key)) return unnarrowed || hasSilver;
+    // Diamond 4C facets: only when browsing Diamond (or nothing chosen yet).
+    // Picking a metal like Gold hides these even though no gemstone is set.
+    if (DIAMOND_ONLY.has(facet.key)) return unnarrowed || hasDiamond;
     return true;
   });
 }

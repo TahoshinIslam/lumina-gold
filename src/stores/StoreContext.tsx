@@ -14,6 +14,7 @@ export interface CartItem {
   price: number;
   image: string;
   size?: string;
+  purity?: string;
   engraving?: string;
   qty: number;
 }
@@ -27,6 +28,11 @@ interface StoreValue {
   updateQty: (key: string, qty: number) => void;
   removeFromCart: (key: string) => void;
   clearCart: () => void;
+  /* bag drawer — lives here, not in the Header, so anything that adds to the
+   * cart (product page, card quick-add) can pop it open as confirmation. */
+  cartOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
   /* wishlist */
   wished: Record<string, boolean>;
   wishCount: number;
@@ -36,9 +42,9 @@ interface StoreValue {
   pushRecent: (sku: string) => void;
 }
 
-/** Line key = sku + size + engraving, so variants of one product stack right. */
-const keyOf = (i: Pick<CartItem, 'sku' | 'size' | 'engraving'>) =>
-  `${i.sku}__${i.size ?? ''}__${i.engraving ?? ''}`;
+/** Line key = sku + size + purity + engraving, so variants of one product stack right. */
+const keyOf = (i: Pick<CartItem, 'sku' | 'size' | 'purity' | 'engraving'>) =>
+  `${i.sku}__${i.size ?? ''}__${i.purity ?? ''}__${i.engraving ?? ''}`;
 
 const StoreContext = createContext<StoreValue | null>(null);
 
@@ -65,8 +71,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = usePersisted<CartItem[]>('lumina-cart', []);
   const [wished, setWished] = usePersisted<Record<string, boolean>>('lumina-wishlist', {});
   const [recent, setRecent] = usePersisted<string[]>('lumina-recent', []);
+  const [cartOpen, setCartOpen] = useState(false);
+
+  const openCart = useCallback(() => setCartOpen(true), []);
+  const closeCart = useCallback(() => setCartOpen(false), []);
 
   const addToCart: StoreValue['addToCart'] = useCallback((item, qty = 1) => {
+    // The cart itself is local-only, so this event is the sole record an add
+    // ever happened — it is what the dashboard's conversion funnel counts.
+    fetch('/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'add_to_cart', path: window.location.pathname }),
+      keepalive: true,
+    }).catch(() => {});
+
     setCart(prev => {
       const k = keyOf(item);
       const idx = prev.findIndex(i => keyOf(i) === k);
@@ -77,6 +96,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { ...item, qty }];
     });
+
+    setCartOpen(true);
   }, [setCart]);
 
   const updateQty: StoreValue['updateQty'] = useCallback((key, qty) => {
@@ -107,6 +128,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <StoreContext.Provider value={{
       cart, cartCount, cartSubtotal, addToCart, updateQty, removeFromCart, clearCart,
+      cartOpen, openCart, closeCart,
       wished, wishCount, toggleWish, recent, pushRecent,
     }}>
       {children}

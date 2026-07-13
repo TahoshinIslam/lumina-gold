@@ -40,7 +40,7 @@ export default function CartPage() {
                     ? <Link href={`/products/${slug}`} className="lum-cart-name">{item.name}</Link>
                     : <span className="lum-cart-name">{item.name}</span>}
                   <div className="lum-cart-meta">
-                    {item.size ? `Size ${item.size}` : ''}{item.engraving ? ` · “${item.engraving}”` : ''}
+                    {[item.purity, item.size ? `Size ${item.size}` : ''].filter(Boolean).join(' · ')}{item.engraving ? ` · “${item.engraving}”` : ''}
                   </div>
                   <div className="lum-drawer-qty">
                     <button aria-label="Decrease" onClick={() => updateQty(key, item.qty - 1)}>−</button>

@@ -260,7 +260,7 @@ export const CATALOG: Product[] = [
     diamond: { caratWeight: 2.4, shape: 'Round', color: 'H', clarity: 'SI1', origin: 'Natural', certification: 'HRD' },
   }),
   p({
-    name: 'Scintille Nose Pin', description: 'A 0.10 carat round diamond on an 18K post — the smallest LUMINA.',
+    name: 'Scintille Nose Pin', description: 'A 0.10 carat round diamond on an 18K post — the smallest Nahar Jewellers.',
     material: 'Diamond', purity: '18K', goldColor: 'Yellow Gold', gender: 'Women', type: 'Nose Pin',
     collection: 'Minimal', occasions: ['Daily Wear', 'Festival'], style: 'Solitaire',
     price: 28400, weightGrams: 0.6, availability: 'In Stock', stock: 25,

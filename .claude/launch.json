@@ -5,7 +5,7 @@
       "name": "lumina-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "/Users/tahoshinislam/Desktop/Nextjs_Gold/my-app",
+      "cwd": "/Users/tahoshinislam/dev/Nextjs_Gold/my-app",
       "autoPort": true
     }
   ]

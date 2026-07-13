@@ -22,31 +22,97 @@ function useCountdown(targetIso: string | null) {
   return { left, label: `${mm}:${ss}` };
 }
 
+/**
+ * Phone is stored as a plain 11-digit local number (01XXXXXXXXX) — a concierge
+ * dials it, so accept the shapes people actually type (+8801…, 8801…, spaces
+ * and dashes) and normalise rather than reject.
+ */
+function normalisePhone(raw: string) {
+  const digits = raw.replace(/[^\d]/g, '');
+  if (digits.startsWith('880')) return `0${digits.slice(3)}`;
+  return digits;
+}
+
+type Field = 'name' | 'phone' | 'email' | 'address';
+type Errors = Partial<Record<Field, string>>;
+
+/** Runs on submit and on blur — the single source of truth for the messages. */
+function validate(form: { name: string; phone: string; email: string; address: string }): Errors {
+  const errors: Errors = {};
+
+  const name = form.name.trim();
+  if (!name) errors.name = 'Please tell us your name.';
+  else if (name.length < 2) errors.name = 'That name looks too short.';
+  else if (!/^[\p{L}][\p{L}\s.'-]*$/u.test(name)) errors.name = 'Use letters, spaces, hyphens and apostrophes only.';
+
+  const phone = normalisePhone(form.phone);
+  if (!phone) errors.phone = 'We need a phone number to confirm your booking.';
+  else if (!/^\d{11}$/.test(phone)) errors.phone = 'Enter an 11-digit number, e.g. 01712345678.';
+  else if (!/^01[3-9]/.test(phone)) errors.phone = 'That is not a valid Bangladeshi mobile number.';
+
+  const email = form.email.trim();
+  if (!email) errors.email = 'Please add an email so we can send your confirmation.';
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) errors.email = 'That email address does not look right.';
+
+  const address = form.address.trim();
+  if (!address) errors.address = 'Tell us the boutique or area for collection or delivery.';
+  else if (address.length < 4) errors.address = 'Please give a little more detail.';
+
+  return errors;
+}
+
 export default function CheckoutPage() {
   const { cart, cartSubtotal, clearCart } = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState<{ orderNo: string; reservedUntil: string; phone: string } | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', note: '' });
+  const [errors, setErrors] = useState<Errors>({});
+  // Don't shout at someone for a field they haven't reached yet.
+  const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
 
   const tax = Math.round(cartSubtotal * 0.05);
   const grand = cartSubtotal + tax;
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm(f => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setForm(f => ({ ...f, [k]: value }));
+    // Clear the message as soon as the field becomes valid again.
+    if (k !== 'note' && errors[k]) {
+      const next = validate({ ...form, [k]: value });
+      setErrors(prev => ({ ...prev, [k]: next[k as Field] }));
+    }
+  };
+  const blur = (k: Field) => () => {
+    setTouched(t => ({ ...t, [k]: true }));
+    setErrors(validate(form));
+  };
+  const show = (k: Field) => (touched[k] ? errors[k] : undefined);
 
   const { left, label } = useCountdown(done?.reservedUntil ?? null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const found = validate(form);
+    setErrors(found);
+    setTouched({ name: true, phone: true, email: true, address: true });
+    if (Object.keys(found).length) {
+      setError('');
+      // Put the cursor on the first thing that needs fixing.
+      const first = (['name', 'phone', 'email', 'address'] as Field[]).find(f => found[f]);
+      document.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+      return;
+    }
+
     setError(''); setBusy(true);
     try {
       const res = await createBooking(
-        cart.map(i => ({ sku: i.sku, qty: i.qty, size: i.size, engraving: i.engraving })),
-        form,
+        cart.map(i => ({ sku: i.sku, qty: i.qty, size: i.size, purity: i.purity, engraving: i.engraving, unitPrice: i.price })),
+        { ...form, phone: normalisePhone(form.phone) },
       );
       if (res.ok && res.orderNo && res.reservedUntil) {
         clearCart();
-        setDone({ orderNo: res.orderNo, reservedUntil: res.reservedUntil, phone: form.phone });
+        setDone({ orderNo: res.orderNo, reservedUntil: res.reservedUntil, phone: normalisePhone(form.phone) });
       } else setError(res.error || 'Could not reserve your pieces.');
     } catch {
       setError('Something went wrong. Please try again.');
@@ -63,7 +129,7 @@ export default function CheckoutPage() {
           <>
             <div className="lum-hold-timer" aria-live="polite">{label}</div>
             <p className="lum-pdp-desc" style={{ maxWidth: 500, margin: '6px auto 0' }}>
-              Booking <strong>{done.orderNo}</strong> is held. A LUMINA concierge will call{' '}
+              Booking <strong>{done.orderNo}</strong> is held. A Nahar Jewellers concierge will call{' '}
               <strong>{done.phone}</strong> within this window to confirm your appointment and
               arrange secure collection or delivery. If we can&apos;t reach you, the hold is
               released so nothing is charged.
@@ -99,19 +165,60 @@ export default function CheckoutPage() {
     <div className="lum-cart">
       <h1 className="lum-h2 lum-listing-title">Reserve Your Pieces</h1>
       <p className="lum-pdp-desc" style={{ maxWidth: 620 }}>
-        LUMINA pieces aren&apos;t sold online. Reserve now and we&apos;ll hold them for you;
+        Nahar Jewellers pieces aren&apos;t sold online. Reserve now and we&apos;ll hold them for you;
         a concierge calls within 15 minutes to confirm your booking and arrange a private
         viewing, collection, or insured delivery.
       </p>
       {error && <div className="lum-pdp-warn" style={{ marginTop: 16 }}>{error}</div>}
       <div className="lum-cart-grid">
-        <form className="lum-checkout-form" onSubmit={submit}>
+        {/* noValidate: we render our own messages rather than the browser's. */}
+        <form className="lum-checkout-form" onSubmit={submit} noValidate>
           <h2 className="lum-cart-summary-title">Your Details</h2>
-          <label className="lum-field"><span>Full name *</span><input value={form.name} onChange={set('name')} required /></label>
-          <label className="lum-field"><span>Phone (we&apos;ll call to confirm) *</span><input value={form.phone} onChange={set('phone')} required placeholder="+880…" /></label>
-          <label className="lum-field"><span>Email</span><input type="email" value={form.email} onChange={set('email')} /></label>
-          <label className="lum-field"><span>Preferred boutique / delivery area</span><textarea rows={2} value={form.address} onChange={set('address')} /></label>
-          <label className="lum-field"><span>Note for the concierge</span><textarea rows={2} value={form.note} onChange={set('note')} /></label>
+
+          <label className="lum-field">
+            <span>Full name *</span>
+            <input
+              name="name" value={form.name} onChange={set('name')} onBlur={blur('name')}
+              autoComplete="name"
+              aria-invalid={!!show('name')} aria-describedby={show('name') ? 'err-name' : undefined}
+            />
+            {show('name') && <em className="lum-field-error" id="err-name">{show('name')}</em>}
+          </label>
+
+          <label className="lum-field">
+            <span>Phone (we&apos;ll call to confirm) *</span>
+            <input
+              name="phone" value={form.phone} onChange={set('phone')} onBlur={blur('phone')}
+              type="tel" inputMode="numeric" autoComplete="tel" placeholder="01712345678"
+              aria-invalid={!!show('phone')} aria-describedby={show('phone') ? 'err-phone' : undefined}
+            />
+            {show('phone') && <em className="lum-field-error" id="err-phone">{show('phone')}</em>}
+          </label>
+
+          <label className="lum-field">
+            <span>Email *</span>
+            <input
+              name="email" value={form.email} onChange={set('email')} onBlur={blur('email')}
+              type="email" autoComplete="email"
+              aria-invalid={!!show('email')} aria-describedby={show('email') ? 'err-email' : undefined}
+            />
+            {show('email') && <em className="lum-field-error" id="err-email">{show('email')}</em>}
+          </label>
+
+          <label className="lum-field">
+            <span>Preferred boutique / delivery area *</span>
+            <textarea
+              name="address" rows={2} value={form.address} onChange={set('address')} onBlur={blur('address')}
+              aria-invalid={!!show('address')} aria-describedby={show('address') ? 'err-address' : undefined}
+            />
+            {show('address') && <em className="lum-field-error" id="err-address">{show('address')}</em>}
+          </label>
+
+          <label className="lum-field">
+            <span>Note for the concierge</span>
+            <textarea name="note" rows={2} value={form.note} onChange={set('note')} />
+          </label>
+
           <button className="lum-cta-gold" style={{ justifyContent: 'center', width: '100%' }} disabled={busy}>
             {busy ? 'Reserving…' : `Reserve · hold for 15 minutes`}
           </button>

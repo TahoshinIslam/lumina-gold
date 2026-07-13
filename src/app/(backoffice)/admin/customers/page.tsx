@@ -1,10 +1,24 @@
 import { query } from '@/server/db/client';
+import { AdminEmptyState } from '@/features/admin/components/AdminEmptyState';
+import { Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 const bdt = (n: number) => `৳ ${Math.round(Number(n)).toLocaleString('en-IN')}`;
 
-export default async function AdminCustomersPage() {
+export default async function AdminCustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q: rawQ } = await searchParams;
+  const q = rawQ?.trim() || '';
+
+  const conditions: string[] = [];
+  const args: string[] = [];
+  if (q) { conditions.push('(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)'); args.push(`%${q}%`, `%${q}%`, `%${q}%`); }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
   const customers = await query<{
     id: number; name: string; email: string; phone: string | null; created_at: string;
     orders: number; spent: number;
@@ -14,20 +28,31 @@ export default async function AdminCustomersPage() {
             COALESCE(SUM(CASE WHEN o.status NOT IN ('cancelled','returned','refunded') THEN o.grand_total END),0) spent
      FROM users u
      LEFT JOIN orders o ON o.user_id = u.id
+     ${where}
      GROUP BY u.id
      ORDER BY spent DESC, u.created_at DESC
      LIMIT 200`,
+    args,
   );
 
   return (
     <>
       <h1 className="adm-h1">Customers</h1>
-      <p className="adm-sub">{customers.length} customers · ranked by lifetime spend</p>
+      <p className="adm-sub">{customers.length} customer{customers.length === 1 ? '' : 's'} · ranked by lifetime spend</p>
+
+      <form className="adm-toolbar" method="get">
+        <div className="adm-toolbar-search">
+          <input name="q" placeholder="Search name, email or phone…" defaultValue={q} />
+        </div>
+        <button className="adm-btn ghost sm" type="submit">Search</button>
+        {q ? <a href="/admin/customers" className="adm-toolbar-reset">Reset</a> : null}
+      </form>
 
       {customers.length === 0 ? (
-        <div className="adm-empty">No customers yet.</div>
+        <AdminEmptyState icon={Users} title={q ? 'No customers match this search' : 'No customers yet'}
+          description={q ? 'Try a different name, email or phone number.' : 'Customers appear here once they create an account.'} />
       ) : (
-        <table className="adm-table">
+        <div className="adm-table-wrap"><table className="adm-table">
           <thead><tr><th>Customer</th><th>Contact</th><th>Joined</th><th>Orders</th><th>Lifetime spend</th></tr></thead>
           <tbody>
             {customers.map(c => (
@@ -40,7 +65,7 @@ export default async function AdminCustomersPage() {
                 </td>
                 <td>
                   {c.email}
-                  <div style={{ fontSize: 12, color: '#9A8668' }}>{c.phone}</div>
+                  <div style={{ fontSize: 12, color: '#687168' }}>{c.phone}</div>
                 </td>
                 <td>{new Date(c.created_at).toLocaleDateString()}</td>
                 <td>{c.orders}</td>
@@ -48,7 +73,7 @@ export default async function AdminCustomersPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </>
   );

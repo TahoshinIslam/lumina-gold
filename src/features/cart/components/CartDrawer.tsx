@@ -37,7 +37,7 @@ export default function CartDrawer({ open, onClose }: { open: boolean; onClose: 
                     <div className="lum-drawer-item-info">
                       <div className="lum-drawer-item-name">{item.name}</div>
                       <div className="lum-drawer-item-meta">
-                        {item.size ? `Size ${item.size}` : ''}{item.engraving ? ` · “${item.engraving}”` : ''}
+                        {[item.purity, item.size ? `Size ${item.size}` : ''].filter(Boolean).join(' · ')}{item.engraving ? ` · “${item.engraving}”` : ''}
                       </div>
                       <div className="lum-drawer-qty">
                         <button aria-label="Decrease" onClick={() => updateQty(key, item.qty - 1)}>−</button>

@@ -1,5 +1,8 @@
 import { query } from '@/server/db/client';
 import { addRateAction } from '../actions';
+import { AdminInlineForm } from '@/features/admin/components/AdminFeedback';
+import { AdminEmptyState } from '@/features/admin/components/AdminEmptyState';
+import { Coins, History } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,26 +32,29 @@ export default async function AdminRatesPage() {
         Per-gram rates drive rate-based variant pricing. Publishing a new rate keeps full history.
       </p>
 
-      <form className="adm-inline-form" action={addRateAction}>
-        <div className="adm-field" style={{ width: 220 }}>
-          <label>Purity</label>
-          <select name="purity_id" required>
-            {purities.map(p => (
-              <option key={p.id} value={p.id}>{p.metal} {p.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="adm-field" style={{ width: 200 }}>
-          <label>New rate (৳ / gram)</label>
-          <input name="rate" type="number" step="0.01" min="1" required />
-        </div>
-        <button className="adm-btn" type="submit">Publish rate</button>
-      </form>
+      <div className="adm-card" style={{ marginBottom: 24 }}>
+        <AdminInlineForm action={addRateAction} successMessage="Rate published successfully" resetOnSuccess
+          className="adm-inline-form" style={{ marginBottom: 0 }}>
+          <div className="adm-field" style={{ width: 220 }}>
+            <label>Purity</label>
+            <select name="purity_id" required>
+              {purities.map(p => (
+                <option key={p.id} value={p.id}>{p.metal} {p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="adm-field" style={{ width: 200 }}>
+            <label>New rate (৳ / gram)</label>
+            <input name="rate" type="number" step="0.01" min="1" required />
+          </div>
+          <button className="adm-btn" type="submit">Publish rate</button>
+        </AdminInlineForm>
+      </div>
 
-      <div className="adm-grid2" style={{ alignItems: 'start' }}>
+      <div className="adm-grid2 adm-grid2--divided" style={{ alignItems: 'start' }}>
         <div>
-          <h2 className="adm-h1" style={{ fontSize: 18 }}>Current rates</h2>
-          <table className="adm-table">
+          <h2 className="adm-h2 adm-h2--icon" style={{ fontSize: 16 }}><Coins size={16} /> Current rates</h2>
+          <div className="adm-table-wrap"><table className="adm-table">
             <thead><tr><th>Purity</th><th>Rate / gram</th><th>Since</th></tr></thead>
             <tbody>
               {purities.map(p => {
@@ -62,22 +68,27 @@ export default async function AdminRatesPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         </div>
         <div>
-          <h2 className="adm-h1" style={{ fontSize: 18 }}>Recent updates</h2>
-          <table className="adm-table">
-            <thead><tr><th>Purity</th><th>Rate</th><th>Published</th></tr></thead>
-            <tbody>
-              {history.map((h, i) => (
-                <tr key={i}>
-                  <td>{h.name}</td>
-                  <td>{bdt(h.rate)}</td>
-                  <td>{new Date(h.effective_from).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h2 className="adm-h2 adm-h2--icon" style={{ fontSize: 16 }}><History size={16} /> Recent updates</h2>
+          {history.length === 0 ? (
+            <AdminEmptyState icon={History} title="No rate history yet"
+              description="Published rates will show up here." />
+          ) : (
+            <div className="adm-table-wrap"><table className="adm-table">
+              <thead><tr><th>Purity</th><th>Rate</th><th>Published</th></tr></thead>
+              <tbody>
+                {history.map((h, i) => (
+                  <tr key={i}>
+                    <td>{h.name}</td>
+                    <td>{bdt(h.rate)}</td>
+                    <td>{new Date(h.effective_from).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          )}
         </div>
       </div>
     </>

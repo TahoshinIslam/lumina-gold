@@ -3,7 +3,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import WishlistPage from '@/features/wishlist/components/WishlistPage';
 
-export const metadata: Metadata = { title: 'Wishlist — LUMINA' };
+export const metadata: Metadata = { title: 'Wishlist — Nahar Jewellers' };
 
 export default function Wishlist() {
   return (

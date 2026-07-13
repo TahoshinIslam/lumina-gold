@@ -16,7 +16,7 @@ export default function Heritage() {
           </div>
           <h2 className="lum-h2">Four Decades of Light</h2>
           <p className="lum-body-text">
-            Founded in 1985 in a single Parisian workshop, LUMINA began with one conviction:
+            Founded in 1985 in a single Parisian workshop, Nahar Jewellers began with one conviction:
             that gold and diamonds, in the right hands, could hold light the way memory holds
             a moment.
           </p>

@@ -5,7 +5,7 @@ import Footer from '@/components/layout/Footer';
 import { GEMSTONE_SLUGS, MATERIAL_SLUGS } from '@/features/catalog/taxonomy';
 
 export const metadata: Metadata = {
-  title: 'Shop by Material — LUMINA',
+  title: 'Shop by Material — Nahar Jewellers',
   description: 'Browse haute joaillerie by metal and gemstone — gold, platinum, silver and diamond.',
 };
 

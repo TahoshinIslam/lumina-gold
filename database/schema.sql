@@ -257,7 +257,7 @@ CREATE TABLE certificates (
   id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   variant_id     BIGINT UNSIGNED NOT NULL,
   certificate_no VARCHAR(80) NOT NULL,
-  issuer         ENUM('GIA','IGI','HRD','SGL','Other') NOT NULL DEFAULT 'Other',
+  issuer         ENUM('GIA','IGI','HRD','SGL','AGS','Other') NOT NULL DEFAULT 'Other',
   pdf_path       VARCHAR(255) NULL,
   qr_code        VARCHAR(255) NULL,
   issued_at      DATE NULL,
@@ -313,6 +313,8 @@ CREATE TABLE variant_price_components (
   variant_id      BIGINT UNSIGNED PRIMARY KEY,
   pricing_mode    ENUM('fixed','rate_based') NOT NULL DEFAULT 'rate_based',
   fixed_price     DECIMAL(12,2) NULL,                     -- used when pricing_mode=fixed
+  compare_price   DECIMAL(12,2) NULL,                     -- strike-through "was" price, per variant
+  cost_price      DECIMAL(12,2) NULL,                     -- internal cost, per variant
   stone_charge    DECIMAL(12,2) NOT NULL DEFAULT 0,
   making_charge   DECIMAL(12,2) NOT NULL DEFAULT 0,
   wastage_percent DECIMAL(5,2)  NOT NULL DEFAULT 0,
@@ -348,6 +350,33 @@ CREATE TABLE coupons (
   expires_at    DATETIME NULL,
   is_active     TINYINT(1) NOT NULL DEFAULT 1,
   created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Time-boxed product promotions (flash sales, seasonal pushes) placed on the
+-- storefront home page. See migrations/003_campaigns.sql for the full note.
+CREATE TABLE campaigns (
+  id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title             VARCHAR(200) NOT NULL,
+  slug              VARCHAR(220) NOT NULL UNIQUE,
+  description       VARCHAR(500) NULL,
+  start_at          DATETIME NOT NULL,
+  end_at            DATETIME NOT NULL,
+  section           ENUM('home_top','home_middle','home_bottom') NOT NULL DEFAULT 'home_middle',
+  is_home_featured  TINYINT(1) NOT NULL DEFAULT 0,
+  is_published      TINYINT(1) NOT NULL DEFAULT 1,
+  created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_campaigns_dates (start_at, end_at),
+  KEY idx_campaigns_published (is_published)
+) ENGINE=InnoDB;
+
+CREATE TABLE campaign_products (
+  campaign_id INT UNSIGNED NOT NULL,
+  product_id  BIGINT UNSIGNED NOT NULL,
+  sort_order  INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (campaign_id, product_id),
+  CONSTRAINT fk_campaign_products_campaign FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
+  CONSTRAINT fk_campaign_products_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ============================================================================
@@ -695,6 +724,7 @@ CREATE TABLE seo_meta (
   entity_id        BIGINT UNSIGNED NOT NULL,
   meta_title       VARCHAR(200) NULL,
   meta_description VARCHAR(320) NULL,
+  meta_keywords    VARCHAR(255) NULL,
   canonical_url    VARCHAR(255) NULL,
   og_image         VARCHAR(255) NULL,
   schema_json      TEXT NULL,                             -- JSON-LD
@@ -956,3 +986,28 @@ INSERT INTO metal_rates (purity_id, rate_per_gram, effective_from) VALUES
   (3, 10050.00, NOW()),   -- 21K
   (4,  8650.00, NOW()),   -- 18K
   (5,  6700.00, NOW());   -- 14K
+
+-- ============================================================================
+-- MODULE — STOREFRONT ANALYTICS
+-- Feeds the dashboard's Visitors / Product Views / Traffic Sources panels.
+-- Written by /api/track on each storefront page view. No FKs on purpose: an
+-- event must survive the product or user it referenced being deleted.
+-- ============================================================================
+
+CREATE TABLE analytics_events (
+  id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  session_id      VARCHAR(64) NOT NULL,                    -- anonymous, cookie-scoped
+  user_id         BIGINT UNSIGNED NULL,                    -- NULL = guest
+  event           ENUM('page_view','product_view','add_to_cart') NOT NULL DEFAULT 'page_view',
+  path            VARCHAR(255) NOT NULL,
+  product_id      BIGINT UNSIGNED NULL,                    -- set for product_view
+  referrer_source ENUM('direct','organic','social','referral','email') NOT NULL DEFAULT 'direct',
+  referrer_host   VARCHAR(190) NULL,
+  country         CHAR(2) NULL,                            -- from CDN geo header
+  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_ae_created (created_at),
+  KEY idx_ae_session (session_id),
+  KEY idx_ae_event (event, created_at),
+  KEY idx_ae_source (referrer_source, created_at),
+  KEY idx_ae_country (country, created_at)
+) ENGINE=InnoDB;

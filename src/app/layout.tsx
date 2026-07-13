@@ -3,11 +3,12 @@ import "@/styles/tokens.css";
 import "./globals.css";
 import "./lumina.css";
 import { StoreProvider } from "@/stores/StoreContext";
+import PageBeacon from "@/components/analytics/PageBeacon";
 
 export const metadata: Metadata = {
-  title: "LUMINA — Haute Joaillerie",
+  title: "Nahar Jewellers — Haute Joaillerie",
   description:
-    "Maison Lumina — haute joaillerie handcrafted in our Parisian ateliers since 1927.",
+    "Nahar Jewellers — haute joaillerie handcrafted in our Parisian ateliers since 1927.",
 };
 
 export default function RootLayout({
@@ -17,7 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body><StoreProvider>{children}</StoreProvider></body>
+      <body><StoreProvider>{children}</StoreProvider><PageBeacon /></body>
     </html>
   );
 }

@@ -3,7 +3,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CartPage from '@/features/cart/components/CartPage';
 
-export const metadata: Metadata = { title: 'Your Bag — LUMINA' };
+export const metadata: Metadata = { title: 'Your Bag — Nahar Jewellers' };
 
 export default function Cart() {
   return (

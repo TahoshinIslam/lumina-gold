@@ -5,6 +5,10 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ShopPage from '@/features/catalog/components/ShopPage';
 import { CATEGORY_SLUGS, pluralType } from '@/features/catalog/taxonomy';
+import { getFacetOptions, getStorefrontProducts } from '@/server/dal/catalog';
+
+// Live DB data — see src/app/(storefront)/shop/page.tsx.
+export const dynamic = 'force-dynamic';
 
 /** Pre-render one page per jewellery category slug. */
 export function generateStaticParams() {
@@ -16,7 +20,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { type } = await params;
   const jewelleryType = CATEGORY_SLUGS[type];
-  return { title: jewelleryType ? `${pluralType(jewelleryType)} — LUMINA` : 'LUMINA' };
+  return { title: jewelleryType ? `${pluralType(jewelleryType)} — Nahar Jewellers` : 'Nahar Jewellers' };
 }
 
 /** /categories/[type] — a category landing view of the boutique. */
@@ -27,6 +31,11 @@ export default async function CategoryPage(
   const jewelleryType = CATEGORY_SLUGS[type];
   if (!jewelleryType) notFound();
 
+  const [products, facetOptions] = await Promise.all([
+    getStorefrontProducts(),
+    getFacetOptions(),
+  ]);
+
   return (
     <div className="lum-root">
       <Header variant="shop" />
@@ -35,6 +44,8 @@ export default async function CategoryPage(
           <ShopPage
             lockedFilters={{ type: [jewelleryType] }}
             heading={pluralType(jewelleryType)}
+            initialProducts={products}
+            facetOptions={facetOptions}
           />
         </Suspense>
       </main>

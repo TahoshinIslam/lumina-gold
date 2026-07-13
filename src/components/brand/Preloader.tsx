@@ -11,7 +11,7 @@ export default function Preloader() {
 
       <div className="lum-preloader-emblem">
         <svg width="190" height="190" viewBox="0 0 120 120" fill="none" aria-hidden>
-          <g stroke="#C89B3C" strokeWidth="1">
+          <g stroke="#DAA858" strokeWidth="1">
             <path
               d="M30 42 L60 22 L90 42 L60 100 Z"
               strokeDasharray="260"
@@ -39,7 +39,7 @@ export default function Preloader() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-        <div className="lum-preloader-word">LUMINA</div>
+        <div className="lum-preloader-word">NAHAR JEWELLERS</div>
         <div className="lum-preloader-tag">Haute Joaillerie — Paris</div>
       </div>
     </div>

@@ -4,8 +4,8 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 
 export const metadata: Metadata = {
-  title: 'Boutiques — LUMINA',
-  description: 'Visit a LUMINA maison. Discover our boutiques and book a private appointment.',
+  title: 'Boutiques — Nahar Jewellers',
+  description: 'Visit a Nahar Jewellers maison. Discover our boutiques and book a private appointment.',
 };
 
 /** /boutiques — placeholder; boutique locator content to come. */
@@ -17,7 +17,7 @@ export default function BoutiquesPage() {
         <div className="lum-listing">
           <div className="lum-listing-head">
             <div>
-              <div className="lum-eyebrow-label" style={{ marginBottom: 10 }}>Maison Lumina</div>
+              <div className="lum-eyebrow-label" style={{ marginBottom: 10 }}>Nahar Jewellers</div>
               <h1 className="lum-h2 lum-listing-title">Our Boutiques</h1>
               <div className="lum-listing-count">Private salons in Paris, London, Dubai and Dhaka</div>
             </div>

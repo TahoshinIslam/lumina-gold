@@ -36,7 +36,7 @@ export default function Craftsmanship() {
           </div>
           <h2 className="lum-h2">One Pair of Hands. Six Hundred Hours.</h2>
           <p className="lum-body-text">
-            Each LUMINA creation is entrusted to a single master artisan from first sketch to
+            Each Nahar Jewellers creation is entrusted to a single master artisan from first sketch to
             final polish. Gold is drawn, forged and burnished in-house; every diamond is cut to
             reveal its most intense fire before it is ever set.
           </p>

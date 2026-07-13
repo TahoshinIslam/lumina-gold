@@ -12,7 +12,9 @@ import Marquee from '@/components/brand/Marquee';
 import Collections from '@/components/brand/Collections';
 import ParallaxShowcase from '@/components/brand/ParallaxShowcase';
 import Craftsmanship from '@/components/brand/Craftsmanship';
-import BestSellers from '@/components/brand/BestSellers';
+import GoldShowcase from '@/components/brand/GoldShowcase';
+import DiamondShowcase from '@/components/brand/DiamondShowcase';
+import { ShowcaseData } from '@/components/brand/ShowcaseSection';
 import Quote from '@/components/brand/Quote';
 import Heritage from '@/components/brand/Heritage';
 import Testimonials from '@/components/brand/Testimonials';
@@ -24,7 +26,7 @@ import Footer from '@/components/layout/Footer';
  * LuminaPage — composition root for the LUMINA landing page.
  *
  * Page order:  Preloader → Header/Nav → Hero → Marquee → Collections →
- *              Craftsmanship → Best Sellers → Quote → Heritage →
+ *              Craftsmanship → Gold → Diamond → Quote → Heritage →
  *              Testimonials → Appointment → Footer
  *
  * All interactive behavior (particles, cursor, tilt, magnetic, spotlight,
@@ -32,7 +34,12 @@ import Footer from '@/components/layout/Footer';
  * useLuminaEffects — section components are purely presentational and just
  * carry data-* attributes the hook picks up.
  */
-export default function LuminaPage() {
+export interface LuminaPageProps {
+  goldShowcase: ShowcaseData;
+  diamondShowcase: ShowcaseData;
+}
+
+export default function LuminaPage({ goldShowcase, diamondShowcase }: LuminaPageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   useLuminaEffects(rootRef);
 
@@ -52,7 +59,8 @@ export default function LuminaPage() {
         <Marquee />
         <Collections />
         <Craftsmanship />
-        <BestSellers />
+        <GoldShowcase data={goldShowcase} />
+        <DiamondShowcase data={diamondShowcase} />
         <Quote />
         <Heritage />
         <ParallaxShowcase />

@@ -4,7 +4,7 @@ import { useStore } from '@/stores/StoreContext';
 
 /**
  * Wishlist hook — thin wrapper over the shared StoreContext so existing
- * callers (ShopPage, ProductCard, ProductDetail, BestSellers) keep the
+ * callers (ShopPage, ProductCard, ProductDetail, ShowcaseSection) keep the
  * same { wished, toggleWish } API while state is now shared reactively
  * across the whole app (header badge, wishlist page).
  */
