@@ -2404,6 +2404,7 @@ a:hover { color: var(--gold-light); }
   border-top: 1px solid rgba(218,168,88, 0.14);
   scroll-margin-top: 120px;
 }
+.lum-reviews > .lum-listing-title { text-align: center; }
 .lum-stars { display: inline-flex; gap: 2px; color: rgba(156,163,158,0.5); }
 .lum-stars .is-on { color: #DAA858; }
 .lum-stars.is-input { gap: 4px; }
@@ -2412,18 +2413,20 @@ a:hover { color: var(--gold-light); }
 .lum-star-pick input:focus-visible ~ svg { outline: 2px solid #DAA858; outline-offset: 2px; border-radius: 3px; }
 .lum-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
-/* Capped, because a five-bar breakdown stretched across 1240px reads as five
-   long empty rules rather than a chart. */
+/* Full width, with the score and the breakdown centred as a pair rather than
+   pinned to the left edge of a very wide panel. */
 .lum-review-summary {
-  display: flex; gap: clamp(28px, 4vw, 48px); align-items: center; flex-wrap: wrap;
-  max-width: 660px;
-  padding: 26px 30px; margin: 26px 0 34px;
+  display: flex; gap: clamp(32px, 6vw, 80px);
+  align-items: center; justify-content: center; flex-wrap: wrap;
+  padding: 30px; margin: 26px 0 24px;
   background: #151B13; border: 1px solid rgba(218,168,88,0.22); border-radius: 8px;
 }
 .lum-review-score { text-align: center; }
 .lum-review-avg { font-family: 'Fraunces', serif; font-size: 44px; color: #DAA858; line-height: 1; }
+/* The bars grow with the panel, but not past the point where a lone 5★ rule
+   would run the whole width of a 1240px page. */
 .lum-review-bars {
-  flex: 1; min-width: 220px; max-width: 340px;
+  flex: 1 1 420px; min-width: 260px; max-width: 620px;
   display: flex; flex-direction: column; gap: 7px;
 }
 .lum-review-bar {
@@ -2464,14 +2467,14 @@ a:hover { color: var(--gold-light); }
 
 /* The two things a shopper sees before any review exists: why they can't write
    one, and that there are none. Bare left-aligned sentences floating in the
-   middle of the page is what looked broken. */
+   middle of the page is what looked broken — these span the section and read
+   from its centre. */
 .lum-reviews > .lum-pdp-note {
-  max-width: 660px; margin: 0 0 26px;
-  padding: 14px 18px; border-radius: 8px;
+  margin: 0 0 22px; padding: 16px 20px; text-align: center; border-radius: 8px;
   background: rgba(36,42,35, 0.6); border: 1px solid rgba(218,168,88, 0.16);
 }
 .lum-review-none {
-  max-width: 660px; padding: 40px 24px; text-align: center;
+  padding: 48px 24px; text-align: center;
   border: 1px dashed rgba(218,168,88, 0.22); border-radius: 8px;
   font-family: 'Fraunces', serif; font-style: italic; font-size: 16px; color: #9CA39E;
 }
