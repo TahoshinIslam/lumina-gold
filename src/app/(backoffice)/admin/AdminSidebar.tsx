@@ -8,11 +8,13 @@ import {
   ExternalLink,
   FolderTree,
   Gem,
+  Images,
   LayoutDashboard,
   LogOut,
   Megaphone,
   Ruler,
   ShoppingBag,
+  Star,
   TicketPercent,
   Users,
 } from 'lucide-react';
@@ -43,10 +45,17 @@ const GROUPS = [
     ],
   },
   {
+    label: 'Storefront',
+    items: [
+      { href: '/admin/home', label: 'Home Models', icon: Images },
+    ],
+  },
+  {
     label: 'Commerce',
     items: [
       { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
       { href: '/admin/customers', label: 'Customers', icon: Users },
+      { href: '/admin/reviews', label: 'Reviews', icon: Star },
       { href: '/admin/campaigns', label: 'Campaigns', icon: Megaphone },
       { href: '/admin/offers', label: 'Offers', icon: TicketPercent },
       { href: '/admin/rates', label: 'Gold Rates', icon: CircleDollarSign },

@@ -1,11 +1,20 @@
 import { COLLECTIONS } from '@/components/brand/data';
+import MediaSlideshow from '@/components/brand/MediaSlideshow';
+import { splitAcrossCards } from '@/config/home';
+import type { SlideImage } from '@/server/dal/home';
 
 /**
  * Collections — "Three Expressions of Light". Staggered card grid
  * (2nd and 3rd cards are pushed down via CSS nth-child margins) with
  * 3D tilt + glare on hover.
+ *
+ * `images` are whatever the admin uploaded under Home Models, dealt
+ * round-robin across the three cards; a card given more than one fades
+ * between them. With nothing uploaded each card keeps its shipped still.
  */
-export default function Collections() {
+export default function Collections({ images }: { images: SlideImage[] }) {
+  const perCard = splitAcrossCards(images, COLLECTIONS.length);
+
   return (
     <section id="collections" className="lum-collections">
       <div className="lum-collections-inner">
@@ -29,12 +38,14 @@ export default function Collections() {
 
         {/* Cards */}
         <div className="lum-col-grid">
-          {COLLECTIONS.map(collection => (
+          {COLLECTIONS.map((collection, card) => (
             <div key={collection.number} className="lum-col-card" data-reveal="clip" data-tilt="">
               <div className="lum-col-media">
-                <div className="lum-col-zoom lum-img-ph">
-                  <img src={collection.src} alt={collection.alt} />
-                </div>
+                <MediaSlideshow
+                  className="lum-col-zoom lum-img-ph"
+                  images={perCard[card].length ? perCard[card] : [{ src: collection.src }]}
+                  alt={collection.alt}
+                />
                 <div className="lum-glare" data-glare="" />
                 <div className="lum-col-badge">{collection.number}</div>
               </div>

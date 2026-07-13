@@ -1,20 +1,17 @@
 import Link from 'next/link';
+import type { CategoryTile } from '@/server/dal/home';
 
 /**
  * ShopByCategory — circular category tiles directly under the hero.
- * Each circle is just a preset filter link into /shop (categories are
- * database filters, never folders).
+ *
+ * The circles read the same `categories` rows the admin edits (name, tile
+ * image, order) as /categories does; this list used to be hardcoded, which is
+ * why an image set in the admin never appeared here. A category with no image
+ * keeps the gold-on-dark gradient rather than showing a broken frame.
  */
-const CATEGORIES = [
-  { label: 'Rings', type: 'Ring', img: '/uploads/home/GZdjz.jpg' },
-  { label: 'Earrings', type: 'Earring', img: '/uploads/home/9v96v.jpg' },
-  { label: 'Necklaces', type: 'Necklace', img: '/uploads/home/fSg1p.jpg' },
-  { label: 'Bangles', type: 'Bangle', img: '/uploads/home/bvE3z.jpg' },
-  { label: 'Bracelets', type: 'Bracelet', img: '/uploads/home/bvE3z.jpg' },
-  { label: 'Chains', type: 'Chain', img: '/uploads/home/fSg1p.jpg' },
-];
+export default function ShopByCategory({ categories }: { categories: CategoryTile[] }) {
+  if (!categories.length) return null;
 
-export default function ShopByCategory() {
   return (
     <section className="lum-cats" id="categories">
       <div className="lum-eyebrow lum-eyebrow--center" data-reveal="up">
@@ -25,13 +22,15 @@ export default function ShopByCategory() {
       <h2 className="lum-h2 lum-cats-title" data-reveal="up">Shop by Category</h2>
 
       <div className="lum-cats-grid" data-reveal="stagger">
-        {CATEGORIES.map(cat => (
-          <Link key={cat.label} href={`/shop?type=${encodeURIComponent(cat.type)}`} className="lum-cat">
-            <span className="lum-cat-circle">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={cat.img} alt={cat.label} />
+        {categories.map(category => (
+          <Link key={category.slug} href={`/categories/${category.slug}`} className="lum-cat">
+            <span className="lum-cat-circle lum-img-ph">
+              {category.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={category.image} alt={category.name} />
+              )}
             </span>
-            <span className="lum-cat-label">{cat.label}</span>
+            <span className="lum-cat-label">{category.name}</span>
           </Link>
         ))}
       </div>

@@ -11,12 +11,15 @@ import { BulkActionsBar } from '@/features/admin/components/BulkActionsBar';
 import { AdminActionButton, AdminInlineForm } from '@/features/admin/components/AdminFeedback';
 import { AdminEmptyState } from '@/features/admin/components/AdminEmptyState';
 import { DebouncedSearchInput } from '@/features/admin/components/DebouncedSearchInput';
-import { PackageSearch } from 'lucide-react';
+import { PackageSearch, FileDown } from 'lucide-react';
+import { ORDER_STATUS } from '@/types/order';
 
 export const dynamic = 'force-dynamic';
 
 const bdt = (n: number) => `৳ ${Number(n).toLocaleString('en-IN')}`;
-const STATUSES = ['reserved','pending','confirmed','processing','ready_to_ship','shipped','delivered','cancelled','returned','refunded','expired'];
+// The jewellery pipeline, straight from the shared vocabulary — the admin's
+// dropdown and the customer's timeline must offer the same words.
+const STATUSES = Object.keys(ORDER_STATUS);
 const badge = (s: string) =>
   ['delivered','confirmed'].includes(s) ? 'ok'
     : ['cancelled','returned','refunded','expired'].includes(s) ? 'err'
@@ -87,7 +90,34 @@ export default async function AdminOrdersPage({
 
   return (
     <>
-      <h1 className="adm-h1">Orders &amp; Bookings</h1>
+      <div className="adm-detail-head">
+        <h1 className="adm-h1">Orders &amp; Bookings</h1>
+        {/* Exports what is on screen, not the whole table — the filter travels
+            with the link. */}
+        <div className="adm-detail-tools">
+        <a className="adm-btn ghost"
+          href={`/api/admin/orders/export?${new URLSearchParams({
+            ...(q ? { q } : {}),
+            // The export takes ONE status; with several ticked, exporting them
+            // all and letting the spreadsheet filter is the honest behaviour.
+            ...(statuses.length === 1 ? { status: statuses[0] } : {}),
+            ...(from ? { from } : {}),
+            ...(to ? { to } : {}),
+          }).toString()}`}>
+          <FileDown size={14} /> Export CSV
+        </a>
+        <a className="adm-btn ghost"
+          href={`/api/admin/orders/export?${new URLSearchParams({
+            format: 'xlsx',
+            ...(q ? { q } : {}),
+            ...(statuses.length === 1 ? { status: statuses[0] } : {}),
+            ...(from ? { from } : {}),
+            ...(to ? { to } : {}),
+          }).toString()}`}>
+          <FileDown size={14} /> Export Excel
+        </a>
+        </div>
+      </div>
       <p className="adm-sub">
         {bookings > 0
           ? `${bookings} active hold${bookings === 1 ? '' : 's'} awaiting phone confirmation — call & confirm before the timer runs out.`
@@ -150,7 +180,11 @@ export default async function AdminOrdersPage({
                     <td className="adm-check-col">
                       <input type="checkbox" form="orders-bulk-form" name="ids" value={o.id} aria-label={`Select ${o.order_no}`} />
                     </td>
-                    <td><strong>{o.order_no}</strong></td>
+                    <td>
+                      <Link href={`/admin/orders/${o.id}`} className="adm-link">
+                        <strong>{o.order_no}</strong>
+                      </Link>
+                    </td>
                     <td>
                       {o.shipping_name || '—'}
                       <div style={{ fontSize: 12, color: '#687168' }}>{o.shipping_phone}</div>

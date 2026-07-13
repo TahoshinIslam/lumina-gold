@@ -1,10 +1,13 @@
 import { CRAFT_FEATURES } from '@/components/brand/data';
+import MediaSlideshow from '@/components/brand/MediaSlideshow';
+import type { SlideImage } from '@/server/dal/home';
 
 /**
  * Craftsmanship / Savoir-Faire — artisan photo with floating "600+ hours"
- * stat card (count-up on scroll), copy, and a 2×2 feature grid.
+ * stat card (count-up on scroll), copy, and a 2×2 feature grid. The photo is
+ * whatever the admin uploaded under Home Models → Savoir-Faire.
  */
-export default function Craftsmanship() {
+export default function Craftsmanship({ images }: { images: SlideImage[] }) {
   return (
     <section id="craft" className="lum-craft">
       {/* Decorative background */}
@@ -16,9 +19,7 @@ export default function Craftsmanship() {
         <div className="lum-figure" data-reveal="left">
           <div className="lum-figure-outline lum-figure-outline--craft" />
           <div className="lum-figure-media">
-            <div className="lum-figure-zoom lum-img-ph">
-              <img src="/uploads/home/craft-artisan.png" alt="Artisan hands setting a diamond" />
-            </div>
+            <MediaSlideshow className="lum-figure-zoom lum-img-ph" images={images} alt="Artisan hands setting a diamond" />
           </div>
           <div className="lum-stat-card">
             <div className="lum-stat-num">

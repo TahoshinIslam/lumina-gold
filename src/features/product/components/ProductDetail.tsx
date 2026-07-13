@@ -95,6 +95,9 @@ export default function ProductDetail({
   const canOrder = !!selectedVariant && selectedVariant.status === 'active'
     && (displayStock > 0 || product.availability === 'Made To Order');
 
+  /** The shopper simply hasn't picked yet — not the same as "can't be bought". */
+  const awaitingChoice = (requiresPurity && !purity) || (requiresSize && !size);
+
   const rows = breakdown(product, displayPrice, displayWeight, purity);
 
   // Record this product as recently viewed (once on mount).
@@ -295,11 +298,20 @@ export default function ProductDetail({
 
           {/* Actions */}
           <div className="lum-pdp-actions">
+            {/* A missing CHOICE must not disable the button. Disabling it here is
+                what made the page look broken: a ring with sizes opened with Add
+                to Bag greyed out, nothing said why, and the "choose a size" prompt
+                below could never fire — you cannot click a disabled button. So the
+                button is only disabled when the piece genuinely cannot be bought
+                (no stock, inactive variant); an unmade choice lets the click
+                through and surfaces the prompt. */}
             <button
               className="lum-cta-gold"
               style={{ justifyContent: 'center' }}
               onClick={addToBag}
-              disabled={hasVariants ? !canOrder : product.availability === 'Made To Order' ? false : product.stock === 0}
+              disabled={hasVariants
+                ? !awaitingChoice && !canOrder
+                : product.availability === 'Made To Order' ? false : product.stock === 0}
             >
               {added ? '✓ Added to Bag' : product.availability === 'Made To Order' ? 'Add to Bag · Made to Order' : 'Add to Bag'}
             </button>

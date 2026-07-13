@@ -8,6 +8,7 @@ import path from 'path';
 import { query, db } from '@/server/db/client';
 import { ADMIN_COOKIE, adminToken, checkPassword } from '@/server/auth/admin';
 import { VARIANT_AXIS_CODES } from '@/config/sizes';
+import { homeSection } from '@/config/home';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
@@ -456,9 +457,12 @@ export async function addCategoryAction(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   if (!name) redirect('/admin/categories/new?error=missing');
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  await query('INSERT IGNORE INTO categories (name, slug) VALUES (?, ?)', [name, slug]);
+  const image = String(formData.get('image') || '').trim() || null;
+  await query('INSERT IGNORE INTO categories (name, slug, image) VALUES (?, ?, ?)', [name, slug, image]);
   revalidateTag('admin-product-lookups', { expire: 0 });
   revalidatePath('/admin/categories');
+  revalidatePath('/categories');
+  revalidatePath('/'); // the home page's category circles read the same rows
   redirect(feedbackUrl('/admin/categories', 'Category created successfully'));
 }
 
@@ -467,9 +471,13 @@ export async function updateCategoryAction(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   if (!id || !name) redirect(`/admin/categories/${id}/edit?error=missing`);
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  await query('UPDATE categories SET name = ?, slug = ? WHERE id = ?', [name, slug, id]);
+  // Empty means the admin removed the tile image — store NULL, not ''.
+  const image = String(formData.get('image') || '').trim() || null;
+  await query('UPDATE categories SET name = ?, slug = ?, image = ? WHERE id = ?', [name, slug, image, id]);
   revalidateTag('admin-product-lookups', { expire: 0 });
   revalidatePath('/admin/categories');
+  revalidatePath('/categories');
+  revalidatePath('/');
   redirect(feedbackUrl('/admin/categories', 'Category updated successfully'));
 }
 
@@ -483,6 +491,92 @@ export async function deleteCategoryAction(formData: FormData) {
   await query('DELETE FROM categories WHERE id = ?', [id]);
   revalidateTag('admin-product-lookups', { expire: 0 });
   revalidatePath('/admin/categories');
+  revalidatePath('/categories');
+  revalidatePath('/');
+}
+
+/* ── Home models (the landing page's editorial imagery) ───────────────────
+ * A section is a gallery, not a slot: one image sits still, several cross-fade.
+ * The home page is force-dynamic, so revalidating '/' is belt-and-braces — it
+ * matters if the page is ever made static. */
+
+const homeUploadPath = (image: string) =>
+  path.join(process.cwd(), 'public', image.replace(/^\/+/, '').split('?')[0]);
+
+export async function addHomeMediaAction(formData: FormData) {
+  const section = String(formData.get('section') || '');
+  const image = String(formData.get('image') || '').trim();
+  if (!homeSection(section)) return { ok: false, message: 'Unknown section' };
+  if (!image) return { ok: false, message: 'Upload an image first' };
+
+  // Appended, not prepended: the admin's existing order is left alone.
+  const last = await query<{ n: number | null }>(
+    'SELECT MAX(sort_order) n FROM home_media WHERE section = ?', [section],
+  );
+  // The upload keeps the photo's own proportions, so the page needs them to give
+  // it a frame that fits rather than cropping it back into a fixed one.
+  const width = Number(formData.get('width')) || null;
+  const height = Number(formData.get('height')) || null;
+  await query(
+    'INSERT INTO home_media (section, image, width, height, alt, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+    [section, image, width, height, String(formData.get('alt') || '').trim() || null, (last[0]?.n ?? 0) + 1],
+  );
+  revalidatePath('/admin/home');
+  revalidatePath('/');
+  return { ok: true, message: 'Image added to the home page' };
+}
+
+export async function deleteHomeMediaAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  if (!id) return { ok: false, message: 'Nothing to remove' };
+  const rows = await query<{ image: string }>('SELECT image FROM home_media WHERE id = ?', [id]);
+  if (!rows[0]) return { ok: false, message: 'Already removed' };
+
+  await query('DELETE FROM home_media WHERE id = ?', [id]);
+  // Only ever deletes inside public/uploads/home, and only a path we wrote.
+  await unlink(homeUploadPath(rows[0].image)).catch(() => {});
+
+  revalidatePath('/admin/home');
+  revalidatePath('/');
+  return { ok: true, message: 'Image removed' };
+}
+
+/** Swap this image with its neighbour, so the admin controls which card gets what. */
+export async function moveHomeMediaAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const dir = String(formData.get('dir')) === 'up' ? 'up' : 'down';
+  if (!id) return { ok: false, message: 'Nothing to move' };
+
+  const rows = await query<{ section: string; sort_order: number }>(
+    'SELECT section, sort_order FROM home_media WHERE id = ?', [id],
+  );
+  const current = rows[0];
+  if (!current) return { ok: false, message: 'Already removed' };
+
+  // Ties on sort_order are broken by id, exactly as the gallery is ordered.
+  const neighbours = await query<{ id: number; sort_order: number }>(
+    dir === 'up'
+      ? `SELECT id, sort_order FROM home_media
+          WHERE section = ? AND (sort_order < ? OR (sort_order = ? AND id < ?))
+          ORDER BY sort_order DESC, id DESC LIMIT 1`
+      : `SELECT id, sort_order FROM home_media
+          WHERE section = ? AND (sort_order > ? OR (sort_order = ? AND id > ?))
+          ORDER BY sort_order ASC, id ASC LIMIT 1`,
+    [current.section, current.sort_order, current.sort_order, id],
+  );
+  const swap = neighbours[0];
+  if (!swap) return { ok: false, message: dir === 'up' ? 'Already first' : 'Already last' };
+
+  await query('UPDATE home_media SET sort_order = ? WHERE id = ?', [swap.sort_order, id]);
+  await query('UPDATE home_media SET sort_order = ? WHERE id = ?', [current.sort_order, swap.id]);
+  // Equal sort_orders would leave the order decided by id — force them apart.
+  if (swap.sort_order === current.sort_order) {
+    await query('UPDATE home_media SET sort_order = ? WHERE id = ?', [current.sort_order - (dir === 'up' ? 1 : -1), id]);
+  }
+
+  revalidatePath('/admin/home');
+  revalidatePath('/');
+  return { ok: true, message: 'Order updated' };
 }
 
 /* ── Sizes (admin-managed, store-wide) ────────────────────────────────────
@@ -584,7 +678,14 @@ export async function deleteCouponAction(formData: FormData) {
 
 /* ── Orders ───────────────────────────────────────────────────────────── */
 
-const ORDER_STATUSES = ['reserved','pending','confirmed','processing','ready_to_ship','shipped','delivered','cancelled','returned','refunded','expired'];
+// Mirrors the enum in 009_orders_commerce.sql — the workshop stages included,
+// or an admin could never move an order into 'crafting' or 'hallmarking'.
+const ORDER_STATUSES = [
+  'reserved', 'pending', 'confirmed', 'processing',
+  'crafting', 'hallmarking', 'diamond_setting', 'polishing', 'quality_check', 'packed',
+  'ready_to_ship', 'shipped', 'out_for_delivery', 'delivered',
+  'cancelled', 'returned', 'refunded', 'expired',
+];
 
 /** Confirm a phone booking: lock in the sale, close the hold, clear timer. */
 export async function confirmBookingAction(formData: FormData) {
@@ -619,19 +720,87 @@ export async function releaseBookingAction(formData: FormData) {
   return { ok: true, message: 'Booking released' };
 }
 
+/**
+ * Statuses in which the pieces are OFF the shelf — sold, or being made for
+ * someone. Everything else means they're back in the boutique.
+ *
+ * A status change that crosses this line has to move the stock with it, or the
+ * shelf and the system quietly disagree: an admin cancelling an order from the
+ * dropdown used to leave the stock deducted for ever, so a piece sitting in the
+ * safe could never be sold again.
+ */
+const STOCK_IS_OUT = (status: string) =>
+  !['cancelled', 'returned', 'refunded', 'expired'].includes(status);
+
+/** Move an order's stock to match a status change. Runs inside the caller's transaction. */
+async function reconcileStock(
+  conn: Awaited<ReturnType<typeof db.getConnection>>,
+  orderId: number, from: string, to: string,
+) {
+  const was = STOCK_IS_OUT(from);
+  const now = STOCK_IS_OUT(to);
+  if (was === now) return; // the line wasn't crossed — nothing to move
+
+  const items = await query<{ variant_id: number; quantity: number }>(
+    'SELECT variant_id, quantity FROM order_items WHERE order_id = ?', [orderId],
+  );
+  // Restoring when it comes back, taking it out again if an order is revived.
+  const sign = was && !now ? 1 : -1;
+  for (const item of items) {
+    if (!item.variant_id) continue;
+    await conn.query(
+      sign > 0
+        ? `UPDATE inventory SET quantity_available = quantity_available + ?
+             WHERE variant_id = ? AND warehouse_id = 1`
+        : `UPDATE inventory SET quantity_available = GREATEST(0, quantity_available - ?)
+             WHERE variant_id = ? AND warehouse_id = 1`,
+      [item.quantity, item.variant_id],
+    );
+    await conn.query(
+      `INSERT INTO inventory_movements
+         (variant_id, warehouse_id, movement_type, quantity, reference_type, reference_id, note)
+       VALUES (?, 1, ?, ?, 'order', ?, ?)`,
+      [item.variant_id, sign > 0 ? 'return' : 'sale', sign * item.quantity, orderId, `status → ${to}`],
+    );
+  }
+}
+
+/** Change one order's status, moving its stock with it. */
+async function setOrderStatus(id: number, status: string, note: string) {
+  const rows = await query<{ status: string; order_no: string }>(
+    'SELECT status, order_no FROM orders WHERE id = ?', [id],
+  );
+  const order = rows[0];
+  if (!order || order.status === status) return { ok: false, message: 'Status unchanged' };
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    await conn.query(
+      'INSERT INTO order_status_history (order_id, from_status, to_status, note) VALUES (?, ?, ?, ?)',
+      [id, order.status, status, note],
+    );
+    await reconcileStock(conn, id, order.status, status);
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    return { ok: false, message: e instanceof Error ? e.message : 'Could not update the order' };
+  } finally {
+    conn.release();
+  }
+
+  revalidatePath(`/account/orders/${order.order_no}`);
+  return { ok: true, message: 'Order status updated' };
+}
+
 export async function updateOrderStatusAction(formData: FormData) {
   const id = Number(formData.get('id'));
   const status = String(formData.get('status') || '');
   if (!id || !ORDER_STATUSES.includes(status)) return { ok: false, message: 'Invalid status' };
-  const rows = await query<{ status: string }>('SELECT status FROM orders WHERE id = ?', [id]);
-  if (!rows[0] || rows[0].status === status) return { ok: false, message: 'Status unchanged' };
-  await query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
-  await query(
-    'INSERT INTO order_status_history (order_id, from_status, to_status, note) VALUES (?, ?, ?, ?)',
-    [id, rows[0].status, status, 'changed from admin panel'],
-  );
+  const result = await setOrderStatus(id, status, 'changed from admin panel');
   revalidatePath('/admin/orders');
-  return { ok: true, message: 'Order status updated' };
+  return result;
 }
 
 export async function bulkUpdateOrderStatusAction(formData: FormData) {
@@ -643,11 +812,8 @@ export async function bulkUpdateOrderStatusAction(formData: FormData) {
   );
   for (const row of rows) {
     if (row.status === status) continue;
-    await query('UPDATE orders SET status = ? WHERE id = ?', [status, row.id]);
-    await query(
-      'INSERT INTO order_status_history (order_id, from_status, to_status, note) VALUES (?, ?, ?, ?)',
-      [row.id, row.status, status, 'bulk update from admin panel'],
-    );
+    // Same path as a single change, so a bulk cancel returns stock too.
+    await setOrderStatus(row.id, status, 'bulk update from admin panel');
   }
   revalidatePath('/admin/orders');
 }
@@ -727,4 +893,232 @@ export async function toggleCampaignPublishedAction(formData: FormData) {
   await query('UPDATE campaigns SET is_published = 1 - is_published WHERE id = ?', [id]);
   revalidatePath('/admin/campaigns');
   return { ok: true };
+}
+
+/* ── Fulfilment (Phase 10) ────────────────────────────────────────────────
+ * The things a boutique actually does to an order after it lands: ship it,
+ * refund it, write a note only staff can see. Each one revalidates the
+ * customer's own view of the order too, so the two never disagree. */
+
+/** Courier + tracking number. The shipment row is the source of truth; setting
+ *  one also moves the order to 'shipped' if it hasn't got there yet. */
+export async function saveShipmentAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const courier = String(formData.get('courier') || '').trim().slice(0, 80);
+  const tracking = String(formData.get('tracking_no') || '').trim().slice(0, 120);
+  if (!id || !courier) return { ok: false, message: 'Name the delivery partner' };
+
+  const rows = await query<{ order_no: string; status: string }>(
+    'SELECT order_no, status FROM orders WHERE id = ?', [id],
+  );
+  if (!rows[0]) return { ok: false, message: 'Order not found' };
+
+  const existing = await query<{ id: number }>('SELECT id FROM shipments WHERE order_id = ?', [id]);
+  if (existing[0]) {
+    await query(
+      `UPDATE shipments SET courier = ?, tracking_no = ?, status = 'in_transit', shipped_at = COALESCE(shipped_at, NOW())
+        WHERE id = ?`,
+      [courier, tracking || null, existing[0].id],
+    );
+  } else {
+    await query(
+      `INSERT INTO shipments (order_id, courier, tracking_no, status, shipped_at)
+       VALUES (?, ?, ?, 'in_transit', NOW())`,
+      [id, courier, tracking || null],
+    );
+  }
+
+  if (!['shipped', 'out_for_delivery', 'delivered'].includes(rows[0].status)) {
+    await query(`UPDATE orders SET status = 'shipped' WHERE id = ?`, [id]);
+    await query(
+      `INSERT INTO order_status_history (order_id, from_status, to_status, note)
+       VALUES (?, ?, 'shipped', ?)`,
+      [id, rows[0].status, `handed to ${courier}${tracking ? ` · ${tracking}` : ''}`],
+    );
+  }
+
+  revalidatePath('/admin/orders');
+  revalidatePath(`/account/orders/${rows[0].order_no}`);
+  return { ok: true, message: 'Delivery partner saved' };
+}
+
+/**
+ * Refund an order.
+ *
+ * Records the money AND puts the stock back, in one transaction: a refund that
+ * forgets the inventory is how a boutique ends up selling a piece it no longer
+ * has. Cash is not moved here — no gateway is connected — so the refund row is
+ * marked 'pending' for whoever actually sends the money.
+ */
+export async function refundOrderAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const reason = String(formData.get('reason') || '').trim().slice(0, 255) || 'refunded by the boutique';
+  if (!id) return { ok: false, message: 'Order not found' };
+
+  const rows = await query<{ order_no: string; status: string; grand_total: string; payment_method: string }>(
+    'SELECT order_no, status, grand_total, payment_method FROM orders WHERE id = ?', [id],
+  );
+  const order = rows[0];
+  if (!order) return { ok: false, message: 'Order not found' };
+  if (order.status === 'refunded') return { ok: false, message: 'Already refunded' };
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const items = await query<{ variant_id: number; quantity: number }>(
+      'SELECT variant_id, quantity FROM order_items WHERE order_id = ?', [id],
+    );
+    // Only orders whose stock actually left need it back — a cancelled order
+    // already returned it, and crediting twice invents inventory.
+    const stockIsOut = !['cancelled', 'expired', 'returned'].includes(order.status);
+    if (stockIsOut) {
+      for (const item of items) {
+        if (!item.variant_id) continue;
+        await conn.query(
+          `UPDATE inventory SET quantity_available = quantity_available + ?
+            WHERE variant_id = ? AND warehouse_id = 1`,
+          [item.quantity, item.variant_id],
+        );
+        await conn.query(
+          `INSERT INTO inventory_movements
+             (variant_id, warehouse_id, movement_type, quantity, reference_type, reference_id, note)
+           VALUES (?, 1, 'return', ?, 'order', ?, 'refunded')`,
+          [item.variant_id, item.quantity, id],
+        );
+      }
+    }
+
+    await conn.query(
+      `INSERT INTO refunds (order_id, amount, method, status)
+       VALUES (?, ?, ?, 'pending')`,
+      [id, order.grand_total, order.payment_method],
+    );
+    await conn.query(
+      `INSERT INTO payment_transactions (order_id, method, type, status, amount, currency)
+       VALUES (?, ?, 'refund', 'pending', ?, 'BDT')`,
+      [id, order.payment_method, order.grand_total],
+    );
+    await conn.query(`UPDATE orders SET status = 'refunded', payment_status = 'refunded' WHERE id = ?`, [id]);
+    await conn.query(
+      `INSERT INTO order_status_history (order_id, from_status, to_status, note)
+       VALUES (?, ?, 'refunded', ?)`,
+      [id, order.status, reason],
+    );
+
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    return { ok: false, message: e instanceof Error ? e.message : 'Could not refund' };
+  } finally {
+    conn.release();
+  }
+
+  revalidatePath('/admin/orders');
+  revalidatePath(`/account/orders/${order.order_no}`);
+  return { ok: true, message: 'Refund recorded and stock returned' };
+}
+
+/** A note only the boutique sees — never shown to the customer. */
+export async function saveInternalNoteAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const note = String(formData.get('internal_note') || '').trim().slice(0, 1000);
+  if (!id) return { ok: false, message: 'Order not found' };
+  await query('UPDATE orders SET internal_note = ? WHERE id = ?', [note || null, id]);
+  revalidatePath('/admin/orders');
+  return { ok: true, message: 'Note saved' };
+}
+
+/* ── Reviews (Phase 11) ───────────────────────────────────────────────────
+ * Moderation is a state machine on `reviews.status`, and every move is written
+ * to audit_logs — "who hid this five-star review, and when" has to be
+ * answerable. */
+
+const REVIEW_STATUSES = ['pending', 'approved', 'rejected'];
+
+async function logModeration(reviewId: number, from: string, to: string) {
+  await query(
+    `INSERT INTO audit_logs (action, entity_type, entity_id, old_values, new_values)
+     VALUES ('review.moderate', 'review', ?, ?, ?)`,
+    [reviewId, JSON.stringify({ status: from }), JSON.stringify({ status: to })],
+  );
+}
+
+export async function moderateReviewAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const status = String(formData.get('status') || '');
+  if (!id || !REVIEW_STATUSES.includes(status)) return { ok: false, message: 'Invalid status' };
+
+  const rows = await query<{ status: string; product_id: number }>(
+    'SELECT status, product_id FROM reviews WHERE id = ?', [id],
+  );
+  if (!rows[0]) return { ok: false, message: 'Review not found' };
+  if (rows[0].status === status) return { ok: false, message: 'Nothing to change' };
+
+  await query('UPDATE reviews SET status = ? WHERE id = ?', [status, id]);
+  await logModeration(id, rows[0].status, status);
+
+  revalidatePath('/admin/reviews');
+  revalidateStorefront();
+  return {
+    ok: true,
+    message: status === 'approved' ? 'Review published'
+      : status === 'rejected' ? 'Review hidden from the storefront'
+      : 'Review sent back to moderation',
+  };
+}
+
+async function bulkModerate(ids: number[], status: string) {
+  if (!ids.length || !REVIEW_STATUSES.includes(status)) return;
+  const rows = await query<{ id: number; status: string }>(
+    `SELECT id, status FROM reviews WHERE id IN (${ids.map(() => '?').join(',')})`, ids,
+  );
+  for (const row of rows) {
+    if (row.status === status) continue;
+    await query('UPDATE reviews SET status = ? WHERE id = ?', [status, row.id]);
+    await logModeration(row.id, row.status, status);
+  }
+  revalidatePath('/admin/reviews');
+  revalidateStorefront();
+}
+
+/* One action per verdict: the bulk bar submits ONE form, so a shared
+ * `status` field would make "Approve" and "Hide" send the same thing. */
+export async function bulkApproveReviewsAction(formData: FormData) {
+  await bulkModerate(formData.getAll('ids').map(Number).filter(Boolean), 'approved');
+}
+
+export async function bulkHideReviewsAction(formData: FormData) {
+  await bulkModerate(formData.getAll('ids').map(Number).filter(Boolean), 'rejected');
+}
+
+/** The boutique's public answer, shown under the review on the product page. */
+export async function replyToReviewAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const reply = String(formData.get('reply') || '').trim().slice(0, 2000);
+  if (!id) return { ok: false, message: 'Review not found' };
+
+  await query(
+    'UPDATE reviews SET reply = ?, replied_at = ? WHERE id = ?',
+    [reply || null, reply ? new Date() : null, id],
+  );
+  revalidatePath('/admin/reviews');
+  revalidateStorefront();
+  return { ok: true, message: reply ? 'Reply published' : 'Reply removed' };
+}
+
+export async function deleteReviewAdminAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  if (!id) return { ok: false, message: 'Review not found' };
+  const media = await query<{ path: string }>('SELECT path FROM review_media WHERE review_id = ?', [id]);
+  await query('DELETE FROM reviews WHERE id = ?', [id]); // media + votes cascade
+  await Promise.all(media.map(m =>
+    unlink(path.join(process.cwd(), 'public', m.path.replace(/^\/+/, ''))).catch(() => {})));
+  await query(
+    `INSERT INTO audit_logs (action, entity_type, entity_id) VALUES ('review.delete', 'review', ?)`,
+    [id],
+  );
+  revalidatePath('/admin/reviews');
+  revalidateStorefront();
+  return { ok: true, message: 'Review deleted' };
 }

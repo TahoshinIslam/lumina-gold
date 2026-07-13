@@ -232,9 +232,44 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
   const params = { ...(q && { q }), ...(cat && { cat: String(cat) }), ...(days !== 8 && { days: String(days) }) };
   const ICON: Record<string, string> = { order: '↻', review: '★', audit: '✎', stock: '◲' };
 
+  // What a boutique actually opens the dashboard to see: what came in today, and
+  // what is waiting on someone. The KPI row above is the business over time; this
+  // row is the shop floor, right now.
+  const [today] = await query<{ orders: number; revenue: string | null }>(
+    `SELECT COUNT(*) orders, COALESCE(SUM(grand_total), 0) revenue
+       FROM orders
+      WHERE DATE(placed_at) = CURDATE() AND ${REVENUE_OK}`,
+  );
+  const [waiting] = await query<{ pending: number; cancelled: number }>(
+    `SELECT
+       SUM(status IN ('pending','confirmed')) pending,
+       SUM(status IN ('cancelled','refunded','returned')) cancelled
+     FROM orders`,
+  );
+
   return (
     <div className="dash">
       <h1 className="adm-h1 dash-title">Dashboard</h1>
+
+      {/* ── Today ───────────────────────────────────────────────────────── */}
+      <div className="adm-stat-row">
+        <Link href="/admin/orders" className="adm-stat">
+          <div className="adm-stat-num">{Number(today.orders).toLocaleString('en-IN')}</div>
+          <div className="adm-stat-lbl">Today’s orders</div>
+        </Link>
+        <div className="adm-stat">
+          <div className="adm-stat-num">{bdt(Number(today.revenue ?? 0))}</div>
+          <div className="adm-stat-lbl">Today’s revenue</div>
+        </div>
+        <Link href="/admin/orders?status=pending" className="adm-stat">
+          <div className="adm-stat-num">{Number(waiting.pending ?? 0).toLocaleString('en-IN')}</div>
+          <div className="adm-stat-lbl">Awaiting the workshop</div>
+        </Link>
+        <Link href="/admin/orders?status=cancelled" className="adm-stat">
+          <div className="adm-stat-num">{Number(waiting.cancelled ?? 0).toLocaleString('en-IN')}</div>
+          <div className="adm-stat-lbl">Cancelled &amp; refunded</div>
+        </Link>
+      </div>
 
       {/* ── KPI row ─────────────────────────────────────────────────────── */}
       <div className="dash-kpis">

@@ -15,6 +15,7 @@ import Craftsmanship from '@/components/brand/Craftsmanship';
 import GoldShowcase from '@/components/brand/GoldShowcase';
 import DiamondShowcase from '@/components/brand/DiamondShowcase';
 import { ShowcaseData } from '@/components/brand/ShowcaseSection';
+import type { CategoryTile, SlideImage } from '@/server/dal/home';
 import Quote from '@/components/brand/Quote';
 import Heritage from '@/components/brand/Heritage';
 import Testimonials from '@/components/brand/Testimonials';
@@ -37,9 +38,18 @@ import Footer from '@/components/layout/Footer';
 export interface LuminaPageProps {
   goldShowcase: ShowcaseData;
   diamondShowcase: ShowcaseData;
+  /** Live category rows — the tiles under the hero (Admin → Categories). */
+  categories: CategoryTile[];
+  /** Editorial photography per section (Admin → Home Models). */
+  collectionImages: SlideImage[];
+  craftImages: SlideImage[];
+  heritageImages: SlideImage[];
 }
 
-export default function LuminaPage({ goldShowcase, diamondShowcase }: LuminaPageProps) {
+export default function LuminaPage({
+  goldShowcase, diamondShowcase, categories,
+  collectionImages, craftImages, heritageImages,
+}: LuminaPageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   useLuminaEffects(rootRef);
 
@@ -55,14 +65,14 @@ export default function LuminaPage({ goldShowcase, diamondShowcase }: LuminaPage
       {/* Page content */}
       <div style={{ position: 'relative', zIndex: 2 }}>
         <Hero />
-        <ShopByCategory />
+        <ShopByCategory categories={categories} />
         <Marquee />
-        <Collections />
-        <Craftsmanship />
+        <Collections images={collectionImages} />
+        <Craftsmanship images={craftImages} />
         <GoldShowcase data={goldShowcase} />
         <DiamondShowcase data={diamondShowcase} />
         <Quote />
-        <Heritage />
+        <Heritage images={heritageImages} />
         <ParallaxShowcase />
         <Testimonials />
         <LatestNews />

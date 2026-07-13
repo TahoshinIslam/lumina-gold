@@ -1,10 +1,13 @@
 import { HERITAGE_STATS } from '@/components/brand/data';
+import MediaSlideshow from '@/components/brand/MediaSlideshow';
+import type { SlideImage } from '@/server/dal/home';
 
 /**
  * Heritage — "Four Decades of Light": maison history, count-up stats
- * (years / artisans / maisons) and the archive photograph.
+ * (years / artisans / maisons) and the archive photograph, which the admin
+ * sets under Home Models → Heritage.
  */
-export default function Heritage() {
+export default function Heritage({ images }: { images: SlideImage[] }) {
   return (
     <section id="heritage" className="lum-heritage">
       <div className="lum-split">
@@ -41,9 +44,7 @@ export default function Heritage() {
         <div className="lum-figure" data-reveal="right">
           <div className="lum-figure-outline lum-figure-outline--heritage" />
           <div className="lum-figure-media">
-            <div className="lum-figure-zoom lum-img-ph">
-              <img src="/uploads/home/heritage-archive.png" alt="Heritage archive photograph" />
-            </div>
+            <MediaSlideshow className="lum-figure-zoom lum-img-ph" images={images} alt="Heritage archive photograph" />
           </div>
         </div>
       </div>

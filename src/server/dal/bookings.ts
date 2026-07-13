@@ -1,4 +1,5 @@
 import { query } from '@/server/db/client';
+import type { Booking, BookingLine } from '@/types/booking';
 
 /**
  * Booking model — a jewellery boutique doesn't sell online. A customer
@@ -6,6 +7,35 @@ import { query } from '@/server/db/client';
  * confirm. If not confirmed in time, the hold expires and stock is released.
  */
 export const HOLD_MINUTES = 15;
+
+/**
+ * Every booking belonging to a customer — the order-tracking table on their
+ * account page. Orders are matched by user_id, which checkout now stamps even
+ * for a guest (it creates the account from the details they typed).
+ */
+export async function getCustomerBookings(userId: number): Promise<Booking[]> {
+  const orders = await query<Omit<Booking, 'items'>>(
+    `SELECT id, order_no, status, reserved_until, grand_total, placed_at
+       FROM orders WHERE user_id = ? ORDER BY placed_at DESC, id DESC LIMIT 50`,
+    [userId],
+  );
+  if (!orders.length) return [];
+
+  const ids = orders.map(o => o.id);
+  const lines = await query<BookingLine & { order_id: number }>(
+    `SELECT order_id, product_name, variant_sku, quantity, line_total
+       FROM order_items WHERE order_id IN (${ids.map(() => '?').join(',')}) ORDER BY id`,
+    ids,
+  );
+  return orders.map(order => ({
+    ...order,
+    grand_total: Number(order.grand_total),
+    items: lines
+      .filter(l => l.order_id === order.id)
+      .map(({ product_name, variant_sku, quantity, line_total }) =>
+        ({ product_name, variant_sku, quantity, line_total: Number(line_total) })),
+  }));
+}
 
 /**
  * Lazily expire stale reservations. There's no background worker, so we

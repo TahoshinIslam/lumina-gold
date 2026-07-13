@@ -14,7 +14,8 @@ export default async function EditCategoryPage({
 }) {
   const { id } = await params;
   const { error } = await searchParams;
-  const rows = await query<{ id: number; name: string }>('SELECT id, name FROM categories WHERE id = ?', [Number(id)]);
+  const rows = await query<{ id: number; name: string; slug: string; image: string | null }>(
+    'SELECT id, name, slug, image FROM categories WHERE id = ?', [Number(id)]);
   if (!rows[0]) notFound();
 
   return (
