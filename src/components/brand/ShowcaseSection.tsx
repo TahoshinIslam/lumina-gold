@@ -14,6 +14,7 @@ import { firstImage } from '@/features/catalog/image';
 const TABS = [
   { key: 'new', label: 'New Arrivals' },
   { key: 'best', label: 'Best Sellers' },
+  { key: 'featured', label: 'Featured' },
   { key: 'discount', label: 'Discounts' },
 ] as const;
 
@@ -22,6 +23,7 @@ type TabKey = (typeof TABS)[number]['key'];
 export interface ShowcaseData {
   newArrivals: Product[];
   bestSellers: Product[];
+  featured: Product[];
   discounts: Product[];
 }
 
@@ -36,6 +38,7 @@ export default function ShowcaseSection({
   const productsByTab: Record<TabKey, Product[]> = {
     new: data.newArrivals,
     best: data.bestSellers,
+    featured: data.featured,
     discount: data.discounts,
   };
   const products = productsByTab[tab];

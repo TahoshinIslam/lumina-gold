@@ -16,7 +16,7 @@ import type { Availability, GemstoneKind, Gender, Material, Product, ProductSpec
  */
 
 export type MainCategory = 'gold' | 'diamond' | 'platinum' | 'silver';
-export type ShowcaseTab = 'new' | 'best' | 'discount';
+export type ShowcaseTab = 'new' | 'best' | 'featured' | 'discount';
 
 interface ProductRow {
   id: number;
@@ -296,6 +296,8 @@ export async function getHomepageSection(mainCategory: MainCategory, tab: Showca
   const tabClause =
     tab === 'new' ? 'AND p.is_new_arrival = 1'
     : tab === 'best' ? 'AND p.is_best_seller = 1'
+    // is_featured has been on the product form all along; nothing read it.
+    : tab === 'featured' ? 'AND p.is_featured = 1'
     : 'AND pc.discount_amount > 0';
   const rows = await query<ProductRow>(
     `${BASE_SELECT} WHERE p.status = 'active' ${scope.sql} ${tabClause} ORDER BY p.created_at DESC LIMIT ?`,
@@ -421,4 +423,22 @@ export async function getFacetOptions(opts: { mainCategory?: MainCategory } = {}
 /** Active categories for /categories listing + admin-added-category awareness. */
 export async function getCategorySlugs(): Promise<{ id: number; name: string; slug: string }[]> {
   return query('SELECT id, name, slug FROM categories WHERE is_active = 1 ORDER BY sort_order, name');
+}
+
+/**
+ * The pieces the boutique has featured (`is_featured` on the product form — a
+ * flag that existed from the start and that nothing ever read).
+ *
+ * `excludeSku` keeps a product out of its own "You May Also Admire" row.
+ */
+export async function getFeaturedProducts(limit = 12, excludeSku?: string): Promise<Product[]> {
+  const rows = await query<ProductRow>(
+    `${BASE_SELECT}
+      WHERE p.status = 'active' AND p.is_featured = 1
+        AND (? IS NULL OR p.sku <> ?)
+      ORDER BY p.created_at DESC
+      LIMIT ?`,
+    [excludeSku ?? null, excludeSku ?? '', limit],
+  );
+  return attachChildren(rows);
 }

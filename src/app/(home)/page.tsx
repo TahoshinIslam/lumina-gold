@@ -12,15 +12,17 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const [
-    goldNew, goldBest, goldDiscount,
-    diamondNew, diamondBest, diamondDiscount,
+    goldNew, goldBest, goldFeatured, goldDiscount,
+    diamondNew, diamondBest, diamondFeatured, diamondDiscount,
     categories, media, articles, campaign,
   ] = await Promise.all([
     getHomepageSection("gold", "new"),
     getHomepageSection("gold", "best"),
+    getHomepageSection("gold", "featured"),
     getHomepageSection("gold", "discount"),
     getHomepageSection("diamond", "new"),
     getHomepageSection("diamond", "best"),
+    getHomepageSection("diamond", "featured"),
     getHomepageSection("diamond", "discount"),
     getCategoryTiles(),
     getHomeMedia(),
@@ -30,8 +32,14 @@ export default async function Home() {
 
   return (
     <LuminaPage
-      goldShowcase={{ newArrivals: goldNew, bestSellers: goldBest, discounts: goldDiscount }}
-      diamondShowcase={{ newArrivals: diamondNew, bestSellers: diamondBest, discounts: diamondDiscount }}
+      goldShowcase={{
+        newArrivals: goldNew, bestSellers: goldBest,
+        featured: goldFeatured, discounts: goldDiscount,
+      }}
+      diamondShowcase={{
+        newArrivals: diamondNew, bestSellers: diamondBest,
+        featured: diamondFeatured, discounts: diamondDiscount,
+      }}
       categories={categories}
       collectionImages={sectionImages(media, "collections")}
       craftImages={sectionImages(media, "craft")}

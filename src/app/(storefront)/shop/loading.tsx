@@ -1,0 +1,25 @@
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import { ProductGridSkeleton, Skeleton } from '@/features/shared/Skeleton';
+
+/** The listing is the slowest page in the shop — every product, every facet. */
+export default function Loading() {
+  return (
+    <div className="lum-root">
+      <Header variant="shop" />
+      <main className="lum-page-main">
+        <div className="lum-listing">
+          <div className="lum-listing-head">
+            <div>
+              <Skeleton style={{ width: 110, height: 11 }} />
+              <Skeleton style={{ width: 260, height: 38, marginTop: 12 }} />
+              <Skeleton style={{ width: 90, height: 13, marginTop: 10 }} />
+            </div>
+          </div>
+          <ProductGridSkeleton count={8} />
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}

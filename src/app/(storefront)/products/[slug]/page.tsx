@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductDetail from '@/features/product/components/ProductDetail';
-import { getProductBySlug, getRelatedProducts } from '@/server/dal/catalog';
+import { getProductBySlug, getRelatedProducts, getFeaturedProducts } from '@/server/dal/catalog';
 import ProductReviews from '@/features/reviews/components/ProductReviews';
 
 // Real variant data (price/stock/SKU per combination), so render on demand.
@@ -25,13 +25,18 @@ export default async function ProductPage(
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const related = await getRelatedProducts(product);
+  // "You May Also Admire" shows the pieces the boutique has FEATURED (the flag
+  // on the product form, which nothing read until now), minus this one.
+  const [related, featured] = await Promise.all([
+    getRelatedProducts(product),
+    getFeaturedProducts(12, product.sku),
+  ]);
 
   return (
     <div className="lum-root">
       <Header variant="shop" />
       <main className="lum-page-main">
-        <ProductDetail product={product} related={related} />
+        <ProductDetail product={product} related={related} featured={featured} />
         {/* Reviews are their own server component so the "has this person
             actually received this piece?" check runs on the server. */}
         <ProductReviews productId={Number(product.id)} />

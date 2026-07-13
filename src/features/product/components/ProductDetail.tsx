@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ProductCard from '@/features/catalog/components/ProductCard';
+import ProductCarousel from '@/features/catalog/components/ProductCarousel';
 import Breadcrumbs from '@/features/catalog/components/Breadcrumbs';
 import { productCrumbs } from '@/features/catalog/breadcrumbs';
 import { firstImage } from '@/features/catalog/image';
@@ -46,9 +47,11 @@ function breakdown(product: Product, price: number, weight: number, purity: stri
 export default function ProductDetail({
   product,
   related = [],
+  featured = [],
 }: {
   product: Product;
   related?: Product[];
+  featured?: Product[];
 }) {
   const { wished, toggleWish, addToCart, pushRecent, recent } = useStore();
 
@@ -473,22 +476,15 @@ export default function ProductDetail({
         </div>
       </section>
 
-      {/* Related */}
-      {related.length > 0 && (
+      {/* You May Also Admire — the boutique's FEATURED pieces, in a row you can
+          page through. Falls back to related pieces when nothing is featured, so
+          the section never disappears on an empty flag. */}
+      {(featured.length > 0 || related.length > 0) && (
         <div className="lum-pdp-related">
           <h2 className="lum-h2" style={{ fontSize: 'clamp(24px, 3vw, 40px)', textAlign: 'center', marginBottom: 44 }}>
             You May Also Admire
           </h2>
-          <div className="lum-results-grid">
-            {related.map(other => (
-              <ProductCard
-                key={other.sku}
-                product={other}
-                wished={!!wished[other.sku]}
-                onToggleWish={toggleWish}
-              />
-            ))}
-          </div>
+          <ProductCarousel products={featured.length ? featured : related} />
         </div>
       )}
 
