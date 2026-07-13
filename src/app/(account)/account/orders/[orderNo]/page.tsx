@@ -6,10 +6,11 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { getCurrentCustomer } from '@/server/auth/customer';
 import { getCustomerOrder } from '@/server/dal/orders';
-import { ORDER_STATUS, PAYMENT_LABEL, canCancel, canReturn } from '@/types/order';
+import { ORDER_STATUS, PAYMENT_LABEL, TERMINAL_STATUSES, canCancel, canReturn } from '@/types/order';
 import { formatPrice } from '@/types/product';
 import OrderTimeline from '@/features/orders/components/OrderTimeline';
 import OrderActions from '@/features/orders/components/OrderActions';
+import LiveData from '@/features/shared/LiveData';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,9 +35,14 @@ export default async function OrderDetail({ params }: { params: Promise<{ orderN
 
   const status = ORDER_STATUS[order.status];
   const n = (v: string | null) => Number(v ?? 0);
+  // A finished order can't change again, so there is nothing to poll for.
+  const live = !TERMINAL_STATUSES.includes(order.status) && order.status !== 'delivered';
 
   return (
     <div className="lum-root">
+      {/* The boutique moves this order from the admin; nothing pushes that here,
+          so the page asks again while it's still being made. */}
+      <LiveData pollSeconds={live ? 20 : 0} />
       <Header variant="shop" />
       <main className="lum-page-main">
         <div className="lum-cart">

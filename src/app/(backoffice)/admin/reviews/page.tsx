@@ -6,6 +6,7 @@ import { DebouncedSearchInput } from '@/features/admin/components/DebouncedSearc
 import { Pagination } from '@/features/admin/components/Pagination';
 import { AdminEmptyState } from '@/features/admin/components/AdminEmptyState';
 import ReviewRow from './ReviewRow';
+import LiveData from '@/features/shared/LiveData';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,7 @@ export default async function AdminReviewsPage({
 
   return (
     <>
+      <LiveData />
       <h1 className="adm-h1">Reviews</h1>
       <p className="adm-sub">
         {total} {total === 1 ? 'review' : 'reviews'} matching this filter.

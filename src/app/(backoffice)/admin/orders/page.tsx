@@ -13,6 +13,7 @@ import { AdminEmptyState } from '@/features/admin/components/AdminEmptyState';
 import { DebouncedSearchInput } from '@/features/admin/components/DebouncedSearchInput';
 import { PackageSearch, FileDown } from 'lucide-react';
 import { ORDER_STATUS } from '@/types/order';
+import LiveData from '@/features/shared/LiveData';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,8 @@ export default async function AdminOrdersPage({
 
   return (
     <>
+      {/* A boutique leaves this board open all day. */}
+      <LiveData pollSeconds={30} />
       <div className="adm-detail-head">
         <h1 className="adm-h1">Orders &amp; Bookings</h1>
         {/* Exports what is on screen, not the whole table — the filter travels

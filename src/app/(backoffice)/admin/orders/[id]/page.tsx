@@ -8,6 +8,7 @@ import {
 } from '../../actions';
 import { AdminInlineForm, ConfirmActionButton } from '@/features/admin/components/AdminFeedback';
 import type { OrderItemRow, OrderRow } from '@/server/dal/orders';
+import LiveData from '@/features/shared/LiveData';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +53,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
 
   return (
     <>
+      <LiveData />
       <div className="adm-detail-head">
         <div>
           <Link href="/admin/orders" className="adm-back">← Orders</Link>

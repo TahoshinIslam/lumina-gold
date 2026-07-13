@@ -9,6 +9,7 @@ import { listCustomerOrders } from '@/server/dal/orders';
 import { expireStaleBookings } from '@/server/dal/bookings';
 import { ORDER_STATUS, PAYMENT_LABEL, type OrderStatus } from '@/types/order';
 import { formatPrice } from '@/types/product';
+import LiveData from '@/features/shared/LiveData';
 
 export const metadata: Metadata = { title: 'My Orders — Nahar Jewellers' };
 export const dynamic = 'force-dynamic';
@@ -66,6 +67,7 @@ export default async function MyOrders({
 
   return (
     <div className="lum-root">
+      <LiveData />
       <Header variant="shop" />
       <main className="lum-page-main">
         <div className="lum-cart">
