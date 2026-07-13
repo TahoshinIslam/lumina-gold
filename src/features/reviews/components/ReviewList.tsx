@@ -38,7 +38,7 @@ export default function ReviewList({ reviews, signedIn }: { reviews: Review[]; s
   };
 
   if (!reviews.length) {
-    return <p className="lum-pdp-desc">No reviews yet — the first one will appear here.</p>;
+    return <div className="lum-review-none">No reviews yet — the first one will appear here.</div>;
   }
 
   return (

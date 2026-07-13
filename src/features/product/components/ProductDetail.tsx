@@ -348,7 +348,7 @@ export default function ProductDetail({
           </details>
 
           {/* Specifications */}
-          <details className="lum-pdp-acc">
+          <details className="lum-pdp-acc" open>
             <summary>Specifications</summary>
             <table className="lum-breakdown">
               <tbody>
@@ -402,7 +402,7 @@ export default function ProductDetail({
           </details>
 
           {/* Care + service */}
-          <details className="lum-pdp-acc">
+          <details className="lum-pdp-acc" open>
             <summary>Care Instructions</summary>
             <p className="lum-pdp-note">
               Store separately in the Nahar Jewellers pouch. Clean with a soft brush and lukewarm
@@ -410,7 +410,7 @@ export default function ProductDetail({
               at any boutique, always.
             </p>
           </details>
-          <details className="lum-pdp-acc">
+          <details className="lum-pdp-acc" open>
             <summary>Lifetime Service</summary>
             <p className="lum-pdp-note">
               Every Nahar Jewellers creation carries a lifetime craftsmanship guarantee: free
@@ -419,7 +419,7 @@ export default function ProductDetail({
           </details>
 
           {/* Certificate of Authenticity — shown only if a PDF is on file */}
-          <details className="lum-pdp-acc">
+          <details className="lum-pdp-acc" open>
             <summary>Certificate of Authenticity</summary>
             {certUrl ? (
               <>

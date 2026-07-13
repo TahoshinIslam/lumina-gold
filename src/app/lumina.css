@@ -2395,7 +2395,15 @@ a:hover { color: var(--gold-light); }
 .lum-rewards-table tr.is-on td { color: #DAA858; }
 
 /* ══ Reviews (Phase 9) ════════════════════════════════════════════════════ */
-.lum-reviews { max-width: 1240px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 60px) 80px; }
+.lum-reviews {
+  max-width: 1240px; margin: 0 auto;
+  /* It had no top padding at all: the section sat flush against the related
+     products above it, and the heading landed UNDER the fixed header when
+     anything linked to #reviews. */
+  padding: clamp(48px, 6vw, 76px) clamp(20px, 5vw, 60px) clamp(56px, 7vw, 88px);
+  border-top: 1px solid rgba(218,168,88, 0.14);
+  scroll-margin-top: 120px;
+}
 .lum-stars { display: inline-flex; gap: 2px; color: rgba(156,163,158,0.5); }
 .lum-stars .is-on { color: #DAA858; }
 .lum-stars.is-input { gap: 4px; }
@@ -2404,14 +2412,20 @@ a:hover { color: var(--gold-light); }
 .lum-star-pick input:focus-visible ~ svg { outline: 2px solid #DAA858; outline-offset: 2px; border-radius: 3px; }
 .lum-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
+/* Capped, because a five-bar breakdown stretched across 1240px reads as five
+   long empty rules rather than a chart. */
 .lum-review-summary {
-  display: flex; gap: 40px; align-items: center; flex-wrap: wrap;
-  padding: 24px; margin: 24px 0 32px;
+  display: flex; gap: clamp(28px, 4vw, 48px); align-items: center; flex-wrap: wrap;
+  max-width: 660px;
+  padding: 26px 30px; margin: 26px 0 34px;
   background: #151B13; border: 1px solid rgba(218,168,88,0.22); border-radius: 8px;
 }
 .lum-review-score { text-align: center; }
 .lum-review-avg { font-family: 'Fraunces', serif; font-size: 44px; color: #DAA858; line-height: 1; }
-.lum-review-bars { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 6px; }
+.lum-review-bars {
+  flex: 1; min-width: 220px; max-width: 340px;
+  display: flex; flex-direction: column; gap: 7px;
+}
 .lum-review-bar {
   display: grid; grid-template-columns: 28px 1fr 28px; align-items: center; gap: 10px;
   font-family: 'Archivo', serif; font-size: 12px; color: #9CA39E;
@@ -2446,6 +2460,20 @@ a:hover { color: var(--gold-light); }
   width: 74px; height: 74px; border-radius: 6px; cursor: pointer;
   border: 1px dashed rgba(218,168,88,0.4); background: transparent; color: #DAA858;
   display: flex; align-items: center; justify-content: center;
+}
+
+/* The two things a shopper sees before any review exists: why they can't write
+   one, and that there are none. Bare left-aligned sentences floating in the
+   middle of the page is what looked broken. */
+.lum-reviews > .lum-pdp-note {
+  max-width: 660px; margin: 0 0 26px;
+  padding: 14px 18px; border-radius: 8px;
+  background: rgba(36,42,35, 0.6); border: 1px solid rgba(218,168,88, 0.16);
+}
+.lum-review-none {
+  max-width: 660px; padding: 40px 24px; text-align: center;
+  border: 1px dashed rgba(218,168,88, 0.22); border-radius: 8px;
+  font-family: 'Fraunces', serif; font-style: italic; font-size: 16px; color: #9CA39E;
 }
 
 .lum-review-list { display: flex; flex-direction: column; gap: 20px; }
