@@ -1,6 +1,8 @@
 import LuminaPage from "@/components/brand/LuminaPage";
 import { getHomepageSection } from "@/server/dal/catalog";
 import { getCategoryTiles, getHomeMedia, sectionImages } from "@/server/dal/home";
+import { getLatestArticles } from "@/server/dal/journal";
+import { getFeaturedCampaign } from "@/server/dal/campaigns";
 
 // The homepage renders live admin data (new/best-seller/discount flags, the
 // category tiles, and the Home Models photography) — never statically
@@ -12,7 +14,7 @@ export default async function Home() {
   const [
     goldNew, goldBest, goldDiscount,
     diamondNew, diamondBest, diamondDiscount,
-    categories, media,
+    categories, media, articles, campaign,
   ] = await Promise.all([
     getHomepageSection("gold", "new"),
     getHomepageSection("gold", "best"),
@@ -22,6 +24,8 @@ export default async function Home() {
     getHomepageSection("diamond", "discount"),
     getCategoryTiles(),
     getHomeMedia(),
+    getLatestArticles(3),
+    getFeaturedCampaign(),
   ]);
 
   return (
@@ -32,6 +36,8 @@ export default async function Home() {
       collectionImages={sectionImages(media, "collections")}
       craftImages={sectionImages(media, "craft")}
       heritageImages={sectionImages(media, "heritage")}
+      articles={articles}
+      campaign={campaign}
     />
   );
 }

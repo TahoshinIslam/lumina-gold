@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  Newspaper,
   Ruler,
   ShoppingBag,
   Star,
@@ -48,6 +49,7 @@ const GROUPS = [
     label: 'Storefront',
     items: [
       { href: '/admin/home', label: 'Home Models', icon: Images },
+      { href: '/admin/journal', label: 'Journal', icon: Newspaper },
     ],
   },
   {

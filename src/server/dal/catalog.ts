@@ -1,4 +1,5 @@
 import { query } from '@/server/db/client';
+import { priceExpr } from '@/server/pricing';
 import { CATEGORY_SLUGS } from '@/features/catalog/taxonomy';
 import type { Availability, GemstoneKind, Gender, Material, Product, ProductSpec, ProductVariant } from '@/types/product';
 
@@ -54,7 +55,7 @@ const BASE_SELECT = `
     v.id AS variant_id, v.metal_weight_g AS weight_g,
     m.name AS material_name, mp.name AS purity_name, mc.name AS color_name,
     pm.name AS purity_metal_name,
-    pc.fixed_price, pc.discount_amount,
+    ${priceExpr('v', 'pc')} AS fixed_price, pc.discount_amount,
     inv.availability AS availability_enum, inv.quantity_available AS stock,
     (SELECT c.name FROM product_categories x JOIN categories c ON c.id = x.category_id
        WHERE x.product_id = p.id ORDER BY c.sort_order LIMIT 1) AS category_name,
@@ -72,8 +73,9 @@ const BASE_SELECT = `
     (SELECT GROUP_CONCAT(o.name ORDER BY o.name) FROM product_occasions x
        JOIN occasions o ON o.id = x.occasion_id
        WHERE x.product_id = p.id) AS occasion_names,
-    (SELECT MIN(pc2.fixed_price) FROM product_variants v2 JOIN variant_price_components pc2 ON pc2.variant_id = v2.id
-       WHERE v2.product_id = p.id AND v2.status = 'active') AS price_from,
+    (SELECT MIN(${priceExpr('v2', 'pc2')}) FROM product_variants v2
+       JOIN variant_price_components pc2 ON pc2.variant_id = v2.id
+      WHERE v2.product_id = p.id AND v2.status = 'active') AS price_from,
     (SELECT COUNT(*) FROM product_variants v2 WHERE v2.product_id = p.id AND v2.status = 'active') AS variant_count
   FROM products p
   JOIN product_variants v ON v.product_id = p.id AND v.is_default = 1
@@ -314,7 +316,8 @@ export async function getProductVariants(productId: number): Promise<ProductVari
     purity_name: string | null; fixed_price: number | null; compare_price: number | null; stock: number | null;
   }>(
     `SELECT v.id, v.variant_sku sku, v.barcode, v.status, v.metal_weight_g weight_g,
-            mp.name purity_name, pc.fixed_price, pc.compare_price, inv.quantity_available stock
+            mp.name purity_name, ${priceExpr('v', 'pc')} AS fixed_price,
+            pc.compare_price, inv.quantity_available stock
      FROM product_variants v
      LEFT JOIN metal_purities mp ON mp.id = v.purity_id
      LEFT JOIN variant_price_components pc ON pc.variant_id = v.id

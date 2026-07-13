@@ -1,4 +1,5 @@
 import { query } from '@/server/db/client';
+import { priceExpr } from '@/server/pricing';
 
 /**
  * Checkout pricing and specification — the server's view of the bag.
@@ -82,7 +83,10 @@ async function variantsForSkus(skus: string[]): Promise<VariantRow[]> {
               WHERE pi.product_id = p.id ORDER BY pi.is_primary DESC, pi.sort_order LIMIT 1) AS image,
             v.id AS variant_id, v.variant_sku, v.is_default, v.status, v.metal_weight_g,
             m.name AS metal, mp.name AS purity, mc.name AS metal_color,
-            pc.fixed_price, pc.making_charge, pc.stone_charge, pc.tax_percent, pc.discount_amount,
+            -- The SAME expression the catalogue quotes from: a rate-based piece
+            -- must cost at the till exactly what the product page said.
+            ${priceExpr('v', 'pc')} AS fixed_price,
+            pc.making_charge, pc.stone_charge, pc.tax_percent, pc.discount_amount,
             (SELECT SUM(vs.carat_total) FROM variant_stones vs WHERE vs.variant_id = v.id) AS carat_total,
             (SELECT SUM(vs.quantity)    FROM variant_stones vs WHERE vs.variant_id = v.id) AS stone_qty,
             (SELECT c.certificate_no FROM certificates c WHERE c.variant_id = v.id LIMIT 1) AS certificate_no,

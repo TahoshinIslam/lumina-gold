@@ -16,10 +16,13 @@ import GoldShowcase from '@/components/brand/GoldShowcase';
 import DiamondShowcase from '@/components/brand/DiamondShowcase';
 import { ShowcaseData } from '@/components/brand/ShowcaseSection';
 import type { CategoryTile, SlideImage } from '@/server/dal/home';
+import type { Article } from '@/server/dal/journal';
+import type { CampaignWithProducts } from '@/server/dal/campaigns';
 import Quote from '@/components/brand/Quote';
 import Heritage from '@/components/brand/Heritage';
 import Testimonials from '@/components/brand/Testimonials';
 import LatestNews from '@/components/brand/LatestNews';
+import CampaignBanner from '@/components/brand/CampaignBanner';
 import Appointment from '@/components/brand/Appointment';
 import Footer from '@/components/layout/Footer';
 
@@ -44,11 +47,15 @@ export interface LuminaPageProps {
   collectionImages: SlideImage[];
   craftImages: SlideImage[];
   heritageImages: SlideImage[];
+  /** The three most recent published articles (Admin → Journal). */
+  articles: Article[];
+  /** The running campaign the admin featured, if any (Admin → Campaigns). */
+  campaign: CampaignWithProducts | null;
 }
 
 export default function LuminaPage({
   goldShowcase, diamondShowcase, categories,
-  collectionImages, craftImages, heritageImages,
+  collectionImages, craftImages, heritageImages, articles, campaign,
 }: LuminaPageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   useLuminaEffects(rootRef);
@@ -67,6 +74,7 @@ export default function LuminaPage({
         <Hero />
         <ShopByCategory categories={categories} />
         <Marquee />
+        <CampaignBanner campaign={campaign} />
         <Collections images={collectionImages} />
         <Craftsmanship images={craftImages} />
         <GoldShowcase data={goldShowcase} />
@@ -75,7 +83,7 @@ export default function LuminaPage({
         <Heritage images={heritageImages} />
         <ParallaxShowcase />
         <Testimonials />
-        <LatestNews />
+        <LatestNews articles={articles} />
         <Appointment />
         <Footer />
       </div>

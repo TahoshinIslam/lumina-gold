@@ -2542,3 +2542,116 @@ a:hover { color: var(--gold-light); }
    wider than a thumbnail, so it gets its own size rather than being squeezed. */
 .lum-review-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .lum-review-thumb.is-video { width: 170px; height: 110px; border-radius: 6px; }
+
+/* ══ Campaign banner (home) ═══════════════════════════════════════════════ */
+.lum-campaign {
+  padding: clamp(60px, 8vw, 100px) clamp(20px, 5vw, 60px);
+  background: linear-gradient(180deg, #151B13 0%, #1A211A 100%);
+  border-top: 1px solid rgba(218,168,88, 0.16);
+  border-bottom: 1px solid rgba(218,168,88, 0.16);
+}
+.lum-campaign-inner {
+  max-width: 1240px; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(32px, 5vw, 64px); align-items: center;
+}
+.lum-campaign-copy { display: flex; flex-direction: column; gap: 18px; align-items: flex-start; }
+.lum-campaign-pieces {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px;
+}
+.lum-campaign-piece {
+  display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: inherit;
+}
+.lum-campaign-media {
+  display: block; aspect-ratio: 1 / 1; border-radius: 6px; overflow: hidden;
+  border: 1px solid rgba(218,168,88, 0.22);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.4s ease;
+}
+.lum-campaign-piece:hover .lum-campaign-media {
+  transform: translateY(-4px); border-color: rgba(218,168,88, 0.6);
+}
+.lum-campaign-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lum-campaign-name {
+  font-family: 'Fraunces', serif; font-size: 14px; color: #EDE7DA;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lum-campaign-price { font-family: 'Archivo', serif; font-size: 12.5px; color: #DAA858; }
+
+/* ══ The Journal ══════════════════════════════════════════════════════════ */
+.lum-journal-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: clamp(22px, 3vw, 36px); margin-top: 30px;
+}
+.lum-journal-card {
+  display: flex; flex-direction: column; text-decoration: none; color: inherit;
+  background: #151B13; border: 1px solid rgba(218,168,88, 0.2); border-radius: 8px;
+  overflow: hidden; transition: transform 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+.lum-journal-card:hover {
+  transform: translateY(-4px); border-color: rgba(218,168,88, 0.5);
+  box-shadow: 0 24px 50px rgba(8,11,8, 0.45);
+}
+.lum-journal-media { position: relative; aspect-ratio: 16 / 10; }
+.lum-journal-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lum-journal-tag {
+  position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 999px;
+  background: rgba(8,11,8, 0.72); color: #DAA858;
+  font-family: 'Archivo', serif; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.lum-journal-body { display: flex; flex-direction: column; gap: 8px; padding: 20px 22px 24px; }
+.lum-journal-meta {
+  font-family: 'Archivo', serif; font-size: 11.5px; letter-spacing: 0.08em; color: #6F7A6C;
+}
+.lum-journal-title { margin: 0; font-family: 'Fraunces', serif; font-size: 18px; color: #EDE7DA; }
+.lum-journal-excerpt {
+  margin: 0; font-family: 'Archivo', serif; font-size: 13.5px; line-height: 1.65; color: #9CA39E;
+}
+
+/* An article. Measure capped for reading, not for filling the screen. */
+.lum-article { max-width: 780px; margin: 0 auto; padding: 40px clamp(20px, 5vw, 40px) 90px; }
+.lum-article-head { margin: 20px 0 28px; display: flex; flex-direction: column; gap: 10px; }
+.lum-article-title { font-size: clamp(28px, 4vw, 44px); }
+.lum-article-cover {
+  border-radius: 10px; overflow: hidden; aspect-ratio: 16 / 9;
+  border: 1px solid rgba(218,168,88, 0.2);
+}
+.lum-article-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lum-article-lead {
+  margin: 28px 0 0; font-family: 'Fraunces', serif; font-style: italic;
+  font-size: 19px; line-height: 1.7; color: #DAA858;
+}
+.lum-article-body { margin-top: 24px; }
+.lum-article-body p {
+  margin: 0 0 20px; font-family: 'Archivo', serif; font-size: 15.5px;
+  line-height: 1.85; color: #C7CCC3;
+}
+.lum-article-more { margin-top: 60px; }
+
+/* Comments */
+.lum-comments { margin-top: 60px; padding-top: 40px; border-top: 1px solid rgba(218,168,88, 0.16); }
+.lum-comment-form { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; margin: 20px 0 34px; }
+.lum-comment-form textarea {
+  width: 100%; padding: 14px 16px; border-radius: 8px; resize: vertical;
+  background: rgba(36,42,35, 0.7); border: 1px solid rgba(218,168,88, 0.25); color: #EDE7DA;
+  font-family: 'Archivo', serif; font-size: 14px; line-height: 1.6;
+}
+.lum-comment-form textarea:focus { outline: none; border-color: #DAA858; }
+.lum-comment-list { display: flex; flex-direction: column; gap: 18px; }
+.lum-comment { display: flex; gap: 14px; }
+.lum-comment-body { flex: 1; min-width: 0; }
+.lum-comment-head {
+  display: flex; align-items: center; gap: 12px;
+  font-family: 'Fraunces', serif; font-size: 15px; color: #EDE7DA;
+}
+.lum-comment-body p {
+  margin: 6px 0 0; font-family: 'Archivo', serif; font-size: 14px; line-height: 1.7; color: #C7CCC3;
+}
+.lum-comment-del {
+  background: none; border: 0; color: #6F7A6C; cursor: pointer; padding: 2px; margin-left: auto;
+  transition: color 0.2s;
+}
+.lum-comment-del:hover { color: #D98784; }
+
+@media (max-width: 900px) {
+  .lum-campaign-inner { grid-template-columns: 1fr; }
+}

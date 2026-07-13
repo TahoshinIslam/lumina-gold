@@ -25,6 +25,8 @@ export interface InitialVariant {
   sizeValueId: number | null;
   sku: string;
   price: number | null;
+  making_charge?: number | null;
+  wastage_percent?: number | null;
   comparePrice: number | null;
   costPrice: number | null;
   stock: number | null;
@@ -40,6 +42,8 @@ interface VariantRow {
   sizeValueId: number | null;
   sku: string;
   price: string;
+  makingCharge: string;
+  wastagePercent: string;
   comparePrice: string;
   costPrice: string;
   stock: string;
@@ -74,6 +78,9 @@ const VariantRowView = memo(function VariantRowView({
       {hasSizeAxis && <td>{sizeValue}</td>}
       <td><input value={v.sku} onChange={e => onUpdate(v.key, { sku: e.target.value })} style={{ width: 130 }} /></td>
       <td><input type="number" step="0.01" min="0" value={v.price} onChange={e => onUpdate(v.key, { price: e.target.value })} style={{ width: 100 }} required /></td>
+      {/* Used when the product is priced by the gold rate; harmless when it isn't. */}
+      <td><input type="number" step="0.01" min="0" value={v.makingCharge} onChange={e => onUpdate(v.key, { makingCharge: e.target.value })} style={{ width: 90 }} /></td>
+      <td><input type="number" step="0.01" min="0" max="100" value={v.wastagePercent} onChange={e => onUpdate(v.key, { wastagePercent: e.target.value })} style={{ width: 80 }} /></td>
       <td><input type="number" step="0.01" min="0" value={v.comparePrice} onChange={e => onUpdate(v.key, { comparePrice: e.target.value })} style={{ width: 100 }} /></td>
       <td><input type="number" step="0.01" min="0" value={v.costPrice} onChange={e => onUpdate(v.key, { costPrice: e.target.value })} style={{ width: 100 }} /></td>
       <td><input type="number" min="0" value={v.stock} onChange={e => onUpdate(v.key, { stock: e.target.value })} style={{ width: 70 }} /></td>
@@ -107,6 +114,8 @@ const toRow = (v: InitialVariant): VariantRow => ({
   sizeValueId: v.sizeValueId,
   sku: v.sku,
   price: v.price != null ? String(v.price) : '',
+  makingCharge: v.making_charge != null ? String(v.making_charge) : '',
+  wastagePercent: v.wastage_percent != null ? String(v.wastage_percent) : '',
   comparePrice: v.comparePrice != null ? String(v.comparePrice) : '',
   costPrice: v.costPrice != null ? String(v.costPrice) : '',
   stock: v.stock != null ? String(v.stock) : '0',
@@ -207,12 +216,16 @@ export default function ProductVariantsEditor({
     setVariants(prev => prev.map(v => (v.selected ? { ...v, ...fn(v) } : v)));
   };
 
+  // Explicit, not a spread — so a field added to the row type but forgotten here
+  // is silently dropped on save. (Making charge and wastage were.)
   const payload = variants.map(v => ({
     id: v.id,
     purityId: v.purityId,
     sizeValueId: v.sizeValueId,
     sku: v.sku,
     price: v.price,
+    makingCharge: v.makingCharge,
+    wastagePercent: v.wastagePercent,
     comparePrice: v.comparePrice,
     costPrice: v.costPrice,
     stock: v.stock,
@@ -297,6 +310,8 @@ export default function ProductVariantsEditor({
               {sizeAxis && <th>{sizeAxis.label}</th>}
               <th>SKU</th>
               <th>Price (৳)</th>
+              <th>Making (৳)</th>
+              <th>Wastage %</th>
               <th>Compare (৳)</th>
               <th>Cost (৳)</th>
               <th>Stock</th>

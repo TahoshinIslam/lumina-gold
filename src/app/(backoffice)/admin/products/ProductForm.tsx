@@ -16,6 +16,7 @@ export type ProductFormData = {
   is_featured?: number; is_new_arrival?: number; is_best_seller?: number;
   metal_id?: number | null; metal_color_id?: number | null;
   discount_amount?: number | null; availability?: string | null;
+  pricing_mode?: 'fixed' | 'rate_based' | null;
   has_diamond?: number; is_lab_grown?: number;
   stone_type_id?: number | null;
   diamond_shape_id?: number | null; diamond_color_id?: number | null;
@@ -100,10 +101,13 @@ async function loadVariants(productId?: number): Promise<InitialVariant[]> {
   const rows = await query<{
     id: number; sku: string; purity_id: number | null; price: number | null; compare_price: number | null;
     cost_price: number | null; stock: number | null; weight: number | null; barcode: string | null; status: string;
-    size_value_id: number | null;
+    size_value_id: number | null; making_charge: number | null; wastage_percent: number | null;
   }>(
     `SELECT v.id, v.variant_sku sku, v.purity_id, v.metal_weight_g weight, v.barcode, v.status,
             pc.fixed_price price, pc.compare_price, pc.cost_price, i.quantity_available stock,
+            -- Loaded, or editing a product would silently blank the charges the
+            -- rate-based formula depends on.
+            pc.making_charge, pc.wastage_percent,
             MAX(CASE WHEN a.is_variant_level = 1 THEN va.attribute_value_id END) size_value_id
      FROM product_variants v
      LEFT JOIN variant_price_components pc ON pc.variant_id = v.id
@@ -175,7 +179,7 @@ export async function loadProduct(id: number) {
   const rows = await query<ProductFormData & { name: string }>(
     `SELECT p.id, p.name, p.sku, p.slug, p.description, p.status, p.is_featured, p.is_new_arrival, p.is_best_seller,
             v.metal_id, v.metal_color_id,
-            pc.discount_amount, i.availability,
+            pc.discount_amount, pc.pricing_mode, i.availability,
             (vs.id IS NOT NULL) has_diamond, vs.stone_type_id, vs.is_lab_grown,
             vs.stone_shape_id diamond_shape_id, vs.stone_color_id diamond_color_id,
             vs.stone_clarity_id diamond_clarity_id, vs.stone_cut_id diamond_cut_id,
@@ -309,6 +313,20 @@ export async function ProductFormFields({ product, error }: { product: ProductFo
         <details className="adm-form-section" open>
           <summary className="adm-form-section-head"><span>Commerce</span></summary>
           <div className="adm-grid3">
+            {/* The Gold Rates screen was decorative until this existed: every
+                variant was written as 'fixed', so no piece could ever follow the
+                rate an admin entered. */}
+            <div className="adm-field">
+              <label>Pricing</label>
+              <select name="pricing_mode" defaultValue={p.pricing_mode || 'fixed'}>
+                <option value="fixed">Fixed price — you type what it costs</option>
+                <option value="rate_based">Today&apos;s gold rate — (rate × weight) + wastage + charges</option>
+              </select>
+              <p className="adm-sub" style={{ marginTop: 6, fontSize: 11.5 }}>
+                Rate-based pieces re-price themselves whenever you set a new rate under Gold Rates.
+                Set each variant&apos;s weight, making charge and wastage below.
+              </p>
+            </div>
             <div className="adm-field">
               <label>Discount amount (৳)</label>
               <input name="discount_amount" type="number" step="0.01" min="0" placeholder="Optional" defaultValue={p.discount_amount ?? ''} />

@@ -1,36 +1,19 @@
-/**
- * LatestNews — three editorial cards (image with date badge, title,
- * excerpt, read-more + category tag). Content is placeholder until the
- * CMS `blogs` table is wired up.
- */
-const POSTS = [
-  {
-    img: '/uploads/home/collection-eclat.png',
-    date: 'July 2, 2026',
-    tag: 'Trends',
-    title: 'Gallery: The Éclat Solitaires',
-    excerpt:
-      'A closer look at this season’s most requested stones — and why the six-prong setting endures.',
-  },
-  {
-    img: '/uploads/home/craft-artisan.png',
-    date: 'June 18, 2026',
-    tag: 'Craftsmanship',
-    title: 'Inside the Atelier: Setting the Perfect Stone',
-    excerpt:
-      'Three hundred hours, one steady hand. Our master setter on patience, light, and the final clasp.',
-  },
-  {
-    img: '/uploads/home/collection-riviere.png',
-    date: 'June 5, 2026',
-    tag: 'New Collection',
-    title: 'A New Bridal Collection Is Taking Shape',
-    excerpt:
-      'From first sketches to wax models — an early glimpse of the parure we will unveil this festive season.',
-  },
-];
+import Link from 'next/link';
+import type { Article } from '@/server/dal/journal';
 
-export default function LatestNews() {
+/**
+ * LatestNews — the three most recent published articles.
+ *
+ * These were three hardcoded placeholder posts whose "Read More" linked back to
+ * the section itself. They now come from the Journal (Admin → Journal) and each
+ * card opens the real article. With nothing published the section hides itself,
+ * rather than showing invented news.
+ */
+const WHEN = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+export default function LatestNews({ articles }: { articles: Article[] }) {
+  if (!articles.length) return null;
+
   return (
     <section className="lum-news" id="news">
       <div className="lum-news-inner">
@@ -41,24 +24,33 @@ export default function LatestNews() {
         </div>
 
         <div className="lum-news-grid" data-reveal="stagger">
-          {POSTS.map(post => (
-            <article key={post.title} className="lum-news-card" data-spothost="">
+          {articles.map(article => (
+            <Link key={article.id} href={`/journal/${article.slug}`}
+              className="lum-news-card" data-spothost="">
               <div className="lum-spot" data-spot="" />
-              <div className="lum-news-media">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={post.img} alt={post.title} />
-                <span className="lum-news-date">{post.date}</span>
+              <div className="lum-news-media lum-img-ph">
+                {article.cover_image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={article.cover_image} alt={article.title} />
+                )}
+                {article.published_at && (
+                  <span className="lum-news-date">{WHEN.format(new Date(article.published_at))}</span>
+                )}
               </div>
               <div className="lum-news-body">
-                <h3 className="lum-news-title">{post.title}</h3>
-                <p className="lum-news-excerpt">{post.excerpt}</p>
+                <h3 className="lum-news-title">{article.title}</h3>
+                <p className="lum-news-excerpt">{article.excerpt}</p>
                 <div className="lum-news-foot">
-                  <a href="#news" className="lum-news-more">Read More →</a>
-                  <span className="lum-news-tag">{post.tag}</span>
+                  <span className="lum-news-more">Read More →</span>
+                  {article.tag && <span className="lum-news-tag">{article.tag}</span>}
                 </div>
               </div>
-            </article>
+            </Link>
           ))}
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: 40 }}>
+          <Link href="/journal" className="lum-cta-ghost">All articles</Link>
         </div>
       </div>
     </section>

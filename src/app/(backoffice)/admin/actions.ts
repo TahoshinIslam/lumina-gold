@@ -9,6 +9,7 @@ import { query, db } from '@/server/db/client';
 import { ADMIN_COOKIE, adminToken, checkPassword } from '@/server/auth/admin';
 import { VARIANT_AXIS_CODES } from '@/config/sizes';
 import { homeSection } from '@/config/home';
+import { readingMinutes } from '@/server/dal/journal';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
@@ -150,10 +151,16 @@ export async function saveProductAction(formData: FormData) {
   // simplest way through a native form POST).
   const colorId = Number(formData.get('metal_color_id')) || null;
 
+  // Fixed, or follows today's gold rate. One choice for the whole product — a
+  // ring priced by rate in 22K and by hand in 24K would be a shop with two
+  // pricing policies.
+  const pricingMode = String(formData.get('pricing_mode')) === 'rate_based' ? 'rate_based' : 'fixed';
+
   interface VariantInput {
     id?: number; purityId: number | null; sizeValueId: number | null; sku: string;
     price: string; comparePrice: string; costPrice: string; stock: string; weight: string;
     barcode: string; status: 'active' | 'inactive';
+    makingCharge?: string; wastagePercent?: string;
   }
   let variantInputs: VariantInput[] = [];
   try {
@@ -211,11 +218,20 @@ export async function saveProductAction(formData: FormData) {
     // Discounts tab) — only the default variant carries it, same as before.
     const discountAmount = isDefault ? Number(formData.get('discount_amount')) || 0 : 0;
     await query(
-      `INSERT INTO variant_price_components (variant_id, pricing_mode, fixed_price, compare_price, cost_price, discount_amount)
-       VALUES (?, 'fixed', ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE fixed_price=VALUES(fixed_price), compare_price=VALUES(compare_price),
-         cost_price=VALUES(cost_price), discount_amount=VALUES(discount_amount)`,
-      [variantId, price, comparePrice, costPrice, discountAmount],
+      // pricing_mode was hardcoded to 'fixed', which is why the Gold Rates screen
+      // changed nothing: no piece could ever be priced from a rate. It now comes
+      // from the form, along with the making charge and wastage the rate-based
+      // formula needs (see @/server/pricing).
+      `INSERT INTO variant_price_components
+         (variant_id, pricing_mode, fixed_price, compare_price, cost_price, discount_amount,
+          making_charge, wastage_percent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE pricing_mode=VALUES(pricing_mode), fixed_price=VALUES(fixed_price),
+         compare_price=VALUES(compare_price), cost_price=VALUES(cost_price),
+         discount_amount=VALUES(discount_amount), making_charge=VALUES(making_charge),
+         wastage_percent=VALUES(wastage_percent)`,
+      [variantId, pricingMode, price, comparePrice, costPrice, discountAmount,
+       Number(v.makingCharge) || 0, Number(v.wastagePercent) || 0],
     );
     await query(
       `INSERT INTO price_history (variant_id, price, sale_price, effective_at, reason) VALUES (?, ?, ?, NOW(), 'admin edit')`,
@@ -1121,4 +1137,131 @@ export async function deleteReviewAdminAction(formData: FormData) {
   revalidatePath('/admin/reviews');
   revalidateStorefront();
   return { ok: true, message: 'Review deleted' };
+}
+
+/* ── The Journal ──────────────────────────────────────────────────────────
+ * Articles are stored as PLAIN TEXT, not HTML — see the article page for why.
+ * Reading time is computed here, once, rather than on every render of a list. */
+
+function slugify(value: string): string {
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+/** slug is UNIQUE — append -2, -3… rather than failing the insert. */
+async function uniqueArticleSlug(base: string, excludeId: number | null): Promise<string> {
+  const root = base || 'article';
+  let slug = root;
+  let n = 1;
+  for (;;) {
+    const rows = await query<{ id: number }>(
+      'SELECT id FROM blogs WHERE slug = ? AND id <> ?', [slug, excludeId ?? 0],
+    );
+    if (!rows[0]) return slug;
+    slug = `${root}-${++n}`;
+  }
+}
+
+export async function saveArticleAction(formData: FormData) {
+  const id = Number(formData.get('id')) || null;
+  const title = String(formData.get('title') || '').trim();
+  // A browser submits a <textarea> with CRLF line endings (the HTML spec says so).
+  // Stored raw, the article's blank lines are "\r\n\r\n" and a split on /\n{2,}/
+  // never matches — every article renders as one unbroken wall of text.
+  const body = String(formData.get('body') || '').replace(/\r\n/g, '\n').trim();
+  const backTo = id ? `/admin/journal/${id}/edit` : '/admin/journal/new';
+
+  if (!title) redirect(`${backTo}?error=title`);
+  if (body.length < 20) redirect(`${backTo}?error=body`);
+
+  const status = String(formData.get('status') || 'draft') === 'published' ? 'published' : 'draft';
+  const excerpt = String(formData.get('excerpt') || '').trim().slice(0, 500)
+    // No excerpt written? Take the opening of the article rather than showing a
+    // blank card on the Journal index.
+    || `${body.replace(/\s+/g, ' ').slice(0, 180)}…`;
+  const tag = String(formData.get('tag') || '').trim().slice(0, 40) || null;
+  const cover = String(formData.get('cover_image') || '').trim() || null;
+  const slug = await uniqueArticleSlug(slugify(title), id);
+  const minutes = readingMinutes(body);
+
+  // published_at is set the FIRST time an article goes live and then left alone:
+  // re-editing a published piece must not silently re-date it to today.
+  if (id) {
+    await query(
+      `UPDATE blogs
+          SET title = ?, slug = ?, excerpt = ?, body = ?, cover_image = ?, tag = ?,
+              read_minutes = ?, status = ?,
+              published_at = CASE
+                WHEN ? = 'published' AND published_at IS NULL THEN NOW()
+                WHEN ? = 'draft' THEN NULL
+                ELSE published_at END
+        WHERE id = ?`,
+      [title, slug, excerpt, body, cover, tag, minutes, status, status, status, id],
+    );
+  } else {
+    await query(
+      `INSERT INTO blogs (title, slug, excerpt, body, cover_image, tag, read_minutes, status, published_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${status === 'published' ? 'NOW()' : 'NULL'})`,
+      [title, slug, excerpt, body, cover, tag, minutes, status],
+    );
+  }
+
+  revalidatePath('/admin/journal');
+  revalidatePath('/journal');
+  revalidatePath(`/journal/${slug}`);
+  revalidatePath('/'); // the home page's Latest News reads the same rows
+  redirect(feedbackUrl('/admin/journal', id ? 'Article updated' : 'Article created'));
+}
+
+export async function deleteArticleAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  if (!id) return { ok: false, message: 'Nothing to delete' };
+  await query('DELETE FROM blogs WHERE id = ?', [id]); // comments cascade
+  revalidatePath('/admin/journal');
+  revalidatePath('/journal');
+  revalidatePath('/');
+  return { ok: true, message: 'Article deleted' };
+}
+
+export async function toggleArticleStatusAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  if (!id) return { ok: false, message: 'Article not found' };
+  const rows = await query<{ status: string; published_at: string | null }>(
+    'SELECT status, published_at FROM blogs WHERE id = ?', [id],
+  );
+  if (!rows[0]) return { ok: false, message: 'Article not found' };
+
+  const next = rows[0].status === 'published' ? 'draft' : 'published';
+  await query(
+    `UPDATE blogs SET status = ?,
+        published_at = CASE WHEN ? = 'published' AND published_at IS NULL THEN NOW()
+                            WHEN ? = 'draft' THEN NULL ELSE published_at END
+      WHERE id = ?`,
+    [next, next, next, id],
+  );
+  revalidatePath('/admin/journal');
+  revalidatePath('/journal');
+  revalidatePath('/');
+  return { ok: true, message: next === 'published' ? 'Article published' : 'Article unpublished' };
+}
+
+/** Hide or show a comment. Hidden rather than deleted, so a moderator can see
+ *  what they acted on. */
+export async function moderateCommentAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const status = String(formData.get('status')) === 'hidden' ? 'hidden' : 'visible';
+  if (!id) return { ok: false, message: 'Comment not found' };
+  await query('UPDATE blog_comments SET status = ? WHERE id = ?', [status, id]);
+  revalidatePath('/admin/journal');
+  revalidatePath('/journal');
+  return { ok: true, message: status === 'hidden' ? 'Comment hidden' : 'Comment restored' };
+}
+
+export async function deleteCommentAdminAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  if (!id) return { ok: false, message: 'Comment not found' };
+  await query('DELETE FROM blog_comments WHERE id = ?', [id]);
+  revalidatePath('/admin/journal');
+  revalidatePath('/journal');
+  return { ok: true, message: 'Comment deleted' };
 }
