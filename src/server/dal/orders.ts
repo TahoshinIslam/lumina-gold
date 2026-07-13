@@ -146,12 +146,15 @@ export async function listCustomerOrders(userId: number, options: OrderListOptio
   return { orders, total, page: Math.min(page, pages), pages };
 }
 
-/** One order, with its lines and its timeline. Scoped to the owner — never by id alone. */
-export async function getCustomerOrder(userId: number, orderNo: string): Promise<OrderDetail | null> {
-  const rows = await query<OrderRow>(
-    `SELECT ${ORDER_COLUMNS} FROM orders o WHERE o.order_no = ? AND o.user_id = ?`,
-    [orderNo, userId],
-  );
+/**
+ * One order with its lines and timeline, for whoever is allowed to see it.
+ *
+ * The WHERE clause is the authorisation, and it is the CALLER's job to supply
+ * it — a customer is scoped by user_id inside the query (never "fetch by id,
+ * then check"), while the admin, already behind the admin cookie, is not.
+ */
+async function loadOrder(where: string, args: (string | number)[]): Promise<OrderDetail | null> {
+  const rows = await query<OrderRow>(`SELECT ${ORDER_COLUMNS} FROM orders o WHERE ${where}`, args);
   const order = rows[0];
   if (!order) return null;
 
@@ -176,4 +179,14 @@ export async function getCustomerOrder(userId: number, orderNo: string): Promise
   ]);
 
   return { ...order, items, history, transaction_id: payments[0]?.gateway_txn_id ?? null };
+}
+
+/** The customer's own order — scoped to them inside the query. */
+export function getCustomerOrder(userId: number, orderNo: string): Promise<OrderDetail | null> {
+  return loadOrder('o.order_no = ? AND o.user_id = ?', [orderNo, userId]);
+}
+
+/** Any order, by id — for the admin, which the middleware has already authorised. */
+export function getOrderForAdmin(id: number): Promise<OrderDetail | null> {
+  return loadOrder('o.id = ?', [id]);
 }

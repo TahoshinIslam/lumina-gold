@@ -33,29 +33,42 @@ export type Collection = {
   description: string;
   src: string;
   alt: string;
+  /** Where "Explore" goes — a real, filtered listing, not a dead link. */
+  href: string;
 };
 
+/**
+ * The three cards under "Three Expressions of Light".
+ *
+ * They are OCCASIONS, not invented collection names: a shopper arrives at this
+ * page because something is happening in their life, and "Or Sculpté" answers a
+ * question nobody asked. Each card is a live filter on the shop — the occasion
+ * facet already exists, and every one of these has pieces behind it.
+ */
 export const COLLECTIONS: Collection[] = [
   {
     number: 'No. 01',
-    name: "L'Éclat",
-    description: 'Solitaire diamonds of exceptional fire, set in hand-burnished 24k gold.',
+    name: 'Engagement',
+    description: 'Solitaires of exceptional fire, cut to hold the light of the moment you ask.',
     src: '/uploads/home/collection-eclat.png',
-    alt: 'Solitaire diamond ring',
+    alt: 'Solitaire diamond engagement ring',
+    href: '/shop?occasion=Engagement',
   },
   {
     number: 'No. 02',
-    name: "Rivière d'Or",
-    description: 'Cascading necklaces where every stone is chosen for flawless clarity.',
+    name: 'Wedding',
+    description: 'Bands and bridal sets in hand-burnished gold, made to be worn every day after.',
     src: '/uploads/home/collection-riviere.png',
-    alt: 'Diamond rivière necklace',
+    alt: 'Gold wedding band',
+    href: '/shop?occasion=Wedding',
   },
   {
     number: 'No. 03',
-    name: 'Or Sculpté',
-    description: 'Sculptural gold forms, shaped by master hands over hundreds of hours.',
+    name: 'Anniversary',
+    description: 'Pieces for the years that follow — every stone chosen for flawless clarity.',
     src: '/uploads/home/collection-sculpte.png',
-    alt: 'Sculptural gold cuff',
+    alt: 'Diamond anniversary necklace',
+    href: '/shop?occasion=Anniversary',
   },
 ];
 

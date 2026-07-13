@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { COLLECTIONS } from '@/components/brand/data';
 import MediaSlideshow from '@/components/brand/MediaSlideshow';
 import { splitAcrossCards } from '@/config/home';
@@ -39,7 +40,9 @@ export default function Collections({ images }: { images: SlideImage[] }) {
         {/* Cards */}
         <div className="lum-col-grid">
           {COLLECTIONS.map((collection, card) => (
-            <div key={collection.number} className="lum-col-card" data-reveal="clip" data-tilt="">
+            // A card that says "Explore →" and does nothing is a broken promise.
+            <Link key={collection.number} href={collection.href}
+              className="lum-col-card" data-reveal="clip" data-tilt="">
               <div className="lum-col-media">
                 <MediaSlideshow
                   className="lum-col-zoom lum-img-ph"
@@ -56,7 +59,7 @@ export default function Collections({ images }: { images: SlideImage[] }) {
                   Explore <span style={{ fontSize: 15 }}>→</span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

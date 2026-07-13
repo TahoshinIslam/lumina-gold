@@ -159,7 +159,12 @@ export default function CheckoutPage() {
 
   const place = async () => {
     setError('');
-    if (!addressId) { setError('Choose a delivery address first.'); return; }
+    // Nothing to deliver to. Telling someone to add an address and making them
+    // find the button is one step too many — open the form for them.
+    if (!addressId) {
+      setDialog({ open: true, address: null });
+      return;
+    }
     if (!billingSame && !billingId) { setError('Choose a billing address.'); return; }
     if (!payment) { setError('Choose how you’d like to pay.'); return; }
 

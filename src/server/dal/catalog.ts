@@ -42,6 +42,7 @@ interface ProductRow {
   collection_name: string | null;
   gender_name: string | null;
   style_name: string | null;
+  occasion_names: string | null;
   price_from: number | null;
   variant_count: number;
 }
@@ -65,6 +66,12 @@ const BASE_SELECT = `
        WHERE x.product_id = p.id LIMIT 1) AS gender_name,
     (SELECT s.name FROM product_styles x JOIN styles s ON s.id = x.style_id
        WHERE x.product_id = p.id LIMIT 1) AS style_name,
+    -- A piece can suit SEVERAL occasions (an engagement ring is also an
+    -- anniversary gift), so unlike collection/gender/style this is not a
+    -- LIMIT 1 — all of them are needed or the Occasion filter matches nothing.
+    (SELECT GROUP_CONCAT(o.name ORDER BY o.name) FROM product_occasions x
+       JOIN occasions o ON o.id = x.occasion_id
+       WHERE x.product_id = p.id) AS occasion_names,
     (SELECT MIN(pc2.fixed_price) FROM product_variants v2 JOIN variant_price_components pc2 ON pc2.variant_id = v2.id
        WHERE v2.product_id = p.id AND v2.status = 'active') AS price_from,
     (SELECT COUNT(*) FROM product_variants v2 WHERE v2.product_id = p.id AND v2.status = 'active') AS variant_count
@@ -246,7 +253,9 @@ function mapRowToProduct(
     gender,
     type,
     collection: row.collection_name || '',
-    occasions: [],
+    // Was hardcoded to [] — which silently made the whole Occasion filter dead:
+    // every product failed every occasion test, so the facet returned nothing.
+    occasions: (row.occasion_names?.split(',').filter(Boolean) ?? []) as Product['occasions'],
     style: row.style_name || undefined,
     price: fixedPrice,
     weightGrams: Number(row.weight_g ?? 0),

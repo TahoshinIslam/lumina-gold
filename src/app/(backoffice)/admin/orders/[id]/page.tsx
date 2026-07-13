@@ -63,8 +63,10 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
           </p>
         </div>
         <div className="adm-detail-tools">
+          {/* The ADMIN's invoice route — the customer's is scoped to a customer
+              session and would bounce staff to /account/login. */}
           <a className="adm-btn ghost" target="_blank" rel="noreferrer"
-            href={`/account/orders/${order.order_no}/invoice`}>
+            href={`/admin/orders/${order.id}/invoice`}>
             <Printer size={14} /> Invoice
           </a>
           <ConfirmActionButton
