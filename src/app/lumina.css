@@ -2306,7 +2306,12 @@ a:hover { color: var(--gold-light); }
 }
 .lum-tl-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(156,163,158,0.5); }
 .lum-tl-step.is-done .lum-tl-marker { background: #DAA858; border-color: #DAA858; }
+/* The CURRENT step has been reached, so it carries a tick like the ones before
+   it — but its circle stays dark (the gold fill is what says "behind us"). The
+   tick therefore has to be gold: the marker's default `color` is the same as its
+   background, which left the tick drawn in dark-on-dark and invisible. */
 .lum-tl-step.is-now .lum-tl-marker {
+  color: #DAA858;
   border-color: #DAA858; box-shadow: 0 0 0 4px rgba(218,168,88,0.14);
   animation: lum-tl-pulse 2.4s ease-in-out infinite;
 }
