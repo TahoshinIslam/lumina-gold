@@ -402,8 +402,9 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
             const el = entry.target as HTMLElement;
             const kind = el.getAttribute('data-reveal') || 'up';
             if (!entry.isIntersecting) return;
-            // One-shot: reveal once, then stop observing. Re-hiding on exit
-            // made content vanish when scrolling back up and cost extra work.
+            // Reveal. The element stays OBSERVED (it used to be unobserved here,
+            // which is what made every reveal one-shot) so that once it is
+            // re-armed below the fold it can play again.
             if (kind === 'stagger') {
               Array.from(el.children).forEach((ch, i) => showEl(ch as HTMLElement, 'up', i * 0.18));
             } else {
@@ -413,13 +414,39 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
               const idx = Math.max(0, sibs.indexOf(el));
               showEl(el, kind, (idx % 4) * 0.24 + Math.floor(idx / 4) * 0.08);
             }
-            io?.unobserve(el);
           });
         },
         { threshold: 0.08, rootMargin: '0px 0px -12% 0px' },
       );
       els.forEach(el => io!.observe(el));
       cleanup.push(() => io!.disconnect());
+
+      // Re-arm anything that has gone back BELOW the fold, so scrolling up and
+      // then down again replays it — the "reverse scroll" effect.
+      //
+      // Only below. An element that leaves upwards is left alone: re-hiding
+      // THAT is what made content vanish under the reader, and nobody is about
+      // to watch an animation happen above their scroll position anyway.
+      let rearmTick = 0;
+      const rearm = () => {
+        rearmTick = 0;
+        const h = window.innerHeight;
+        els.forEach(el => {
+          if (el.dataset.rvLock) return;
+          if (el.getBoundingClientRect().top < h) return;
+          const kind = el.getAttribute('data-reveal') || 'up';
+          if (kind === 'stagger') Array.from(el.children).forEach(ch => hideEl(ch as HTMLElement, 'up'));
+          else hideEl(el, kind);
+        });
+      };
+      const onRearmScroll = () => {
+        if (!rearmTick) rearmTick = requestAnimationFrame(rearm);
+      };
+      window.addEventListener('scroll', onRearmScroll, { passive: true });
+      cleanup.push(() => {
+        window.removeEventListener('scroll', onRearmScroll);
+        if (rearmTick) cancelAnimationFrame(rearmTick);
+      });
     }
 
     // ── Count-up numbers ──────────────────────────────────────────────

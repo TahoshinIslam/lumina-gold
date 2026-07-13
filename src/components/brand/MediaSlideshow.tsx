@@ -27,6 +27,10 @@ export default function MediaSlideshow({ images, alt, className }: {
   className?: string;
 }) {
   const [current, setCurrent] = useState(0);
+  // A file that has been deleted from disk while its row still points at it
+  // would otherwise leave an empty frame (or a browser's broken-image glyph) in
+  // the middle of the page. Drop it and let the gradient behind show through.
+  const [broken, setBroken] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (images.length < 2) return;
@@ -42,12 +46,13 @@ export default function MediaSlideshow({ images, alt, className }: {
 
   return (
     <div className={`lum-slides ${className ?? ''}`} style={style}>
-      {images.map((image, index) => (
+      {images.filter(image => !broken[image.src]).map((image, index) => (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           key={image.src}
           className={`lum-slide${index === current ? ' is-on' : ''}`}
           src={image.src}
+          onError={() => setBroken(b => ({ ...b, [image.src]: true }))}
           // Only the visible one is announced; the rest are decorative duplicates.
           alt={index === current ? alt : ''}
           aria-hidden={index !== current}
