@@ -62,13 +62,20 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
     cleanup.push(() => clearTimeout(sweepImages));
 
     // ── Preloader lift ────────────────────────────────────────────────
+    // 1000ms, not the 2400ms this used to hold for. The header brand is the
+    // page's LCP element and it fades in behind this curtain, so the length of
+    // the intro *was* the LCP: 2.94s measured, against a 1.5s + 1.4s header
+    // fade. The whole sequence — emblem, wordmark, curtain, hero — was retimed
+    // as one piece; these numbers are load-bearing against the CSS, so a change
+    // here without the matching change in lumina.css will look broken.
+    // The 950ms is the curtain's own transform transition (0.9s) plus a frame.
     const pre = $('.lum-preloader');
     if (pre) {
       const t1 = setTimeout(() => {
         pre.style.transform = 'translateY(-101%)';
-        const t2 = setTimeout(() => { pre.style.display = 'none'; }, 1500);
+        const t2 = setTimeout(() => { pre.style.display = 'none'; }, 950);
         cleanup.push(() => clearTimeout(t2));
-      }, reduced ? 400 : 2400);
+      }, reduced ? 400 : 1000);
       cleanup.push(() => clearTimeout(t1));
     }
 

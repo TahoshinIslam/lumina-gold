@@ -13,8 +13,9 @@ function Star({ size, style }: { size: number; style: CSSProperties }) {
 /**
  * Hero — full-bleed editorial: the opening photograph (cover, centered) under a
  * dark gradient scrim, with ivory-white typography. Stacked headline (ETERNAL /
- * Luxury / REDEFINED), subheadline, two CTAs. Animation delays follow the 1.2s
- * preloader lift.
+ * Luxury / REDEFINED), subheadline, two CTAs. The animation delays below are
+ * staged against the 1000ms preloader lift (useLuminaEffects) — the words rise
+ * as the curtain clears. They are one sequence with the CSS; retime together.
  *
  * Both photographs come from Admin → Home Models. The stylesheet still names the
  * shipped one, so with nothing uploaded the page looks exactly as it always has;
@@ -62,24 +63,24 @@ export default function Hero({ image, phoneImage }: { image?: string; phoneImage
         <span className="lum-hero-line">
           <span
             className="lum-hero-word"
-            style={{ '--rise-delay': '1.5s', '--shimmer-delay': '3s' } as CSSProperties}
+            style={{ '--rise-delay': '0.85s', '--shimmer-delay': '1.7s' } as CSSProperties}
           >
             ETERNAL
           </span>
         </span>
         <span className="lum-hero-line lum-hero-line--mid">
-          <span className="lum-mask-rise" style={{ '--rise-delay': '1.8s' } as CSSProperties}>
+          <span className="lum-mask-rise" style={{ '--rise-delay': '1.0s' } as CSSProperties}>
             <span className="lum-hero-script">Luxury</span>
-            <Star size={22} style={{ top: '8%', left: '-3%', '--tw-dur': '2.8s', '--tw-delay': '3.2s' } as CSSProperties} />
-            <Star size={15} style={{ top: '-6%', right: '12%', '--tw-dur': '3.3s', '--tw-delay': '3.8s' } as CSSProperties} />
-            <Star size={18} style={{ bottom: '4%', right: '-2%', '--tw-dur': '2.4s', '--tw-delay': '4.4s' } as CSSProperties} />
-            <Star size={12} style={{ bottom: '18%', left: '16%', '--tw-dur': '3.7s', '--tw-delay': '5s' } as CSSProperties} />
+            <Star size={22} style={{ top: '8%', left: '-3%', '--tw-dur': '2.8s', '--tw-delay': '1.8s' } as CSSProperties} />
+            <Star size={15} style={{ top: '-6%', right: '12%', '--tw-dur': '3.3s', '--tw-delay': '2.2s' } as CSSProperties} />
+            <Star size={18} style={{ bottom: '4%', right: '-2%', '--tw-dur': '2.4s', '--tw-delay': '2.5s' } as CSSProperties} />
+            <Star size={12} style={{ bottom: '18%', left: '16%', '--tw-dur': '3.7s', '--tw-delay': '2.8s' } as CSSProperties} />
           </span>
         </span>
         <span className="lum-hero-line">
           <span
             className="lum-hero-word"
-            style={{ '--rise-delay': '2.1s', '--shimmer-delay': '3.3s' } as CSSProperties}
+            style={{ '--rise-delay': '1.15s', '--shimmer-delay': '1.9s' } as CSSProperties}
           >
             REDEFINED
           </span>
@@ -99,7 +100,7 @@ export default function Hero({ image, phoneImage }: { image?: string; phoneImage
           href="#collections"
           className="lum-cta-gold"
           data-magnetic=""
-          style={{ '--sheen-delay': '3.4s' } as CSSProperties}
+          style={{ '--sheen-delay': '1.9s' } as CSSProperties}
         >
           Discover the Collection
         </a>
