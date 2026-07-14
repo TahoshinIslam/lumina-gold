@@ -1,39 +1,19 @@
 import LuminaPage from "@/components/brand/LuminaPage";
-import { getHomepageShowcases } from "@/server/dal/catalog";
-import { getCategoryTiles, getHomeMedia, sectionImages } from "@/server/dal/home";
-import { getLatestArticles } from "@/server/dal/journal";
-import { getFeaturedCampaign } from "@/server/dal/campaigns";
-import { getTestimonials } from "@/server/dal/testimonials";
+import { sectionImages } from "@/server/dal/home";
+import { getHomePageData } from "@/server/dal/homepage";
 import { optimized, BACKDROP_WIDTH, BACKDROP_PHONE_WIDTH } from "@/features/shared/optimized";
 
-// The home page is the same for every visitor and changes only when an admin
-// edits it — not per request. So it is cached, not re-rendered from thirteen-plus
-// database queries on every hit: under load that fan-out against a small
-// connection pool was the page's p95 climbing to two seconds while everything
-// else stayed fast.
-//
-// It stays fresh two ways. Every admin action that can change it already calls
-// revalidatePath('/') (product flags, categories, home media, testimonials,
-// journal, gold rates and campaigns — the last two only after this change), so
-// an edit shows on the very next request. `revalidate` is the safety net: a
-// backstop for anything not explicitly revalidated, so the page can never be
-// more than a minute stale even if a path is missed.
-export const revalidate = 60;
+// Rendered per request, but NOT re-queried per request: everything it reads is
+// behind a cache (see server/dal/homepage.ts), invalidated the moment an admin
+// changes anything. The route stays dynamic on purpose — `revalidate` here would
+// cache the HTML but also prerender the page at BUILD time, and the build has no
+// database to talk to (that is exactly how it broke in CI). Caching the data
+// instead keeps the build database-free and still spares MySQL the load.
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  // All eight showcases in one trip instead of eight. Each of the old calls was
-  // three queries (rows, then images, then stones), so this alone was 24 of the
-  // page's 47 round trips — for a couple of dozen products out of one small table.
-  const [
-    showcases, categories, media, articles, campaign, testimonials,
-  ] = await Promise.all([
-    getHomepageShowcases(),
-    getCategoryTiles(),
-    getHomeMedia(),
-    getLatestArticles(3),
-    getFeaturedCampaign(),
-    getTestimonials(),
-  ]);
+  const { showcases, categories, media, articles, campaign, testimonials } =
+    await getHomePageData();
 
   // The opening photograph and the Rings band are fixed backdrops the page
   // scrolls over, not galleries — the first upload is the one that shows.

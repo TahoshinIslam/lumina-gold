@@ -87,7 +87,7 @@ These show the *shape* of the app's behaviour, not production capacity.
 
 | Browse, 500 users | before | after |
 | --- | --- | --- |
-| Home p95 | **2.06 s** | **68 ms** |
+| Home p95 | **2.06 s** | **453 ms** |
 | Errors | 0% | 0% |
 | Home SQL per render | **47 SELECTs** | **16** |
 | Home page weight | 3,840 KiB | **1,570 KiB** |
@@ -100,13 +100,24 @@ p95 as the real numbers.)
 
 **What was done**
 
-1. **The home page is cached** (`revalidate = 60`). It is the same for every
-   visitor and changes only when an admin edits it. Every admin action that can
-   change it calls `revalidatePath('/')`, so an edit still shows on the very next
-   request — verified by hiding a testimonial in the admin and watching it leave
-   the home page immediately. Gold rates and campaigns did NOT revalidate it and
-   now do; without that, a cached page would have quoted yesterday's gold price.
-   The 60s timer is only a backstop for anything not explicitly revalidated.
+1. **The home page's DATA is cached** (`unstable_cache`, see
+   `src/server/dal/homepage.ts`). It is the same for every visitor and changes only
+   when an admin edits it; five consecutive requests now cost **0 SQL queries**.
+   Every admin action that can change it goes through one `revalidateHome()`
+   helper that purges the route *and* the cache tag behind it — purging only the
+   route would re-render the page from the same stale data. Verified by hiding a
+   testimonial in the admin and watching it leave the home page immediately.
+   Gold rates and campaigns did NOT revalidate it and now do; without that a
+   cached page would have gone on quoting yesterday's gold price.
+
+   **The data, not the page, and that is a deliberate trade.** Marking the route
+   `revalidate = 60` caches the rendered HTML and is faster still — it took the
+   p95 to 68 ms rather than 453 ms — but it also makes Next PRERENDER the page at
+   build time, so the build needs a reachable database. CI has none, and a deploy
+   pipeline usually cannot reach production MySQL either; it failed exactly there.
+   Caching the data keeps `npm run build` database-free at the cost of ~385 ms of
+   p95 under heavy load, which is the right way round. If you ever want that back,
+   the price is giving the build a database.
 
 2. **Eight showcase queries folded into one.** The page asked for Gold and Diamond
    × New/Best/Featured/Discounts separately, and each of those is three queries

@@ -10,14 +10,30 @@ import { ADMIN_COOKIE, adminToken, checkPassword } from '@/server/auth/admin';
 import { VARIANT_AXIS_CODES } from '@/config/sizes';
 import { homeSection } from '@/config/home';
 import { readingMinutes } from '@/server/dal/journal';
+import { HOME_TAG } from '@/server/dal/homepage';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
 
+/**
+ * The home page and the cached data behind it, together.
+ *
+ * The page is rendered per request but its queries are not — they sit behind
+ * unstable_cache (server/dal/homepage.ts). Purging the route alone would re-render
+ * the page from the SAME stale data, so an admin edit would appear to do nothing
+ * for up to a minute. Both, or neither.
+ */
+function revalidateHome() {
+  revalidatePath('/');
+  // `{ expire: 0 }` — expire it NOW, not at the end of its window. The
+  // single-argument form is deprecated in Next 16.
+  revalidateTag(HOME_TAG, { expire: 0 });
+}
+
 /** Revalidate every storefront surface a product mutation can affect. */
 function revalidateStorefront() {
   revalidatePath('/admin/products');
-  revalidatePath('/');
+  revalidateHome();
   revalidatePath('/shop');
 }
 
@@ -26,7 +42,7 @@ function revalidateStorefront() {
  *  this would not show until the page's timer lapsed. */
 function revalidateCampaigns() {
   revalidatePath('/admin/campaigns');
-  revalidatePath('/');
+  revalidateHome();
   revalidatePath('/campaigns', 'layout'); // every /campaigns/[slug]
 }
 
@@ -487,7 +503,7 @@ export async function addCategoryAction(formData: FormData) {
   revalidateTag('admin-product-lookups', { expire: 0 });
   revalidatePath('/admin/categories');
   revalidatePath('/categories');
-  revalidatePath('/'); // the home page's category circles read the same rows
+  revalidateHome(); // the home page's category circles read the same rows
   redirect(feedbackUrl('/admin/categories', 'Category created successfully'));
 }
 
@@ -502,7 +518,7 @@ export async function updateCategoryAction(formData: FormData) {
   revalidateTag('admin-product-lookups', { expire: 0 });
   revalidatePath('/admin/categories');
   revalidatePath('/categories');
-  revalidatePath('/');
+  revalidateHome();
   redirect(feedbackUrl('/admin/categories', 'Category updated successfully'));
 }
 
@@ -517,7 +533,7 @@ export async function deleteCategoryAction(formData: FormData) {
   revalidateTag('admin-product-lookups', { expire: 0 });
   revalidatePath('/admin/categories');
   revalidatePath('/categories');
-  revalidatePath('/');
+  revalidateHome();
 }
 
 /* ── Home models (the landing page's editorial imagery) ───────────────────
@@ -552,7 +568,7 @@ export async function addHomeMediaAction(formData: FormData) {
      String(formData.get('alt') || '').trim() || null, (last[0]?.n ?? 0) + 1],
   );
   revalidatePath('/admin/home');
-  revalidatePath('/');
+  revalidateHome();
   return { ok: true, message: 'Image added to the home page' };
 }
 
@@ -571,7 +587,7 @@ export async function deleteHomeMediaAction(formData: FormData) {
   if (rows[0].image_phone) await unlink(homeUploadPath(rows[0].image_phone)).catch(() => {});
 
   revalidatePath('/admin/home');
-  revalidatePath('/');
+  revalidateHome();
   return { ok: true, message: 'Image removed' };
 }
 
@@ -609,7 +625,7 @@ export async function moveHomeMediaAction(formData: FormData) {
   }
 
   revalidatePath('/admin/home');
-  revalidatePath('/');
+  revalidateHome();
   return { ok: true, message: 'Order updated' };
 }
 
@@ -1231,7 +1247,7 @@ export async function saveArticleAction(formData: FormData) {
   revalidatePath('/admin/journal');
   revalidatePath('/journal');
   revalidatePath(`/journal/${slug}`);
-  revalidatePath('/'); // the home page's Latest News reads the same rows
+  revalidateHome(); // the home page's Latest News reads the same rows
   redirect(feedbackUrl('/admin/journal', id ? 'Article updated' : 'Article created'));
 }
 
@@ -1241,7 +1257,7 @@ export async function deleteArticleAction(formData: FormData) {
   await query('DELETE FROM blogs WHERE id = ?', [id]); // comments cascade
   revalidatePath('/admin/journal');
   revalidatePath('/journal');
-  revalidatePath('/');
+  revalidateHome();
   return { ok: true, message: 'Article deleted' };
 }
 
@@ -1263,7 +1279,7 @@ export async function toggleArticleStatusAction(formData: FormData) {
   );
   revalidatePath('/admin/journal');
   revalidatePath('/journal');
-  revalidatePath('/');
+  revalidateHome();
   return { ok: true, message: next === 'published' ? 'Article published' : 'Article unpublished' };
 }
 
@@ -1327,7 +1343,7 @@ export async function saveTestimonialAction(formData: FormData) {
   }
 
   revalidatePath('/admin/testimonials');
-  revalidatePath('/');
+  revalidateHome();
   redirect(feedbackUrl('/admin/testimonials', id ? 'Testimonial updated' : 'Testimonial added'));
 }
 
@@ -1336,7 +1352,7 @@ export async function deleteTestimonialAction(formData: FormData) {
   if (!id) return { ok: false, message: 'Nothing to remove' };
   await query('DELETE FROM testimonials WHERE id = ?', [id]);
   revalidatePath('/admin/testimonials');
-  revalidatePath('/');
+  revalidateHome();
   return { ok: true, message: 'Testimonial removed' };
 }
 
@@ -1350,7 +1366,7 @@ export async function toggleTestimonialAction(formData: FormData) {
   const next = rows[0].is_active ? 0 : 1;
   await query('UPDATE testimonials SET is_active = ? WHERE id = ?', [next, id]);
   revalidatePath('/admin/testimonials');
-  revalidatePath('/');
+  revalidateHome();
   return { ok: true, message: next ? 'Testimonial is now on the home page' : 'Testimonial hidden' };
 }
 
@@ -1384,6 +1400,6 @@ export async function moveTestimonialAction(formData: FormData) {
   await query('UPDATE testimonials SET sort_order = ? WHERE id = ?', [current.sort_order, neighbour.id]);
 
   revalidatePath('/admin/testimonials');
-  revalidatePath('/');
+  revalidateHome();
   return { ok: true, message: 'Order updated' };
 }
