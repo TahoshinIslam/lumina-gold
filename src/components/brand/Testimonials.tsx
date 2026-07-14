@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { TESTIMONIALS } from '@/components/brand/data';
+import type { Testimonial } from '@/server/dal/testimonials';
 
 /** Gold monogram avatar — initials in a circle (no client photos needed). */
 function Monogram({ name }: { name: string }) {
@@ -16,10 +16,18 @@ function Monogram({ name }: { name: string }) {
  * Testimonials — "Cherished by Collectors" carousel. One centered review
  * card with monogram avatar; neighbours peek faded at the sides; square
  * arrow buttons and dots (reference: Customers Reviews slider).
+ *
+ * The quotes come from Admin → Testimonials. They used to be a hardcoded array,
+ * which meant the boutique could not put a real client's words on its own home
+ * page — nor take down one it no longer wanted to show.
  */
-export default function Testimonials() {
+export default function Testimonials({ items }: { items: Testimonial[] }) {
   const [index, setIndex] = useState(0);
-  const count = TESTIMONIALS.length;
+  const count = items.length;
+
+  // With every quote hidden, a heading over an empty rail is worse than nothing.
+  if (count === 0) return null;
+
   const prev = () => setIndex(i => (i + count - 1) % count);
   const next = () => setIndex(i => (i + 1) % count);
 
@@ -43,13 +51,13 @@ export default function Testimonials() {
                 transform: `translateX(calc(50% - var(--slide-w) / 2 - ${index} * (var(--slide-w) + var(--car-gap))))`,
               }}
             >
-              {TESTIMONIALS.map((t, i) => (
-                <figure key={t.name} className={`lum-car-slide${i === index ? ' is-active' : ''}`}>
-                  <Monogram name={t.name} />
+              {items.map((t, i) => (
+                <figure key={t.id} className={`lum-car-slide${i === index ? ' is-active' : ''}`}>
+                  <Monogram name={t.author_name} />
                   <blockquote className="lum-testi-quote">&ldquo;{t.quote}&rdquo;</blockquote>
                   <figcaption>
-                    <div className="lum-testi-name">{t.name}</div>
-                    <div className="lum-testi-city">{t.city}</div>
+                    <div className="lum-testi-name">{t.author_name}</div>
+                    <div className="lum-testi-city">{t.author_title}</div>
                   </figcaption>
                 </figure>
               ))}
@@ -62,9 +70,9 @@ export default function Testimonials() {
         </div>
 
         <div className="lum-car-dots" role="tablist" aria-label="Reviews">
-          {TESTIMONIALS.map((t, i) => (
+          {items.map((t, i) => (
             <button
-              key={t.name}
+              key={t.id}
               role="tab"
               aria-selected={i === index}
               aria-label={`Review ${i + 1}`}

@@ -34,12 +34,17 @@ export default function HomeMediaManager({ section, images }: {
         body.append('section', section.key);
         body.append('file', file);
         const res = await fetch('/api/admin/upload-home', { method: 'POST', body });
-        const data: { path?: string; width?: number; height?: number; error?: string } = await res.json();
+        const data: {
+          path?: string; phonePath?: string | null;
+          width?: number; height?: number; error?: string;
+        } = await res.json();
         if (!res.ok || !data.path) throw new Error(data.error || 'Upload failed');
 
         const record = new FormData();
         record.set('section', section.key);
         record.set('image', data.path);
+        // The upright crop a backdrop derives from this same photograph.
+        if (data.phonePath) record.set('image_phone', data.phonePath);
         record.set('width', String(data.width ?? ''));
         record.set('height', String(data.height ?? ''));
         record.set('alt', `${section.eyebrow} — ${file.name.replace(/\.[^.]+$/, '')}`);
@@ -63,7 +68,24 @@ export default function HomeMediaManager({ section, images }: {
       <p className="adm-sub" style={{ marginBottom: 4 }}>
         <strong>{section.heading}</strong>
       </p>
-      <p className="adm-sub" style={{ marginBottom: 16, fontSize: 12 }}>{section.hint}</p>
+      <p className="adm-sub" style={{ marginBottom: 12, fontSize: 12 }}>{section.hint}</p>
+
+      {/* Every section renders at a different size and only the two backdrops
+          crop, so the size to shoot is a per-section answer, not one blanket
+          "upload something big". */}
+      <div className="adm-home-spec">
+        <div className="adm-home-spec-line">
+          <ImageIcon size={13} aria-hidden />
+          <span>
+            Best size <strong>{section.recommend.size}</strong>
+            <span className="adm-home-spec-sep">·</span>
+            <strong>{section.recommend.ratio}</strong>
+            <span className="adm-home-spec-sep">·</span>
+            JPEG or PNG under 10&nbsp;MB
+          </span>
+        </div>
+        <p className="adm-home-spec-caution">{section.recommend.caution}</p>
+      </div>
 
       {images.length > 0 && (
         <div className="adm-home-grid">

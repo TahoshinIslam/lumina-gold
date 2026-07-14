@@ -13,6 +13,7 @@ import {
   LogOut,
   Megaphone,
   Newspaper,
+  Quote,
   Ruler,
   ShoppingBag,
   Star,
@@ -50,6 +51,7 @@ const GROUPS = [
     items: [
       { href: '/admin/home', label: 'Home Models', icon: Images },
       { href: '/admin/journal', label: 'Journal', icon: Newspaper },
+      { href: '/admin/testimonials', label: 'Testimonials', icon: Quote },
     ],
   },
   {

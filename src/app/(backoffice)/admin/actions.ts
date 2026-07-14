@@ -533,9 +533,14 @@ export async function addHomeMediaAction(formData: FormData) {
   // it a frame that fits rather than cropping it back into a fixed one.
   const width = Number(formData.get('width')) || null;
   const height = Number(formData.get('height')) || null;
+  // Backdrops also carry an upright crop, derived from the same photograph at
+  // upload time — see /api/admin/upload-home. NULL for every gallery section.
+  const imagePhone = String(formData.get('image_phone') || '').trim() || null;
   await query(
-    'INSERT INTO home_media (section, image, width, height, alt, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
-    [section, image, width, height, String(formData.get('alt') || '').trim() || null, (last[0]?.n ?? 0) + 1],
+    `INSERT INTO home_media (section, image, image_phone, width, height, alt, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [section, image, imagePhone, width, height,
+     String(formData.get('alt') || '').trim() || null, (last[0]?.n ?? 0) + 1],
   );
   revalidatePath('/admin/home');
   revalidatePath('/');
@@ -545,12 +550,16 @@ export async function addHomeMediaAction(formData: FormData) {
 export async function deleteHomeMediaAction(formData: FormData) {
   const id = Number(formData.get('id'));
   if (!id) return { ok: false, message: 'Nothing to remove' };
-  const rows = await query<{ image: string }>('SELECT image FROM home_media WHERE id = ?', [id]);
+  const rows = await query<{ image: string; image_phone: string | null }>(
+    'SELECT image, image_phone FROM home_media WHERE id = ?', [id],
+  );
   if (!rows[0]) return { ok: false, message: 'Already removed' };
 
   await query('DELETE FROM home_media WHERE id = ?', [id]);
-  // Only ever deletes inside public/uploads/home, and only a path we wrote.
+  // Only ever deletes inside public/uploads/home, and only a path we wrote —
+  // including the upright crop derived from this photograph, if it has one.
   await unlink(homeUploadPath(rows[0].image)).catch(() => {});
+  if (rows[0].image_phone) await unlink(homeUploadPath(rows[0].image_phone)).catch(() => {});
 
   revalidatePath('/admin/home');
   revalidatePath('/');
@@ -1264,4 +1273,104 @@ export async function deleteCommentAdminAction(formData: FormData) {
   revalidatePath('/admin/journal');
   revalidatePath('/journal');
   return { ok: true, message: 'Comment deleted' };
+}
+
+/* ── Testimonials ─────────────────────────────────────────────────────────
+ * "In Their Words / Cherished by Collectors" on the landing page. The table
+ * shipped with the first schema and nothing ever wrote to it — the quotes were
+ * a hardcoded array in a component, so the boutique could not put a real
+ * client's words on its own home page.
+ */
+
+export async function saveTestimonialAction(formData: FormData) {
+  const id = Number(formData.get('id')) || 0;
+  const author = String(formData.get('author_name') || '').trim();
+  const city = String(formData.get('author_title') || '').trim();
+  // Browsers submit a textarea with CRLF; the card prints one paragraph, so the
+  // line endings are normalised rather than carried into the quote.
+  const quote = String(formData.get('quote') || '').replace(/\r\n/g, '\n').trim();
+  const active = formData.get('is_active') ? 1 : 0;
+
+  // A form action must return void, so a rejected save goes back to the form with
+  // ?error= — the same way the article editor reports itself.
+  const backTo = id ? `/admin/testimonials/${id}/edit` : '/admin/testimonials/new';
+  if (!author) redirect(`${backTo}?error=name`);
+  if (!quote) redirect(`${backTo}?error=quote`);
+  if (quote.length > 600) redirect(`${backTo}?error=long`);
+
+  if (id) {
+    await query(
+      `UPDATE testimonials SET author_name = ?, author_title = ?, quote = ?, is_active = ? WHERE id = ?`,
+      [author, city || null, quote, active, id],
+    );
+  } else {
+    // Appended, so adding a quote never reshuffles the ones already there.
+    const last = await query<{ n: number | null }>('SELECT MAX(sort_order) n FROM testimonials');
+    await query(
+      `INSERT INTO testimonials (author_name, author_title, quote, sort_order, is_active)
+       VALUES (?, ?, ?, ?, ?)`,
+      [author, city || null, quote, (last[0]?.n ?? 0) + 1, active],
+    );
+  }
+
+  revalidatePath('/admin/testimonials');
+  revalidatePath('/');
+  redirect(feedbackUrl('/admin/testimonials', id ? 'Testimonial updated' : 'Testimonial added'));
+}
+
+export async function deleteTestimonialAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  if (!id) return { ok: false, message: 'Nothing to remove' };
+  await query('DELETE FROM testimonials WHERE id = ?', [id]);
+  revalidatePath('/admin/testimonials');
+  revalidatePath('/');
+  return { ok: true, message: 'Testimonial removed' };
+}
+
+/** Hide a quote without losing it — the boutique may want it back. */
+export async function toggleTestimonialAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  if (!id) return { ok: false, message: 'Nothing to change' };
+  const rows = await query<{ is_active: number }>('SELECT is_active FROM testimonials WHERE id = ?', [id]);
+  if (!rows[0]) return { ok: false, message: 'Already removed' };
+
+  const next = rows[0].is_active ? 0 : 1;
+  await query('UPDATE testimonials SET is_active = ? WHERE id = ?', [next, id]);
+  revalidatePath('/admin/testimonials');
+  revalidatePath('/');
+  return { ok: true, message: next ? 'Testimonial is now on the home page' : 'Testimonial hidden' };
+}
+
+/** Swap a quote with its neighbour — the carousel plays in this order. */
+export async function moveTestimonialAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const dir = String(formData.get('dir')) === 'up' ? 'up' : 'down';
+  if (!id) return { ok: false, message: 'Nothing to move' };
+
+  const rows = await query<{ sort_order: number }>('SELECT sort_order FROM testimonials WHERE id = ?', [id]);
+  const current = rows[0];
+  if (!current) return { ok: false, message: 'Already removed' };
+
+  // Ties on sort_order are broken by id, exactly as the list is ordered.
+  const neighbours = await query<{ id: number; sort_order: number }>(
+    dir === 'up'
+      ? `SELECT id, sort_order FROM testimonials
+          WHERE sort_order < ? OR (sort_order = ? AND id < ?)
+          ORDER BY sort_order DESC, id DESC LIMIT 1`
+      : `SELECT id, sort_order FROM testimonials
+          WHERE sort_order > ? OR (sort_order = ? AND id > ?)
+          ORDER BY sort_order ASC, id ASC LIMIT 1`,
+    [current.sort_order, current.sort_order, id],
+  );
+  const neighbour = neighbours[0];
+  if (!neighbour) return { ok: false, message: dir === 'up' ? 'Already first' : 'Already last' };
+
+  // Two rows, two statements: a multi-table UPDATE ... JOIN touches each target
+  // row only once in MySQL, which silently half-applies a swap.
+  await query('UPDATE testimonials SET sort_order = ? WHERE id = ?', [neighbour.sort_order, id]);
+  await query('UPDATE testimonials SET sort_order = ? WHERE id = ?', [current.sort_order, neighbour.id]);
+
+  revalidatePath('/admin/testimonials');
+  revalidatePath('/');
+  return { ok: true, message: 'Order updated' };
 }

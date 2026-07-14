@@ -38,6 +38,8 @@ export interface HomeMediaItem {
   id: number;
   section: HomeSectionKey;
   image: string;
+  /** A backdrop's upright crop for phones, derived at upload. NULL elsewhere. */
+  image_phone: string | null;
   /** The photo's own proportions — uploads are never cropped, so the page frames them. */
   width: number | null;
   height: number | null;
@@ -57,7 +59,7 @@ export type HomeMedia = Record<HomeSectionKey, HomeMediaItem[]>;
 /** All uploaded home imagery, grouped by section (empty arrays, never missing keys). */
 export async function getHomeMedia(): Promise<HomeMedia> {
   const rows = await query<HomeMediaItem>(
-    `SELECT id, section, image, width, height, alt, sort_order FROM home_media
+    `SELECT id, section, image, image_phone, width, height, alt, sort_order FROM home_media
       ORDER BY sort_order, id`,
   );
   const grouped = Object.fromEntries(

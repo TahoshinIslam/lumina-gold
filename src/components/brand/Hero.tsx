@@ -10,16 +10,36 @@ function Star({ size, style }: { size: number; style: CSSProperties }) {
 }
 
 /**
- * Hero — full-bleed editorial: Hero.png as the background image (cover,
- * centered) under a dark gradient scrim, with ivory-white typography.
- * Stacked headline (ETERNAL / Luxury / REDEFINED), subheadline, two CTAs.
- * Animation delays follow the 1.2s preloader lift.
+ * Hero — full-bleed editorial: the opening photograph (cover, centered) under a
+ * dark gradient scrim, with ivory-white typography. Stacked headline (ETERNAL /
+ * Luxury / REDEFINED), subheadline, two CTAs. Animation delays follow the 1.2s
+ * preloader lift.
+ *
+ * Both photographs come from Admin → Home Models. The stylesheet still names the
+ * shipped one, so with nothing uploaded the page looks exactly as it always has;
+ * an upload simply paints over it.
+ *
+ * Two of them, because the backdrop IS the viewport (position: fixed, inset: 0,
+ * background cover) and a phone's viewport is about 9:19. Covering that with a
+ * 16:9 photograph keeps only the middle quarter of its width — the piece it was
+ * shot to show ends up outside the frame. `phoneImage` is the upright crop for
+ * those screens; the CHOICE between them is made in CSS (a media query), not
+ * here, because a server component cannot know the screen it will land on and
+ * guessing from a user-agent gets it wrong on the ones that matter.
  */
-export default function Hero() {
+export default function Hero({ image, phoneImage }: { image?: string; phoneImage?: string }) {
+  // Custom properties, so one element can carry both and the stylesheet picks.
+  // An unset property falls back to the shipped photograph named in the CSS.
+  const backdrop = {
+    ...(image ? { '--lum-bg': `url('${image}')` } : {}),
+    // With no upright crop, phones keep the wide one — today's behaviour exactly.
+    ...(phoneImage ? { '--lum-bg-phone': `url('${phoneImage}')` } : {}),
+  } as CSSProperties;
+
   return (
     <section className="lum-hero" id="hero">
       {/* Fixed image layer (GPU-composited parallax; clipped by the section) */}
-      <div className="lum-fixed-bg lum-fixed-bg--hero" aria-hidden />
+      <div className="lum-fixed-bg lum-fixed-bg--hero" style={backdrop} aria-hidden />
       <div className="lum-hero-ghost">NAHAR</div>
 
       {/* Eyebrow label */}

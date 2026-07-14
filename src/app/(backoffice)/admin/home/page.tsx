@@ -18,9 +18,10 @@ export default async function AdminHomePage() {
     <>
       <h1 className="adm-h1">Home Models</h1>
       <p className="adm-sub">
-        The photographs on the landing page. Upload as many as you like per section — a section with
-        one image shows it still, a section with several fades between them. Images are cropped to
-        the frame the page renders them in, so upload the best shot and let it be trimmed.
+        Every photograph on the landing page, including the opening shot. A gallery section takes as
+        many images as you like — one shows still, several cross-fade — and each keeps its own shape,
+        so nothing is cropped. The two backdrops the page scrolls over (the landing photograph and
+        The Editorial) use the first image only, and fill the screen with it.
       </p>
 
       <div style={{ maxWidth: 760, marginTop: 20 }}>

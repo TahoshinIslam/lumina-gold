@@ -98,41 +98,6 @@ export const HERITAGE_STATS: HeritageStat[] = [
   { value: 3, label: 'Maisons' },
 ];
 
-export type Testimonial = { quote: string; name: string; city: string };
-
-export const TESTIMONIALS: Testimonial[] = [
-  {
-    quote:
-      'The rivière necklace I commissioned took eight months. When it arrived, my wife wept. Nothing we own compares to it.',
-    name: 'A. de Villiers',
-    city: 'Genève',
-  },
-  {
-    quote:
-      'Their private salon experience is unlike anything in Paris. Three generations of my family now wear Nahar Jewellers.',
-    name: 'M. Hartwell',
-    city: 'New York',
-  },
-  {
-    quote:
-      "I have collected high jewelry for twenty years. Nahar Jewellers' gold work is the finest I have ever held.",
-    name: 'S. Al-Rashid',
-    city: 'Paris',
-  },
-  {
-    quote:
-      'From the first sketch to the final polish, they treated my mother\u2019s heirloom stones with reverence. The reset bangles are breathtaking.',
-    name: 'N. Rahman',
-    city: 'Dhaka',
-  },
-  {
-    quote:
-      'The engagement ring was ready before the promised date, with a certificate for every stone. Service as flawless as the diamond.',
-    name: 'E. Whitmore',
-    city: 'London',
-  },
-];
-
 export const APPOINTMENT_FEATURES = [
   'Personal Consultation',
   'Diamond Selection',
