@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main, admin-catalogue-editor]
+  pull_request:
+    branches: [main]
+
+# A second push to the same branch makes the first run's answer worthless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck · Lint · Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Each step runs even if the one before it failed: one push should tell you
+      # everything that is wrong, not just the first thing.
+      - name: Typecheck
+        id: typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        id: lint
+        if: ${{ !cancelled() }}
+        run: npx eslint
+
+      # No database service here on purpose. Every page that touches MySQL is
+      # `force-dynamic` or otherwise rendered per-request, so nothing queries it
+      # at build time — verified by building against an unreachable port. If a
+      # page ever starts reading the database during the build, this step is what
+      # will tell you.
+      - name: Build
+        id: build
+        if: ${{ !cancelled() }}
+        run: npm run build

@@ -2,24 +2,36 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { CATALOG } from '@/features/catalog/catalog';
-import { formatPrice } from '@/types/product';
+import { useEffect, useRef, useState } from 'react';
+import { formatPrice, type Product } from '@/types/product';
 
 /**
- * SearchBox — magnifier button that opens an overlay with a live, instant
- * (client-side) search over the catalog. Debounced suggestions link
- * straight to the product; Enter runs a full search on /shop?q=…
+ * SearchBox — magnifier button that opens an overlay with live, debounced
+ * suggestions. Suggestions link straight to the piece; Enter runs a full search
+ * on /shop?q=…
+ *
+ * It searches the DATABASE (/api/products/search). It used to search a hardcoded
+ * array of fictional pieces, so it could not find a single product the boutique
+ * actually sells — typing the name of a real piece returned nothing, while an
+ * invented one returned a link to a page that does not exist.
  */
 export default function SearchBox() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState('');
   const [debounced, setDebounced] = useState('');
+  // The suggestions we hold are the answer to a PARTICULAR term, so "am I still
+  // searching?" needs no flag of its own — and last term's pieces can never be
+  // shown under this term's text while the next request is in flight.
+  const [answer, setAnswer] = useState<{ q: string; products: Product[] }>({ q: '', products: [] });
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const settled = answer.q === debounced;
+  const results = settled ? answer.products : [];
+  const searching = !settled && debounced.length >= 2;
+
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(term.trim().toLowerCase()), 140);
+    const t = setTimeout(() => setDebounced(term.trim()), 220);
     return () => clearTimeout(t);
   }, [term]);
 
@@ -30,19 +42,21 @@ export default function SearchBox() {
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
-  const results = useMemo(() => {
-    if (debounced.length < 2) return [];
-    const q = debounced;
-    return CATALOG
-      .map(p => {
-        const hay = `${p.name} ${p.material} ${p.type} ${p.collection} ${p.style ?? ''} ${p.gender}`.toLowerCase();
-        const score = p.name.toLowerCase().startsWith(q) ? 3 : hay.includes(q) ? 1 : 0;
-        return { p, score };
+  useEffect(() => {
+    if (debounced.length < 2) return;
+
+    let cancelled = false;
+    fetch(`/api/products/search?q=${encodeURIComponent(debounced)}`)
+      .then(res => res.json())
+      .then((data: { products?: Product[] }) => {
+        if (!cancelled) setAnswer({ q: debounced, products: data.products ?? [] });
       })
-      .filter(r => r.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 6)
-      .map(r => r.p);
+      .catch(() => {
+        // Offline, or the search failed: no suggestions, but Enter still works.
+        if (!cancelled) setAnswer({ q: debounced, products: [] });
+      });
+
+    return () => { cancelled = true; };
   }, [debounced]);
 
   const submit = (e: React.FormEvent) => {
@@ -79,7 +93,11 @@ export default function SearchBox() {
 
             {debounced.length >= 2 && (
               <div className="lum-search-results">
-                {results.length === 0 ? (
+                {searching ? (
+                  // Not "no creations match" — that is a different, and wrong,
+                  // thing to tell someone whose answer is still on its way.
+                  <div className="lum-search-empty">Searching…</div>
+                ) : results.length === 0 ? (
                   <div className="lum-search-empty">No creations match “{term}”.</div>
                 ) : (
                   <>

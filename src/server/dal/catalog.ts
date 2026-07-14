@@ -220,10 +220,18 @@ function mapRowToProduct(
   );
 
   const diamondStone = stoneRows.find(s => s.stone_name === 'Diamond');
-  const diamond = diamondStone && (diamondStone.carat_each || diamondStone.carat_total) && diamondStone.shape
+  // A diamond row IS the diamond spec. This used to also demand a carat weight
+  // and a shape, and quietly dropped the whole spec when either was blank — so a
+  // chain recorded with 30 stones, a Pear shape and VVS1 clarity but no measured
+  // carat had no `diamond` at all, and every diamond facet (Number of Stones,
+  // Shape, Clarity, Colour, Certification) filtered it out. Each grade stands or
+  // falls on its own now: whatever the admin recorded is what the shopper filters
+  // and reads.
+  const caratEach = diamondStone?.carat_each ?? diamondStone?.carat_total;
+  const diamond = diamondStone
     ? {
-        caratWeight: Number(diamondStone.carat_each ?? diamondStone.carat_total),
-        shape: diamondStone.shape,
+        caratWeight: caratEach != null ? Number(caratEach) : undefined,
+        shape: diamondStone.shape || undefined,
         color: diamondStone.color || undefined,
         clarity: diamondStone.clarity || undefined,
         cut: diamondStone.cut || undefined,
@@ -286,6 +294,38 @@ export async function getStorefrontProducts(opts: { mainCategory?: MainCategory 
   const rows = await query<ProductRow>(
     `${BASE_SELECT} WHERE p.status = 'active' ${scope.sql} ORDER BY p.created_at DESC`,
     scope.params,
+  );
+  return attachChildren(rows);
+}
+
+/**
+ * Type-ahead search over the live catalogue, for the header's search box.
+ *
+ * It used to search a hardcoded array of fictional pieces, so it could not find
+ * a single product the boutique actually sells, and offered ones it does not.
+ *
+ * A piece whose NAME starts with what you typed comes first — someone typing
+ * "diam" wants the Diamond Chain, not every piece that happens to be set with
+ * diamonds. After that: a name that contains it, then anything matched only
+ * through its category, collection or SKU.
+ */
+export async function searchProducts(term: string, limit = 6): Promise<Product[]> {
+  const q = term.trim();
+  if (q.length < 2) return [];
+  const like = `%${q}%`;
+  const starts = `${q}%`;
+
+  const rows = await query<ProductRow>(
+    `${BASE_SELECT}
+      WHERE p.status = 'active'
+        AND (p.name LIKE ? OR p.sku LIKE ? OR p.short_description LIKE ?
+             OR EXISTS (SELECT 1 FROM product_categories pcx JOIN categories cx ON cx.id = pcx.category_id
+                         WHERE pcx.product_id = p.id AND cx.name LIKE ?)
+             OR EXISTS (SELECT 1 FROM product_collections pcl JOIN collections cl ON cl.id = pcl.collection_id
+                         WHERE pcl.product_id = p.id AND cl.name LIKE ?))
+      ORDER BY (p.name LIKE ?) DESC, (p.name LIKE ?) DESC, p.is_featured DESC, p.name
+      LIMIT ?`,
+    [like, like, like, like, like, starts, like, limit],
   );
   return attachChildren(rows);
 }

@@ -21,7 +21,11 @@ import { groupForFilters } from '@/features/catalog/presets';
 import type { Crumb } from '@/features/catalog/breadcrumbs';
 import Breadcrumbs from '@/features/catalog/components/Breadcrumbs';
 import ProductCard from '@/features/catalog/components/ProductCard';
+import Select from '@/features/shared/Select';
 import { useWishlist } from '@/features/wishlist/useWishlist';
+
+/** How many pieces a shopper gets before they ask for more. */
+const PAGE_SIZE = 12;
 
 /**
  * ShopPage — the single product-listing experience (IA spec Step 8).
@@ -109,6 +113,28 @@ export default function ShopPage(
     [initialProducts, filters, sort, q],
   );
 
+  /* Paging. The whole scoped set is already here, so "load more" is just how
+   * much of it we render: 100+ cards on first paint is a lot of images to pull
+   * over a phone connection for pieces nobody has scrolled to yet.
+   *
+   * The count resets during render rather than from an effect, because a reader
+   * who changes a filter must never see the previous page count applied to the
+   * new results, not even for one frame. Keyed on the query string, not on
+   * `filters` or `products` — those are fresh objects on every render and would
+   * reset the count on the spot. Any change to a filter, the sort or the search
+   * rewrites the URL, and that is exactly when the results are a different set
+   * and the reader belongs back on page one. */
+  const paramsKey = searchParams.toString();
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const [shownFor, setShownFor] = useState(paramsKey);
+  if (shownFor !== paramsKey) {
+    setShownFor(paramsKey);
+    setShown(PAGE_SIZE);
+  }
+
+  const visible = products.slice(0, shown);
+  const remaining = products.length - visible.length;
+
   const navigate = (nextFilters: Filters, nextSort: SortKey = sort) => {
     const extra: Record<string, string> = {};
     if (nextSort !== 'featured') extra.sort = nextSort;
@@ -183,17 +209,15 @@ export default function ShopPage(
           <button className="lum-filter-toggle" onClick={() => setDrawerOpen(true)}>
             ☰ Filters
           </button>
-          <label className="lum-sort">
-            Sort
-            <select
+          <div className="lum-sort">
+            <span>Sort</span>
+            <Select
+              options={SORT_OPTIONS}
               value={sort}
-              onChange={e => navigate(filters, e.target.value as SortKey)}
-            >
-              {SORT_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
+              ariaLabel="Sort products"
+              onChange={next => navigate(filters, next as SortKey)}
+            />
+          </div>
         </div>
       </div>
 
@@ -289,16 +313,33 @@ export default function ShopPage(
               </button>
             </div>
           ) : (
-            <div className="lum-results-grid">
-              {products.map(product => (
-                <ProductCard
-                  key={product.sku}
-                  product={product}
-                  wished={!!wished[product.sku]}
-                  onToggleWish={toggleWish}
-                />
-              ))}
-            </div>
+            <>
+              <div className="lum-results-grid">
+                {visible.map(product => (
+                  <ProductCard
+                    key={product.sku}
+                    product={product}
+                    wished={!!wished[product.sku]}
+                    onToggleWish={toggleWish}
+                  />
+                ))}
+              </div>
+
+              {remaining > 0 && (
+                <div className="lum-loadmore">
+                  <div className="lum-loadmore-count">
+                    Showing {visible.length} of {products.length}
+                  </div>
+                  <button
+                    type="button"
+                    className="lum-cta-gold lum-loadmore-btn"
+                    onClick={() => setShown(count => count + PAGE_SIZE)}
+                  >
+                    Load more products
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
       </div>

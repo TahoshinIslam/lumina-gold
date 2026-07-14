@@ -314,8 +314,59 @@ a:hover { color: var(--gold-light); }
   background: center / cover no-repeat;
   pointer-events: none;
 }
-.lum-fixed-bg--hero { background-image: url('/uploads/home/Hero.png'); background-position: center 40%; }
-.lum-fixed-bg--rings { background-image: url('/uploads/home/GZdjz.jpg'); background-position: center 42%; }
+/* The two scrolled-over backdrops (Admin → Home Models).
+   --lum-bg is the wide photograph and --lum-bg-phone the optional upright crop;
+   both are set as inline custom properties by Hero / ParallaxShowcase. Neither
+   set means nothing has been uploaded, and the shipped photograph named here
+   still shows. */
+.lum-fixed-bg--hero {
+  background-image: var(--lum-bg, url('/uploads/home/Hero.png'));
+  background-position: center 40%;
+}
+.lum-fixed-bg--rings {
+  background-image: var(--lum-bg, url('/uploads/home/GZdjz.jpg'));
+  background-position: center 42%;
+}
+
+/* A backdrop IS the viewport — fixed, inset 0, covered — so on a phone it is a
+   9:19 box. A 16:9 photograph stretched to fill that keeps only the middle
+   quarter of its width, which is why a wide hero shot looks blown-up and
+   mis-framed on a phone.
+   Anything at least as tall as 4:3 portrait (every phone, and a tablet held
+   upright) therefore takes the upright crop when the admin has uploaded one.
+   Keyed on the SHAPE of the screen rather than its width: a wide-but-short
+   window has no such problem, and a narrow-but-tall one does. */
+@media (max-aspect-ratio: 3 / 4) {
+  .lum-fixed-bg--hero {
+    background-image: var(--lum-bg-phone, var(--lum-bg, url('/uploads/home/Hero.png')));
+    background-position: center center;
+  }
+  .lum-fixed-bg--rings {
+    background-image: var(--lum-bg-phone, var(--lum-bg, url('/uploads/home/GZdjz.jpg')));
+    background-position: center center;
+  }
+
+  /* A deeper scrim under the type. On a wide screen the headline sits over a
+     photograph that has room to breathe; on a phone it lands on whatever the
+     crop left in the middle of the frame — which, on a lit gold photograph, is
+     the brightest part of it, and the script "Luxury" all but disappeared into
+     it. Darkest exactly where the words are, still clear at the top and bottom
+     so the picture is not simply dimmed. */
+  .lum-hero::before {
+    background: linear-gradient(180deg,
+      rgba(20,26,19, 0.58) 0%,
+      rgba(20,26,19, 0.52) 28%,
+      rgba(20,26,19, 0.66) 50%,
+      rgba(20,26,19, 0.72) 72%,
+      rgba(22,28,21, 0.88) 100%);
+  }
+  .lum-parallax::before {
+    background: linear-gradient(180deg,
+      rgba(15,20,14, 0.58) 0%,
+      rgba(15,20,14, 0.62) 50%,
+      rgba(15,20,14, 0.68) 100%);
+  }
+}
 
 .lum-hero {
   position: relative; min-height: 100vh;
@@ -684,6 +735,46 @@ a:hover { color: var(--gold-light); }
   transition: color 0.6s ease, gap 0.6s ease;
 }
 .lum-col-card:hover .lum-col-explore { color: #B08D4F; gap: 18px; }
+
+/* Collections on smaller screens.
+   Each card takes its shape from the photo the admin uploaded under Home Models,
+   and those are portrait (816×1450 ≈ 1:1.78). Dropped to one column on a phone,
+   a card came out ~770px tall: the section ran to nearly 3000px, only one card
+   was ever on screen, and the two below the fold sat blank — their reveal cannot
+   fire until you reach them — which is what looked like the images failing to
+   load. Narrower columns keep every photo whole (still uncropped, just smaller)
+   and put more than one card on screen at once.
+   The nth-child stagger is a composition for three across; at any other column
+   count it only knocks the rows out of line, so it stays at full width. */
+@media (max-width: 1080px) {
+  .lum-collections { padding: clamp(70px, 10vw, 120px) clamp(20px, 5vw, 60px); }
+  .lum-collections-head { margin-bottom: clamp(38px, 5vw, 64px); }
+  .lum-col-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(16px, 2.4vw, 30px);
+  }
+  .lum-col-card { gap: 16px; }
+  .lum-col-card:nth-child(2),
+  .lum-col-card:nth-child(3) { margin-top: 0; }
+  .lum-col-badge { top: 12px; left: 12px; font-size: 14px; padding: 3px 10px; }
+  .lum-col-title { font-size: 20px; letter-spacing: 0.09em; }
+  .lum-col-card:hover .lum-col-title { letter-spacing: 0.14em; }
+  .lum-col-desc { font-size: 13.5px; line-height: 1.6; }
+  .lum-col-explore { font-size: 10px; letter-spacing: 0.24em; }
+}
+@media (max-width: 640px) {
+  .lum-col-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .lum-col-title { font-size: 17px; }
+  .lum-col-desc { font-size: 12.5px; }
+  /* Three cards in two columns leaves the last one alone on its row. Give it the
+     full row and hold it to a column's width, so it reads as centred rather than
+     as a card that failed to line up. */
+  .lum-col-card:nth-child(3) {
+    grid-column: 1 / -1;
+    max-width: calc(50% - 7px);
+    margin-inline: auto;
+  }
+}
 
 /* Glare layer (driven by useLuminaEffects tilt handler) */
 .lum-glare {
@@ -1258,12 +1349,70 @@ a:hover { color: var(--gold-light); }
   font-family: 'Archivo', serif; font-size: 11px;
   letter-spacing: 0.3em; text-transform: uppercase; color: #9CA39E;
 }
-.lum-sort select {
-  font-family: 'Archivo', serif; font-size: 13px; color: #B08D4F;
+
+/* ── Dropdown (features/shared/Select) ───────────────────────────────────
+   The one dropdown the shop uses. A native <select> opens a list drawn by the
+   OS — white sheet, blue highlight, system font — and no CSS reaches inside it,
+   which is why this is a listbox we render ourselves. Everything here is the
+   shop's own palette: forest ground, gold rule, gold tick on the chosen row. */
+.lum-select { position: relative; display: inline-block; }
+.lum-select-btn {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-width: 190px; width: 100%;
+  font-family: 'Archivo', serif; font-size: 13px; letter-spacing: 0.04em;
+  text-transform: none; color: #B08D4F; text-align: left;
   background: rgba(36,42,35, 0.8);
   border: 1px solid rgba(218,168,88, 0.4); border-radius: 2px;
   padding: 10px 14px; cursor: pointer;
+  transition: border-color 0.4s ease, color 0.4s ease, background 0.4s ease;
 }
+.lum-select-btn:hover,
+.lum-select-btn.is-open { border-color: rgba(218,168,88, 0.75); color: #DAA858; }
+.lum-select-btn:focus-visible { outline: 1px solid #DAA858; outline-offset: 2px; }
+.lum-select-caret { flex: 0 0 auto; transition: transform 0.35s ease; }
+.lum-select-btn.is-open .lum-select-caret { transform: rotate(180deg); }
+.lum-select-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lum-select-menu {
+  position: absolute; z-index: 60; top: calc(100% + 6px); left: 0;
+  min-width: 100%; margin: 0; padding: 6px; list-style: none;
+  /* Opaque, not translucent: this sits over photographs. */
+  background: #1B211A;
+  border: 1px solid rgba(218,168,88, 0.35); border-radius: 3px;
+  box-shadow: 0 24px 60px rgba(0,0,0, 0.55);
+  max-height: 320px; overflow-y: auto;
+  animation: lum-fade-in 0.16s ease both;
+}
+.lum-select-menu:focus-visible { outline: none; }
+.lum-select-opt {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 12px; border-radius: 2px; cursor: pointer;
+  font-family: 'Archivo', serif; font-size: 13px; letter-spacing: 0.04em;
+  /* The row reads exactly as the closed field does — the sort label around it is
+     uppercase and tracked out, and the list would otherwise inherit that. */
+  text-transform: none;
+  color: #C9CDC7; white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+/* Keyboard and mouse share one highlight — arrowing down and hovering can never
+   disagree about which row is next. */
+.lum-select-opt.is-active { background: rgba(218,168,88, 0.13); color: #DAA858; }
+.lum-select-opt.is-selected { color: #DAA858; }
+.lum-select-tick {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; color: #DAA858;
+}
+
+/* ── Load more ───────────────────────────────────────────────────────────
+   The listing hands over a page of pieces at a time. */
+.lum-loadmore {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  margin-top: clamp(36px, 5vw, 60px);
+}
+.lum-loadmore-count {
+  font-family: 'Fraunces', serif; font-style: italic; font-size: 15px; color: #9CA39E;
+}
+.lum-loadmore-btn { min-width: 240px; justify-content: center; cursor: pointer; border: 0; }
 
 /* Active filter chips */
 /* Quick picks — the merchandised entries for the current metal (Gold Ring,
@@ -2223,6 +2372,13 @@ a:hover { color: var(--gold-light); }
 }
 .lum-orders-filter input { flex: 1; min-width: 200px; }
 .lum-orders-filter input:focus, .lum-orders-filter select:focus { outline: none; border-color: #DAA858; }
+/* The status filter is the shared listbox now; sit it on the same line as the
+   search field rather than letting it keep the shop-sort proportions. */
+.lum-orders-filter .lum-select-btn {
+  padding: 11px 14px; border-radius: 4px;
+  border-color: rgba(218,168,88, 0.25); background: rgba(36,42,35, 0.7);
+  color: #EDE7DA; font-size: 13.5px; min-width: 170px;
+}
 
 .lum-order-card {
   display: flex; align-items: center; gap: 16px; padding: 18px 20px;

@@ -1,1013 +1,1319 @@
 -- ============================================================================
--- LUMINA Jewelry — Full e-commerce schema for MariaDB 10.4 (XAMPP)
--- Modules: Catalog, Attributes, Pricing, Inventory, Ecommerce, CMS,
---          Navigation, SEO, Admin
--- Principle: categories stay simple; details live as attributes/filters;
---            price & stock live at the VARIANT level.
+-- LUMINA / Nahar Jewellers — full MariaDB schema (MariaDB 10.4, XAMPP)
+--
+-- GENERATED from the live database — do not hand-edit. Regenerate with:
+--
+--   mysqldump -u root --no-data --skip-comments lumina_jewelry
+--   mysqldump -u root --no-create-info --skip-comments --complete-insert \
+--             --skip-extended-insert lumina_jewelry <lookup tables>
+--
+-- What it contains: every table's structure, plus the REFERENCE data the app
+-- cannot boot without (metals, purities, colours, stone shapes/grades, gold
+-- rates, categories, collections, occasions, styles, genders, tags, warehouse,
+-- roles/permissions, the nav menus). It contains NO business data — no
+-- products, customers, orders or reviews.
+--
+-- Fresh install:
+--   mysql -u root < database/schema.sql
+--   npx tsx database/seed-demo.ts        # optional: demo customers + orders
+--
+-- Existing database: apply database/migrations/*.sql in numeric order instead.
+-- This file is where they all land; the migrations are the upgrade path for a
+-- database that already has data in it.
+--
+-- This file used to be maintained by hand and had drifted five tables and
+-- several columns behind the migrations, so a fresh install from it produced a
+-- database the app could not run against.
 -- ============================================================================
 
 CREATE DATABASE IF NOT EXISTS lumina_jewelry
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE lumina_jewelry;
 
+SET NAMES utf8mb4;
+-- Tables and reference rows are emitted alphabetically, which is not foreign-key
+-- order (attribute_values before attributes, role_permissions before roles).
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ============================================================================
--- MODULE 1 — CATALOG
--- ============================================================================
-
-CREATE TABLE brands (
-  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name          VARCHAR(120) NOT NULL,
-  slug          VARCHAR(140) NOT NULL UNIQUE,
-  logo          VARCHAR(255) NULL,
-  description   TEXT NULL,
-  is_active     TINYINT(1) NOT NULL DEFAULT 1,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-CREATE TABLE categories (
-  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  parent_id     INT UNSIGNED NULL,
-  name          VARCHAR(120) NOT NULL,
-  slug          VARCHAR(140) NOT NULL UNIQUE,
-  image         VARCHAR(255) NULL,
-  description   TEXT NULL,
-  sort_order    INT NOT NULL DEFAULT 0,
-  is_active     TINYINT(1) NOT NULL DEFAULT 1,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_cat_parent FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE collections (
-  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name          VARCHAR(120) NOT NULL,
-  slug          VARCHAR(140) NOT NULL UNIQUE,
-  image         VARCHAR(255) NULL,
-  description   TEXT NULL,
-  sort_order    INT NOT NULL DEFAULT 0,
-  is_featured   TINYINT(1) NOT NULL DEFAULT 0,
-  is_active     TINYINT(1) NOT NULL DEFAULT 1,
-  starts_at     DATE NULL,
-  ends_at       DATE NULL,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-CREATE TABLE products (
-  id                BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  sku               VARCHAR(64) NOT NULL UNIQUE,          -- parent SKU
-  slug              VARCHAR(180) NOT NULL UNIQUE,
-  name              VARCHAR(200) NOT NULL,
-  short_description VARCHAR(500) NULL,
-  description       MEDIUMTEXT NULL,
-  brand_id          INT UNSIGNED NULL,
-  video_url         VARCHAR(255) NULL,
-  care_instructions TEXT NULL,
-  status            ENUM('draft','active','archived') NOT NULL DEFAULT 'draft',
-  is_featured       TINYINT(1) NOT NULL DEFAULT 0,
-  is_new_arrival    TINYINT(1) NOT NULL DEFAULT 0,
-  is_best_seller    TINYINT(1) NOT NULL DEFAULT 0,
-  created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_prod_brand FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE SET NULL,
-  FULLTEXT KEY ft_products (name, short_description),
-  KEY idx_products_status (status),
-  KEY idx_products_flags (is_featured, is_new_arrival, is_best_seller)
-) ENGINE=InnoDB;
-
-CREATE TABLE metals (
-  id    SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name  VARCHAR(60) NOT NULL UNIQUE
-) ENGINE=InnoDB;
-
-CREATE TABLE metal_purities (
-  id             SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  metal_id       SMALLINT UNSIGNED NOT NULL,
-  name           VARCHAR(30) NOT NULL,                    -- 24K, 22K, 21K, 18K, 14K, PT950
-  purity_percent DECIMAL(5,2) NOT NULL,                   -- 99.99, 91.60 ...
-  UNIQUE KEY uq_metal_purity (metal_id, name),
-  CONSTRAINT fk_purity_metal FOREIGN KEY (metal_id) REFERENCES metals(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE metal_colors (
-  id    SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name  VARCHAR(60) NOT NULL UNIQUE                       -- Yellow Gold, White Gold, Rose Gold
-) ENGINE=InnoDB;
-
-CREATE TABLE product_variants (
-  id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  product_id      BIGINT UNSIGNED NOT NULL,
-  variant_sku     VARCHAR(64) NOT NULL UNIQUE,
-  barcode         VARCHAR(64) NULL,
-  metal_id        SMALLINT UNSIGNED NULL,
-  purity_id       SMALLINT UNSIGNED NULL,
-  metal_color_id  SMALLINT UNSIGNED NULL,
-  metal_weight_g  DECIMAL(10,3) NULL,                     -- grams
-  gross_weight_g  DECIMAL(10,3) NULL,
-  is_default      TINYINT(1) NOT NULL DEFAULT 0,
-  status          ENUM('active','inactive') NOT NULL DEFAULT 'active',
-  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_var_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_var_metal   FOREIGN KEY (metal_id) REFERENCES metals(id) ON DELETE SET NULL,
-  CONSTRAINT fk_var_purity  FOREIGN KEY (purity_id) REFERENCES metal_purities(id) ON DELETE SET NULL,
-  CONSTRAINT fk_var_color   FOREIGN KEY (metal_color_id) REFERENCES metal_colors(id) ON DELETE SET NULL,
-  KEY idx_var_product (product_id)
-) ENGINE=InnoDB;
-
-CREATE TABLE product_images (
-  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  product_id  BIGINT UNSIGNED NOT NULL,
-  variant_id  BIGINT UNSIGNED NULL,                       -- NULL = applies to whole product
-  image_path  VARCHAR(255) NOT NULL,
-  alt_text    VARCHAR(200) NULL,
-  sort_order  INT NOT NULL DEFAULT 0,
-  is_primary  TINYINT(1) NOT NULL DEFAULT 0,
-  is_360      TINYINT(1) NOT NULL DEFAULT 0,
-  CONSTRAINT fk_img_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_img_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
-  KEY idx_img_product (product_id, sort_order)
-) ENGINE=InnoDB;
-
--- ============================================================================
--- MODULE 2 — ATTRIBUTES & FILTERS
--- ============================================================================
-
-CREATE TABLE genders (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(30) NOT NULL UNIQUE                        -- Women, Men, Kids, Unisex
-) ENGINE=InnoDB;
-
-CREATE TABLE occasions (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(60) NOT NULL UNIQUE,
-  slug VARCHAR(80) NOT NULL UNIQUE
-) ENGINE=InnoDB;
-
-CREATE TABLE styles (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(60) NOT NULL UNIQUE,
-  slug VARCHAR(80) NOT NULL UNIQUE
-) ENGINE=InnoDB;
-
-CREATE TABLE tags (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(60) NOT NULL UNIQUE,
-  slug VARCHAR(80) NOT NULL UNIQUE
-) ENGINE=InnoDB;
-
--- many-to-many pivots (product level)
-CREATE TABLE product_categories (
-  product_id  BIGINT UNSIGNED NOT NULL,
-  category_id INT UNSIGNED NOT NULL,
-  PRIMARY KEY (product_id, category_id),
-  CONSTRAINT fk_pc_product  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_pc_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE product_collections (
-  product_id    BIGINT UNSIGNED NOT NULL,
-  collection_id INT UNSIGNED NOT NULL,
-  PRIMARY KEY (product_id, collection_id),
-  CONSTRAINT fk_pcol_product    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_pcol_collection FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE product_genders (
-  product_id BIGINT UNSIGNED NOT NULL,
-  gender_id  SMALLINT UNSIGNED NOT NULL,
-  PRIMARY KEY (product_id, gender_id),
-  CONSTRAINT fk_pg_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_pg_gender  FOREIGN KEY (gender_id) REFERENCES genders(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE product_occasions (
-  product_id  BIGINT UNSIGNED NOT NULL,
-  occasion_id SMALLINT UNSIGNED NOT NULL,
-  PRIMARY KEY (product_id, occasion_id),
-  CONSTRAINT fk_po_product  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_po_occasion FOREIGN KEY (occasion_id) REFERENCES occasions(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE product_styles (
-  product_id BIGINT UNSIGNED NOT NULL,
-  style_id   SMALLINT UNSIGNED NOT NULL,
-  PRIMARY KEY (product_id, style_id),
-  CONSTRAINT fk_ps_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ps_style   FOREIGN KEY (style_id) REFERENCES styles(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE product_tags (
-  product_id BIGINT UNSIGNED NOT NULL,
-  tag_id     SMALLINT UNSIGNED NOT NULL,
-  PRIMARY KEY (product_id, tag_id),
-  CONSTRAINT fk_pt_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_pt_tag     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- stones (diamond + colored stones, per variant, multi-stone capable)
-CREATE TABLE stone_types (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(60) NOT NULL UNIQUE                        -- Diamond, Ruby, Emerald, Pearl...
-) ENGINE=InnoDB;
-
-CREATE TABLE stone_shapes (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(40) NOT NULL UNIQUE                        -- Round, Oval, Princess, Pear...
-) ENGINE=InnoDB;
-
-CREATE TABLE stone_colors (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(20) NOT NULL UNIQUE                        -- D, E, F, G, H...
-) ENGINE=InnoDB;
-
-CREATE TABLE stone_clarities (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(20) NOT NULL UNIQUE                        -- IF, VVS1, VVS2, VS1...
-) ENGINE=InnoDB;
-
-CREATE TABLE stone_cuts (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(40) NOT NULL UNIQUE                        -- Excellent, Very Good, Good
-) ENGINE=InnoDB;
-
-CREATE TABLE variant_stones (
-  id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  variant_id      BIGINT UNSIGNED NOT NULL,
-  stone_type_id   SMALLINT UNSIGNED NOT NULL,
-  stone_shape_id  SMALLINT UNSIGNED NULL,
-  stone_color_id  SMALLINT UNSIGNED NULL,
-  stone_clarity_id SMALLINT UNSIGNED NULL,
-  stone_cut_id    SMALLINT UNSIGNED NULL,
-  is_lab_grown    TINYINT(1) NOT NULL DEFAULT 0,
-  carat_each      DECIMAL(8,3) NULL,
-  carat_total     DECIMAL(8,3) NULL,
-  quantity        INT UNSIGNED NOT NULL DEFAULT 1,
-  is_center_stone TINYINT(1) NOT NULL DEFAULT 0,
-  CONSTRAINT fk_vs_variant  FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
-  CONSTRAINT fk_vs_type     FOREIGN KEY (stone_type_id) REFERENCES stone_types(id),
-  CONSTRAINT fk_vs_shape    FOREIGN KEY (stone_shape_id) REFERENCES stone_shapes(id) ON DELETE SET NULL,
-  CONSTRAINT fk_vs_color    FOREIGN KEY (stone_color_id) REFERENCES stone_colors(id) ON DELETE SET NULL,
-  CONSTRAINT fk_vs_clarity  FOREIGN KEY (stone_clarity_id) REFERENCES stone_clarities(id) ON DELETE SET NULL,
-  CONSTRAINT fk_vs_cut      FOREIGN KEY (stone_cut_id) REFERENCES stone_cuts(id) ON DELETE SET NULL,
-  KEY idx_vs_variant (variant_id)
-) ENGINE=InnoDB;
-
-CREATE TABLE certificates (
-  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  variant_id     BIGINT UNSIGNED NOT NULL,
-  certificate_no VARCHAR(80) NOT NULL,
-  issuer         ENUM('GIA','IGI','HRD','SGL','AGS','Other') NOT NULL DEFAULT 'Other',
-  pdf_path       VARCHAR(255) NULL,
-  qr_code        VARCHAR(255) NULL,
-  issued_at      DATE NULL,
-  UNIQUE KEY uq_cert_no (issuer, certificate_no),
-  CONSTRAINT fk_cert_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- dynamic attributes (ring size, chain length, bangle size, stone count ...)
-CREATE TABLE attributes (
-  id           SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name         VARCHAR(80) NOT NULL UNIQUE,               -- Ring Size, Chain Length...
-  code         VARCHAR(80) NOT NULL UNIQUE,               -- ring_size, chain_length...
-  input_type   ENUM('select','text','number') NOT NULL DEFAULT 'select',
-  is_variant_level TINYINT(1) NOT NULL DEFAULT 1,         -- 1 = varies per variant
-  is_filterable TINYINT(1) NOT NULL DEFAULT 1,
-  sort_order   INT NOT NULL DEFAULT 0
-) ENGINE=InnoDB;
-
-CREATE TABLE attribute_values (
-  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  attribute_id SMALLINT UNSIGNED NOT NULL,
-  value        VARCHAR(120) NOT NULL,                     -- "7", "18 inch", "2.6"
-  sort_order   INT NOT NULL DEFAULT 0,
-  UNIQUE KEY uq_attr_value (attribute_id, value),
-  CONSTRAINT fk_av_attribute FOREIGN KEY (attribute_id) REFERENCES attributes(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE variant_attributes (
-  variant_id         BIGINT UNSIGNED NOT NULL,
-  attribute_value_id INT UNSIGNED NOT NULL,
-  PRIMARY KEY (variant_id, attribute_value_id),
-  CONSTRAINT fk_va_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
-  CONSTRAINT fk_va_value   FOREIGN KEY (attribute_value_id) REFERENCES attribute_values(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- ============================================================================
--- MODULE 3 — PRICING (gold-rate driven)
--- ============================================================================
-
-CREATE TABLE metal_rates (
-  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  purity_id      SMALLINT UNSIGNED NOT NULL,
-  rate_per_gram  DECIMAL(12,2) NOT NULL,                  -- BDT per gram
-  currency       CHAR(3) NOT NULL DEFAULT 'BDT',
-  effective_from DATETIME NOT NULL,
-  created_by     INT UNSIGNED NULL,                       -- admin_users.id
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_rate_lookup (purity_id, effective_from),
-  CONSTRAINT fk_rate_purity FOREIGN KEY (purity_id) REFERENCES metal_purities(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE variant_price_components (
-  variant_id      BIGINT UNSIGNED PRIMARY KEY,
-  pricing_mode    ENUM('fixed','rate_based') NOT NULL DEFAULT 'rate_based',
-  fixed_price     DECIMAL(12,2) NULL,                     -- used when pricing_mode=fixed
-  compare_price   DECIMAL(12,2) NULL,                     -- strike-through "was" price, per variant
-  cost_price      DECIMAL(12,2) NULL,                     -- internal cost, per variant
-  stone_charge    DECIMAL(12,2) NOT NULL DEFAULT 0,
-  making_charge   DECIMAL(12,2) NOT NULL DEFAULT 0,
-  wastage_percent DECIMAL(5,2)  NOT NULL DEFAULT 0,
-  discount_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
-  tax_percent     DECIMAL(5,2)  NOT NULL DEFAULT 5.00,    -- VAT
-  -- final price = ((metal_rate*weight)*(1+wastage%) + stone + making - discount) * (1+tax%)
-  CONSTRAINT fk_vpc_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE price_history (
-  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  variant_id   BIGINT UNSIGNED NOT NULL,
-  price        DECIMAL(12,2) NOT NULL,
-  sale_price   DECIMAL(12,2) NULL,
-  currency     CHAR(3) NOT NULL DEFAULT 'BDT',
-  effective_at DATETIME NOT NULL,
-  reason       VARCHAR(200) NULL,                         -- "gold rate update", "promo"
-  CONSTRAINT fk_ph_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
-  KEY idx_ph_variant (variant_id, effective_at)
-) ENGINE=InnoDB;
-
-CREATE TABLE coupons (
-  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  code          VARCHAR(40) NOT NULL UNIQUE,
-  type          ENUM('percent','fixed') NOT NULL,
-  value         DECIMAL(12,2) NOT NULL,
-  min_order     DECIMAL(12,2) NOT NULL DEFAULT 0,
-  max_discount  DECIMAL(12,2) NULL,
-  usage_limit   INT UNSIGNED NULL,
-  used_count    INT UNSIGNED NOT NULL DEFAULT 0,
-  per_user_limit INT UNSIGNED NULL,
-  starts_at     DATETIME NULL,
-  expires_at    DATETIME NULL,
-  is_active     TINYINT(1) NOT NULL DEFAULT 1,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
--- Time-boxed product promotions (flash sales, seasonal pushes) placed on the
--- storefront home page. See migrations/003_campaigns.sql for the full note.
-CREATE TABLE campaigns (
-  id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  title             VARCHAR(200) NOT NULL,
-  slug              VARCHAR(220) NOT NULL UNIQUE,
-  description       VARCHAR(500) NULL,
-  start_at          DATETIME NOT NULL,
-  end_at            DATETIME NOT NULL,
-  section           ENUM('home_top','home_middle','home_bottom') NOT NULL DEFAULT 'home_middle',
-  is_home_featured  TINYINT(1) NOT NULL DEFAULT 0,
-  is_published      TINYINT(1) NOT NULL DEFAULT 1,
-  created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY idx_campaigns_dates (start_at, end_at),
-  KEY idx_campaigns_published (is_published)
-) ENGINE=InnoDB;
-
-CREATE TABLE campaign_products (
-  campaign_id INT UNSIGNED NOT NULL,
-  product_id  BIGINT UNSIGNED NOT NULL,
-  sort_order  INT NOT NULL DEFAULT 0,
-  PRIMARY KEY (campaign_id, product_id),
-  CONSTRAINT fk_campaign_products_campaign FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
-  CONSTRAINT fk_campaign_products_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- ============================================================================
--- MODULE 4 — INVENTORY (ledger-based)
--- ============================================================================
-
-CREATE TABLE warehouses (
-  id        SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name      VARCHAR(120) NOT NULL,
-  type      ENUM('warehouse','store') NOT NULL DEFAULT 'warehouse',
-  address   VARCHAR(255) NULL,
-  phone     VARCHAR(30) NULL,
-  is_active TINYINT(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB;
-
-CREATE TABLE inventory (
-  variant_id         BIGINT UNSIGNED NOT NULL,
-  warehouse_id       SMALLINT UNSIGNED NOT NULL,
-  quantity_available INT NOT NULL DEFAULT 0,
-  quantity_reserved  INT NOT NULL DEFAULT 0,
-  reorder_level      INT NOT NULL DEFAULT 0,
-  availability       ENUM('in_stock','made_to_order','ready_to_ship','out_of_stock')
-                     NOT NULL DEFAULT 'in_stock',
-  updated_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (variant_id, warehouse_id),
-  CONSTRAINT fk_inv_variant   FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
-  CONSTRAINT fk_inv_warehouse FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE inventory_movements (
-  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  variant_id     BIGINT UNSIGNED NOT NULL,
-  warehouse_id   SMALLINT UNSIGNED NOT NULL,
-  movement_type  ENUM('purchase','sale','return','damage','transfer_in','transfer_out',
-                      'reservation','release','adjustment','production') NOT NULL,
-  quantity       INT NOT NULL,                            -- signed: +in / -out
-  reference_type VARCHAR(40) NULL,                        -- 'order','return','po','manual'
-  reference_id   BIGINT UNSIGNED NULL,
-  note           VARCHAR(255) NULL,
-  created_by     INT UNSIGNED NULL,                       -- admin_users.id
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_im_variant   FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
-  CONSTRAINT fk_im_warehouse FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE,
-  KEY idx_im_variant (variant_id, created_at),
-  KEY idx_im_ref (reference_type, reference_id)
-) ENGINE=InnoDB;
-
-CREATE TABLE inventory_reservations (
-  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  variant_id   BIGINT UNSIGNED NOT NULL,
-  warehouse_id SMALLINT UNSIGNED NOT NULL,
-  quantity     INT UNSIGNED NOT NULL,
-  order_id     BIGINT UNSIGNED NULL,
-  cart_id      BIGINT UNSIGNED NULL,
-  status       ENUM('active','fulfilled','released','expired') NOT NULL DEFAULT 'active',
-  expires_at   DATETIME NULL,
-  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_ir_variant   FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ir_warehouse FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE,
-  KEY idx_ir_status (status, expires_at)
-) ENGINE=InnoDB;
-
--- ============================================================================
--- MODULE 5 — ECOMMERCE
--- ============================================================================
-
-CREATE TABLE users (
-  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name          VARCHAR(120) NOT NULL,
-  email         VARCHAR(190) NULL UNIQUE,
-  phone         VARCHAR(30) NULL UNIQUE,
-  password_hash VARCHAR(255) NULL,
-  email_verified_at DATETIME NULL,
-  phone_verified_at DATETIME NULL,
-  is_active     TINYINT(1) NOT NULL DEFAULT 1,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-CREATE TABLE addresses (
-  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  user_id    BIGINT UNSIGNED NOT NULL,
-  label      VARCHAR(40) NULL,                            -- Home, Office
-  name       VARCHAR(120) NOT NULL,
-  phone      VARCHAR(30) NOT NULL,
-  line1      VARCHAR(255) NOT NULL,
-  line2      VARCHAR(255) NULL,
-  city       VARCHAR(80) NOT NULL,
-  district   VARCHAR(80) NULL,
-  postcode   VARCHAR(20) NULL,
-  country    CHAR(2) NOT NULL DEFAULT 'BD',
-  is_default TINYINT(1) NOT NULL DEFAULT 0,
-  CONSTRAINT fk_addr_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE wishlists (
-  user_id    BIGINT UNSIGNED NOT NULL,
-  product_id BIGINT UNSIGNED NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id, product_id),
-  CONSTRAINT fk_wl_user    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_wl_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE carts (
-  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  user_id    BIGINT UNSIGNED NULL,                        -- NULL = guest
-  session_id VARCHAR(100) NULL,
-  status     ENUM('active','converted','abandoned') NOT NULL DEFAULT 'active',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_cart_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-  KEY idx_cart_session (session_id)
-) ENGINE=InnoDB;
-
-CREATE TABLE cart_items (
-  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  cart_id    BIGINT UNSIGNED NOT NULL,
-  variant_id BIGINT UNSIGNED NOT NULL,
-  quantity   INT UNSIGNED NOT NULL DEFAULT 1,
-  unit_price DECIMAL(12,2) NOT NULL,                      -- snapshot at add time
-  engraving  VARCHAR(120) NULL,
-  UNIQUE KEY uq_cart_variant (cart_id, variant_id),
-  CONSTRAINT fk_ci_cart    FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ci_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE orders (
-  id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  order_no         VARCHAR(30) NOT NULL UNIQUE,           -- LUM-2026-000123
-  user_id          BIGINT UNSIGNED NULL,
-  status           ENUM('pending','confirmed','processing','ready_to_ship','shipped',
-                        'delivered','cancelled','returned','refunded') NOT NULL DEFAULT 'pending',
-  currency         CHAR(3) NOT NULL DEFAULT 'BDT',
-  subtotal         DECIMAL(12,2) NOT NULL,
-  discount_total   DECIMAL(12,2) NOT NULL DEFAULT 0,
-  tax_total        DECIMAL(12,2) NOT NULL DEFAULT 0,
-  shipping_total   DECIMAL(12,2) NOT NULL DEFAULT 0,
-  grand_total      DECIMAL(12,2) NOT NULL,
-  coupon_id        INT UNSIGNED NULL,
-  shipping_name    VARCHAR(120) NULL,
-  shipping_phone   VARCHAR(30) NULL,
-  shipping_address VARCHAR(500) NULL,
-  billing_address  VARCHAR(500) NULL,
-  customer_note    VARCHAR(500) NULL,
-  placed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_order_user   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-  CONSTRAINT fk_order_coupon FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE SET NULL,
-  KEY idx_orders_status (status, placed_at)
-) ENGINE=InnoDB;
-
-CREATE TABLE order_items (
-  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  order_id      BIGINT UNSIGNED NOT NULL,
-  variant_id    BIGINT UNSIGNED NULL,
-  product_name  VARCHAR(200) NOT NULL,                    -- snapshot
-  variant_sku   VARCHAR(64) NOT NULL,                     -- snapshot
-  metal_rate    DECIMAL(12,2) NULL,                       -- snapshot of rate used
-  quantity      INT UNSIGNED NOT NULL,
-  unit_price    DECIMAL(12,2) NOT NULL,
-  line_total    DECIMAL(12,2) NOT NULL,
-  engraving     VARCHAR(120) NULL,
-  CONSTRAINT fk_oi_order   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-  CONSTRAINT fk_oi_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE order_status_history (
-  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  order_id   BIGINT UNSIGNED NOT NULL,
-  from_status VARCHAR(30) NULL,
-  to_status  VARCHAR(30) NOT NULL,
-  note       VARCHAR(255) NULL,
-  changed_by INT UNSIGNED NULL,                           -- admin_users.id, NULL = system/customer
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_osh_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE payment_transactions (
-  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  order_id       BIGINT UNSIGNED NOT NULL,
-  method         ENUM('cod','bkash','nagad','rocket','card','bank_transfer','emi') NOT NULL,
-  type           ENUM('payment','refund') NOT NULL DEFAULT 'payment',
-  status         ENUM('pending','success','failed','cancelled') NOT NULL DEFAULT 'pending',
-  amount         DECIMAL(12,2) NOT NULL,
-  currency       CHAR(3) NOT NULL DEFAULT 'BDT',
-  gateway_txn_id VARCHAR(120) NULL,
-  gateway_payload TEXT NULL,
-  processed_at   DATETIME NULL,
-  created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_ptx_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-  KEY idx_ptx_order (order_id)
-) ENGINE=InnoDB;
-
-CREATE TABLE shipments (
-  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  order_id     BIGINT UNSIGNED NOT NULL,
-  courier      VARCHAR(80) NULL,                          -- Pathao, Sundarban, DHL...
-  tracking_no  VARCHAR(120) NULL,
-  status       ENUM('pending','picked','in_transit','delivered','failed','returned')
-               NOT NULL DEFAULT 'pending',
-  shipped_at   DATETIME NULL,
-  delivered_at DATETIME NULL,
-  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_ship_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE returns (
-  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  order_id    BIGINT UNSIGNED NOT NULL,
-  order_item_id BIGINT UNSIGNED NULL,
-  reason      VARCHAR(255) NOT NULL,
-  status      ENUM('requested','approved','rejected','received','refunded')
-              NOT NULL DEFAULT 'requested',
-  quantity    INT UNSIGNED NOT NULL DEFAULT 1,
-  note        VARCHAR(500) NULL,
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_ret_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ret_item  FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE refunds (
-  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  order_id    BIGINT UNSIGNED NOT NULL,
-  return_id   BIGINT UNSIGNED NULL,
-  amount      DECIMAL(12,2) NOT NULL,
-  method      VARCHAR(40) NOT NULL,                       -- original method / bank
-  status      ENUM('pending','processed','failed') NOT NULL DEFAULT 'pending',
-  processed_at DATETIME NULL,
-  processed_by INT UNSIGNED NULL,
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_ref_order  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ref_return FOREIGN KEY (return_id) REFERENCES returns(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE reviews (
-  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  product_id  BIGINT UNSIGNED NOT NULL,
-  user_id     BIGINT UNSIGNED NOT NULL,
-  order_id    BIGINT UNSIGNED NULL,                       -- verified purchase link
-  rating      TINYINT UNSIGNED NOT NULL,                  -- 1..5
-  title       VARCHAR(150) NULL,
-  body        TEXT NULL,
-  status      ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_review (product_id, user_id, order_id),
-  CONSTRAINT fk_rev_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-  CONSTRAINT fk_rev_user    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_rev_order   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-
--- ============================================================================
--- MODULE 6 — CMS
--- ============================================================================
-
-CREATE TABLE pages (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  title      VARCHAR(200) NOT NULL,
-  slug       VARCHAR(220) NOT NULL UNIQUE,
-  body       MEDIUMTEXT NULL,
-  status     ENUM('draft','published') NOT NULL DEFAULT 'draft',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-CREATE TABLE banners (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  position   VARCHAR(60) NOT NULL,                        -- home_hero, home_mid, shop_top...
-  title      VARCHAR(200) NULL,
-  subtitle   VARCHAR(300) NULL,
-  image      VARCHAR(255) NOT NULL,
-  link_url   VARCHAR(255) NULL,
-  sort_order INT NOT NULL DEFAULT 0,
-  is_active  TINYINT(1) NOT NULL DEFAULT 1,
-  starts_at  DATETIME NULL,
-  ends_at    DATETIME NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE blogs (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  title      VARCHAR(200) NOT NULL,
-  slug       VARCHAR(220) NOT NULL UNIQUE,
-  excerpt    VARCHAR(500) NULL,
-  body       MEDIUMTEXT NULL,
-  cover_image VARCHAR(255) NULL,
-  author_id  INT UNSIGNED NULL,
-  status     ENUM('draft','published') NOT NULL DEFAULT 'draft',
-  published_at DATETIME NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-CREATE TABLE faqs (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  question   VARCHAR(300) NOT NULL,
-  answer     TEXT NOT NULL,
-  category   VARCHAR(80) NULL,
-  sort_order INT NOT NULL DEFAULT 0,
-  is_active  TINYINT(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB;
-
-CREATE TABLE testimonials (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  author_name VARCHAR(120) NOT NULL,
-  author_title VARCHAR(120) NULL,
-  quote       TEXT NOT NULL,
-  avatar      VARCHAR(255) NULL,
-  sort_order  INT NOT NULL DEFAULT 0,
-  is_active   TINYINT(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB;
-
--- ============================================================================
--- MODULE 7 — NAVIGATION (menus are design, not classification)
--- ============================================================================
-
-CREATE TABLE menus (
-  id       SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name     VARCHAR(80) NOT NULL,                          -- Primary, Gold Mega, Footer...
-  code     VARCHAR(80) NOT NULL UNIQUE,                   -- primary, gold_mega, footer
-  is_active TINYINT(1) NOT NULL DEFAULT 1
-) ENGINE=InnoDB;
-
-CREATE TABLE menu_items (
-  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  menu_id    SMALLINT UNSIGNED NOT NULL,
-  parent_id  INT UNSIGNED NULL,                           -- column headings are parents
-  label      VARCHAR(120) NOT NULL,
-  url        VARCHAR(500) NOT NULL,                       -- e.g. /shop?material=Gold&type=Ring
-  image      VARCHAR(255) NULL,                           -- featured banner in mega menu
-  sort_order INT NOT NULL DEFAULT 0,
-  is_active  TINYINT(1) NOT NULL DEFAULT 1,
-  CONSTRAINT fk_mi_menu   FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE,
-  CONSTRAINT fk_mi_parent FOREIGN KEY (parent_id) REFERENCES menu_items(id) ON DELETE CASCADE,
-  KEY idx_mi_menu (menu_id, parent_id, sort_order)
-) ENGINE=InnoDB;
-
--- ============================================================================
--- MODULE 8 — SEO
--- ============================================================================
-
-CREATE TABLE seo_meta (
-  id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  entity_type      VARCHAR(40) NOT NULL,                  -- product, category, collection, page
-  entity_id        BIGINT UNSIGNED NOT NULL,
-  meta_title       VARCHAR(200) NULL,
-  meta_description VARCHAR(320) NULL,
-  meta_keywords    VARCHAR(255) NULL,
-  canonical_url    VARCHAR(255) NULL,
-  og_image         VARCHAR(255) NULL,
-  schema_json      TEXT NULL,                             -- JSON-LD
-  UNIQUE KEY uq_seo_entity (entity_type, entity_id)
-) ENGINE=InnoDB;
-
-CREATE TABLE url_redirects (
-  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  from_path   VARCHAR(255) NOT NULL UNIQUE,
-  to_path     VARCHAR(255) NOT NULL,
-  status_code SMALLINT UNSIGNED NOT NULL DEFAULT 301,
-  is_active   TINYINT(1) NOT NULL DEFAULT 1,
-  created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
--- ============================================================================
--- MODULE 9 — ADMIN, ROLES & AUDIT
--- ============================================================================
-
-CREATE TABLE roles (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(60) NOT NULL UNIQUE                        -- Super Admin, Manager, Staff
-) ENGINE=InnoDB;
-
-CREATE TABLE permissions (
-  id   SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(80) NOT NULL UNIQUE,                       -- products.edit, rates.update...
-  name VARCHAR(120) NOT NULL
-) ENGINE=InnoDB;
-
-CREATE TABLE role_permissions (
-  role_id       SMALLINT UNSIGNED NOT NULL,
-  permission_id SMALLINT UNSIGNED NOT NULL,
-  PRIMARY KEY (role_id, permission_id),
-  CONSTRAINT fk_rp_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-  CONSTRAINT fk_rp_perm FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE admin_users (
-  id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name          VARCHAR(120) NOT NULL,
-  email         VARCHAR(190) NOT NULL UNIQUE,
-  password_hash VARCHAR(255) NOT NULL,
-  role_id       SMALLINT UNSIGNED NOT NULL,
-  is_active     TINYINT(1) NOT NULL DEFAULT 1,
-  last_login_at DATETIME NULL,
-  created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_au_role FOREIGN KEY (role_id) REFERENCES roles(id)
-) ENGINE=InnoDB;
-
-CREATE TABLE audit_logs (
-  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  admin_user_id INT UNSIGNED NULL,
-  action       VARCHAR(60) NOT NULL,                      -- create, update, delete, login...
-  entity_type  VARCHAR(60) NOT NULL,                      -- product, variant, metal_rate...
-  entity_id    BIGINT UNSIGNED NULL,
-  old_values   TEXT NULL,                                 -- JSON snapshot
-  new_values   TEXT NULL,                                 -- JSON snapshot
-  ip_address   VARCHAR(45) NULL,
-  created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_al_admin FOREIGN KEY (admin_user_id) REFERENCES admin_users(id) ON DELETE SET NULL,
-  KEY idx_al_entity (entity_type, entity_id),
-  KEY idx_al_admin (admin_user_id, created_at)
-) ENGINE=InnoDB;
+-- ── Structure ───────────────────────────────────────────────────────────────
+
+CREATE TABLE `addresses` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) unsigned NOT NULL,
+  `label` varchar(40) DEFAULT NULL,
+  `name` varchar(120) NOT NULL,
+  `phone` varchar(30) NOT NULL,
+  `line1` varchar(255) NOT NULL,
+  `line2` varchar(255) DEFAULT NULL,
+  `city` varchar(80) NOT NULL,
+  `district` varchar(80) DEFAULT NULL,
+  `postcode` varchar(20) DEFAULT NULL,
+  `country` char(2) NOT NULL DEFAULT 'BD',
+  `is_default` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `fk_addr_user` (`user_id`),
+  CONSTRAINT `fk_addr_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `admin_users` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) NOT NULL,
+  `email` varchar(190) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `role_id` smallint(5) unsigned NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `last_login_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  KEY `fk_au_role` (`role_id`),
+  CONSTRAINT `fk_au_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `analytics_events` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `session_id` varchar(64) NOT NULL,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `event` enum('page_view','product_view','add_to_cart') NOT NULL DEFAULT 'page_view',
+  `path` varchar(255) NOT NULL,
+  `product_id` bigint(20) unsigned DEFAULT NULL,
+  `referrer_source` enum('direct','organic','social','referral','email') NOT NULL DEFAULT 'direct',
+  `referrer_host` varchar(190) DEFAULT NULL,
+  `country` char(2) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_ae_created` (`created_at`),
+  KEY `idx_ae_session` (`session_id`),
+  KEY `idx_ae_event` (`event`,`created_at`),
+  KEY `idx_ae_source` (`referrer_source`,`created_at`),
+  KEY `idx_ae_country` (`country`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `attribute_values` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `attribute_id` smallint(5) unsigned NOT NULL,
+  `value` varchar(120) NOT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_attr_value` (`attribute_id`,`value`),
+  CONSTRAINT `fk_av_attribute` FOREIGN KEY (`attribute_id`) REFERENCES `attributes` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `attributes` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(80) NOT NULL,
+  `code` varchar(80) NOT NULL,
+  `input_type` enum('select','text','number') NOT NULL DEFAULT 'select',
+  `is_variant_level` tinyint(1) NOT NULL DEFAULT 1,
+  `is_filterable` tinyint(1) NOT NULL DEFAULT 1,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `audit_logs` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `admin_user_id` int(10) unsigned DEFAULT NULL,
+  `action` varchar(60) NOT NULL,
+  `entity_type` varchar(60) NOT NULL,
+  `entity_id` bigint(20) unsigned DEFAULT NULL,
+  `old_values` text DEFAULT NULL,
+  `new_values` text DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_al_entity` (`entity_type`,`entity_id`),
+  KEY `idx_al_admin` (`admin_user_id`,`created_at`),
+  CONSTRAINT `fk_al_admin` FOREIGN KEY (`admin_user_id`) REFERENCES `admin_users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `banners` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `position` varchar(60) NOT NULL,
+  `title` varchar(200) DEFAULT NULL,
+  `subtitle` varchar(300) DEFAULT NULL,
+  `image` varchar(255) NOT NULL,
+  `link_url` varchar(255) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `starts_at` datetime DEFAULT NULL,
+  `ends_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `blog_comments` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `blog_id` int(10) unsigned NOT NULL,
+  `user_id` bigint(20) unsigned NOT NULL,
+  `body` varchar(2000) NOT NULL,
+  `status` enum('visible','hidden') NOT NULL DEFAULT 'visible',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_blog_comments` (`blog_id`,`status`,`created_at`),
+  KEY `fk_comment_user` (`user_id`),
+  CONSTRAINT `fk_comment_blog` FOREIGN KEY (`blog_id`) REFERENCES `blogs` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_comment_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `blogs` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `title` varchar(200) NOT NULL,
+  `slug` varchar(220) NOT NULL,
+  `excerpt` varchar(500) DEFAULT NULL,
+  `read_minutes` tinyint(3) unsigned NOT NULL DEFAULT 1,
+  `tag` varchar(40) DEFAULT NULL,
+  `body` mediumtext DEFAULT NULL,
+  `cover_image` varchar(255) DEFAULT NULL,
+  `author_id` int(10) unsigned DEFAULT NULL,
+  `status` enum('draft','published') NOT NULL DEFAULT 'draft',
+  `published_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `brands` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) NOT NULL,
+  `slug` varchar(140) NOT NULL,
+  `logo` varchar(255) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `campaign_products` (
+  `campaign_id` int(10) unsigned NOT NULL,
+  `product_id` bigint(20) unsigned NOT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`campaign_id`,`product_id`),
+  KEY `fk_campaign_products_product` (`product_id`),
+  CONSTRAINT `fk_campaign_products_campaign` FOREIGN KEY (`campaign_id`) REFERENCES `campaigns` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_campaign_products_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `campaigns` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `title` varchar(200) NOT NULL,
+  `slug` varchar(220) NOT NULL,
+  `description` varchar(500) DEFAULT NULL,
+  `start_at` datetime NOT NULL,
+  `end_at` datetime NOT NULL,
+  `section` enum('home_top','home_middle','home_bottom') NOT NULL DEFAULT 'home_middle',
+  `is_home_featured` tinyint(1) NOT NULL DEFAULT 0,
+  `is_published` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `idx_campaigns_dates` (`start_at`,`end_at`),
+  KEY `idx_campaigns_published` (`is_published`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `cart_items` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `cart_id` bigint(20) unsigned NOT NULL,
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `quantity` int(10) unsigned NOT NULL DEFAULT 1,
+  `unit_price` decimal(12,2) NOT NULL,
+  `engraving` varchar(120) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_cart_variant` (`cart_id`,`variant_id`),
+  KEY `fk_ci_variant` (`variant_id`),
+  CONSTRAINT `fk_ci_cart` FOREIGN KEY (`cart_id`) REFERENCES `carts` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ci_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `carts` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `session_id` varchar(100) DEFAULT NULL,
+  `status` enum('active','converted','abandoned') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_cart_user` (`user_id`),
+  KEY `idx_cart_session` (`session_id`),
+  CONSTRAINT `fk_cart_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `categories` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `parent_id` int(10) unsigned DEFAULT NULL,
+  `name` varchar(120) NOT NULL,
+  `slug` varchar(140) NOT NULL,
+  `image` varchar(255) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `fk_cat_parent` (`parent_id`),
+  CONSTRAINT `fk_cat_parent` FOREIGN KEY (`parent_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `certificates` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `certificate_no` varchar(80) NOT NULL,
+  `issuer` enum('GIA','IGI','HRD','SGL','AGS','Other') NOT NULL DEFAULT 'Other',
+  `pdf_path` varchar(255) DEFAULT NULL,
+  `qr_code` varchar(255) DEFAULT NULL,
+  `issued_at` date DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_cert_no` (`issuer`,`certificate_no`),
+  KEY `fk_cert_variant` (`variant_id`),
+  CONSTRAINT `fk_cert_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `collections` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) NOT NULL,
+  `slug` varchar(140) NOT NULL,
+  `image` varchar(255) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_featured` tinyint(1) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `starts_at` date DEFAULT NULL,
+  `ends_at` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `coupons` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(40) NOT NULL,
+  `type` enum('percent','fixed') NOT NULL,
+  `value` decimal(12,2) NOT NULL,
+  `min_order` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `max_discount` decimal(12,2) DEFAULT NULL,
+  `usage_limit` int(10) unsigned DEFAULT NULL,
+  `used_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `per_user_limit` int(10) unsigned DEFAULT NULL,
+  `starts_at` datetime DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `faqs` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `question` varchar(300) NOT NULL,
+  `answer` text NOT NULL,
+  `category` varchar(80) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `genders` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(30) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `home_media` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `section` varchar(32) NOT NULL COMMENT 'collections | craft | heritage',
+  `image` varchar(255) NOT NULL,
+  `image_phone` varchar(255) DEFAULT NULL,
+  `width` smallint(5) unsigned DEFAULT NULL,
+  `height` smallint(5) unsigned DEFAULT NULL,
+  `alt` varchar(160) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_home_media_section` (`section`,`sort_order`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `inventory` (
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `warehouse_id` smallint(5) unsigned NOT NULL,
+  `quantity_available` int(11) NOT NULL DEFAULT 0,
+  `quantity_reserved` int(11) NOT NULL DEFAULT 0,
+  `reorder_level` int(11) NOT NULL DEFAULT 0,
+  `availability` enum('in_stock','made_to_order','ready_to_ship','out_of_stock') NOT NULL DEFAULT 'in_stock',
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`variant_id`,`warehouse_id`),
+  KEY `fk_inv_warehouse` (`warehouse_id`),
+  CONSTRAINT `fk_inv_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_inv_warehouse` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `inventory_movements` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `warehouse_id` smallint(5) unsigned NOT NULL,
+  `movement_type` enum('purchase','sale','return','damage','transfer_in','transfer_out','reservation','release','adjustment','production') NOT NULL,
+  `quantity` int(11) NOT NULL,
+  `reference_type` varchar(40) DEFAULT NULL,
+  `reference_id` bigint(20) unsigned DEFAULT NULL,
+  `note` varchar(255) DEFAULT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_im_warehouse` (`warehouse_id`),
+  KEY `idx_im_variant` (`variant_id`,`created_at`),
+  KEY `idx_im_ref` (`reference_type`,`reference_id`),
+  CONSTRAINT `fk_im_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_im_warehouse` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `inventory_reservations` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `warehouse_id` smallint(5) unsigned NOT NULL,
+  `quantity` int(10) unsigned NOT NULL,
+  `order_id` bigint(20) unsigned DEFAULT NULL,
+  `cart_id` bigint(20) unsigned DEFAULT NULL,
+  `status` enum('active','fulfilled','released','expired') NOT NULL DEFAULT 'active',
+  `expires_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_ir_variant` (`variant_id`),
+  KEY `fk_ir_warehouse` (`warehouse_id`),
+  KEY `idx_ir_status` (`status`,`expires_at`),
+  CONSTRAINT `fk_ir_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ir_warehouse` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `menu_items` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `menu_id` smallint(5) unsigned NOT NULL,
+  `parent_id` int(10) unsigned DEFAULT NULL,
+  `label` varchar(120) NOT NULL,
+  `url` varchar(500) NOT NULL,
+  `image` varchar(255) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `fk_mi_parent` (`parent_id`),
+  KEY `idx_mi_menu` (`menu_id`,`parent_id`,`sort_order`),
+  CONSTRAINT `fk_mi_menu` FOREIGN KEY (`menu_id`) REFERENCES `menus` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_mi_parent` FOREIGN KEY (`parent_id`) REFERENCES `menu_items` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `menus` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(80) NOT NULL,
+  `code` varchar(80) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `metal_colors` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(60) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `metal_purities` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `metal_id` smallint(5) unsigned NOT NULL,
+  `name` varchar(30) NOT NULL,
+  `purity_percent` decimal(5,2) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_metal_purity` (`metal_id`,`name`),
+  CONSTRAINT `fk_purity_metal` FOREIGN KEY (`metal_id`) REFERENCES `metals` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `metal_rates` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `purity_id` smallint(5) unsigned NOT NULL,
+  `rate_per_gram` decimal(12,2) NOT NULL,
+  `currency` char(3) NOT NULL DEFAULT 'BDT',
+  `effective_from` datetime NOT NULL,
+  `created_by` int(10) unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_rate_lookup` (`purity_id`,`effective_from`),
+  CONSTRAINT `fk_rate_purity` FOREIGN KEY (`purity_id`) REFERENCES `metal_purities` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `metals` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(60) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `occasions` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(60) NOT NULL,
+  `slug` varchar(80) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `order_items` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(20) unsigned NOT NULL,
+  `variant_id` bigint(20) unsigned DEFAULT NULL,
+  `product_name` varchar(200) NOT NULL,
+  `variant_sku` varchar(64) NOT NULL,
+  `image_path` varchar(255) DEFAULT NULL,
+  `metal` varchar(30) DEFAULT NULL,
+  `purity` varchar(10) DEFAULT NULL,
+  `metal_color` varchar(30) DEFAULT NULL,
+  `size_label` varchar(40) DEFAULT NULL,
+  `metal_weight_g` decimal(8,2) DEFAULT NULL,
+  `diamond_carat` decimal(7,2) DEFAULT NULL,
+  `stone_count` int(10) unsigned DEFAULT NULL,
+  `certificate_no` varchar(60) DEFAULT NULL,
+  `certificate_issuer` varchar(30) DEFAULT NULL,
+  `making_charge` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `stone_charge` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `metal_rate` decimal(12,2) DEFAULT NULL,
+  `quantity` int(10) unsigned NOT NULL,
+  `unit_price` decimal(12,2) NOT NULL,
+  `line_total` decimal(12,2) NOT NULL,
+  `engraving` varchar(120) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_oi_order` (`order_id`),
+  KEY `fk_oi_variant` (`variant_id`),
+  CONSTRAINT `fk_oi_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_oi_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `order_status_history` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(20) unsigned NOT NULL,
+  `from_status` varchar(30) DEFAULT NULL,
+  `to_status` varchar(30) NOT NULL,
+  `note` varchar(255) DEFAULT NULL,
+  `changed_by` int(10) unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_osh_order` (`order_id`),
+  CONSTRAINT `fk_osh_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `orders` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_no` varchar(30) NOT NULL,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `address_id` bigint(20) unsigned DEFAULT NULL,
+  `status` enum('reserved','pending','confirmed','processing','crafting','hallmarking','diamond_setting','polishing','quality_check','packed','ready_to_ship','shipped','out_for_delivery','delivered','cancelled','returned','refunded','expired') NOT NULL DEFAULT 'pending',
+  `reserved_until` datetime DEFAULT NULL,
+  `currency` char(3) NOT NULL DEFAULT 'BDT',
+  `subtotal` decimal(12,2) NOT NULL,
+  `making_charge_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `stone_charge_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `discount_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `tax_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `tax_rate` decimal(5,2) NOT NULL DEFAULT 0.00,
+  `shipping_total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `grand_total` decimal(12,2) NOT NULL,
+  `payment_method` enum('cod','stripe','bkash','nagad','rocket','card') NOT NULL DEFAULT 'cod',
+  `payment_status` enum('pending','paid','failed','refunded') NOT NULL DEFAULT 'pending',
+  `coupon_id` int(10) unsigned DEFAULT NULL,
+  `coupon_code` varchar(40) DEFAULT NULL,
+  `shipping_name` varchar(120) DEFAULT NULL,
+  `shipping_phone` varchar(30) DEFAULT NULL,
+  `shipping_address` varchar(500) DEFAULT NULL,
+  `shipping_label` varchar(40) DEFAULT NULL,
+  `shipping_city` varchar(80) DEFAULT NULL,
+  `shipping_district` varchar(80) DEFAULT NULL,
+  `shipping_postcode` varchar(20) DEFAULT NULL,
+  `shipping_country` char(2) NOT NULL DEFAULT 'BD',
+  `billing_address` varchar(500) DEFAULT NULL,
+  `customer_note` varchar(500) DEFAULT NULL,
+  `gift_message` varchar(300) DEFAULT NULL,
+  `internal_note` varchar(1000) DEFAULT NULL,
+  `placed_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `order_no` (`order_no`),
+  KEY `fk_order_user` (`user_id`),
+  KEY `fk_order_coupon` (`coupon_id`),
+  KEY `idx_orders_status` (`status`,`placed_at`),
+  CONSTRAINT `fk_order_coupon` FOREIGN KEY (`coupon_id`) REFERENCES `coupons` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_order_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `pages` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `title` varchar(200) NOT NULL,
+  `slug` varchar(220) NOT NULL,
+  `body` mediumtext DEFAULT NULL,
+  `status` enum('draft','published') NOT NULL DEFAULT 'draft',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `payment_transactions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(20) unsigned NOT NULL,
+  `method` enum('cod','bkash','nagad','rocket','card','bank_transfer','emi') NOT NULL,
+  `type` enum('payment','refund') NOT NULL DEFAULT 'payment',
+  `status` enum('pending','success','failed','cancelled') NOT NULL DEFAULT 'pending',
+  `amount` decimal(12,2) NOT NULL,
+  `currency` char(3) NOT NULL DEFAULT 'BDT',
+  `gateway_txn_id` varchar(120) DEFAULT NULL,
+  `gateway_payload` text DEFAULT NULL,
+  `processed_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_ptx_order` (`order_id`),
+  CONSTRAINT `fk_ptx_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `permissions` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `code` varchar(80) NOT NULL,
+  `name` varchar(120) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `price_history` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `price` decimal(12,2) NOT NULL,
+  `sale_price` decimal(12,2) DEFAULT NULL,
+  `currency` char(3) NOT NULL DEFAULT 'BDT',
+  `effective_at` datetime NOT NULL,
+  `reason` varchar(200) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_ph_variant` (`variant_id`,`effective_at`),
+  CONSTRAINT `fk_ph_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_categories` (
+  `product_id` bigint(20) unsigned NOT NULL,
+  `category_id` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`product_id`,`category_id`),
+  KEY `fk_pc_category` (`category_id`),
+  CONSTRAINT `fk_pc_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_pc_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_collections` (
+  `product_id` bigint(20) unsigned NOT NULL,
+  `collection_id` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`product_id`,`collection_id`),
+  KEY `fk_pcol_collection` (`collection_id`),
+  CONSTRAINT `fk_pcol_collection` FOREIGN KEY (`collection_id`) REFERENCES `collections` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_pcol_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_genders` (
+  `product_id` bigint(20) unsigned NOT NULL,
+  `gender_id` smallint(5) unsigned NOT NULL,
+  PRIMARY KEY (`product_id`,`gender_id`),
+  KEY `fk_pg_gender` (`gender_id`),
+  CONSTRAINT `fk_pg_gender` FOREIGN KEY (`gender_id`) REFERENCES `genders` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_pg_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_images` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `product_id` bigint(20) unsigned NOT NULL,
+  `variant_id` bigint(20) unsigned DEFAULT NULL,
+  `image_path` varchar(255) NOT NULL,
+  `alt_text` varchar(200) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_primary` tinyint(1) NOT NULL DEFAULT 0,
+  `is_360` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `fk_img_variant` (`variant_id`),
+  KEY `idx_img_product` (`product_id`,`sort_order`),
+  CONSTRAINT `fk_img_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_img_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_occasions` (
+  `product_id` bigint(20) unsigned NOT NULL,
+  `occasion_id` smallint(5) unsigned NOT NULL,
+  PRIMARY KEY (`product_id`,`occasion_id`),
+  KEY `fk_po_occasion` (`occasion_id`),
+  CONSTRAINT `fk_po_occasion` FOREIGN KEY (`occasion_id`) REFERENCES `occasions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_po_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_specifications` (
+  `product_id` bigint(20) unsigned NOT NULL,
+  `attribute_id` smallint(5) unsigned NOT NULL,
+  `value` varchar(120) NOT NULL,
+  PRIMARY KEY (`product_id`,`attribute_id`),
+  KEY `fk_prodspec_attribute` (`attribute_id`),
+  CONSTRAINT `fk_prodspec_attribute` FOREIGN KEY (`attribute_id`) REFERENCES `attributes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_prodspec_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `product_styles` (
+  `product_id` bigint(20) unsigned NOT NULL,
+  `style_id` smallint(5) unsigned NOT NULL,
+  PRIMARY KEY (`product_id`,`style_id`),
+  KEY `fk_ps_style` (`style_id`),
+  CONSTRAINT `fk_ps_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ps_style` FOREIGN KEY (`style_id`) REFERENCES `styles` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_tags` (
+  `product_id` bigint(20) unsigned NOT NULL,
+  `tag_id` smallint(5) unsigned NOT NULL,
+  PRIMARY KEY (`product_id`,`tag_id`),
+  KEY `fk_pt_tag` (`tag_id`),
+  CONSTRAINT `fk_pt_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_pt_tag` FOREIGN KEY (`tag_id`) REFERENCES `tags` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_variants` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `product_id` bigint(20) unsigned NOT NULL,
+  `variant_sku` varchar(64) NOT NULL,
+  `barcode` varchar(64) DEFAULT NULL,
+  `metal_id` smallint(5) unsigned DEFAULT NULL,
+  `purity_id` smallint(5) unsigned DEFAULT NULL,
+  `metal_color_id` smallint(5) unsigned DEFAULT NULL,
+  `metal_weight_g` decimal(10,3) DEFAULT NULL,
+  `gross_weight_g` decimal(10,3) DEFAULT NULL,
+  `is_default` tinyint(1) NOT NULL DEFAULT 0,
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `variant_sku` (`variant_sku`),
+  KEY `fk_var_metal` (`metal_id`),
+  KEY `fk_var_purity` (`purity_id`),
+  KEY `fk_var_color` (`metal_color_id`),
+  KEY `idx_var_product` (`product_id`),
+  CONSTRAINT `fk_var_color` FOREIGN KEY (`metal_color_id`) REFERENCES `metal_colors` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_var_metal` FOREIGN KEY (`metal_id`) REFERENCES `metals` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_var_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_var_purity` FOREIGN KEY (`purity_id`) REFERENCES `metal_purities` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `products` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `sku` varchar(64) NOT NULL,
+  `slug` varchar(180) NOT NULL,
+  `name` varchar(200) NOT NULL,
+  `short_description` varchar(500) DEFAULT NULL,
+  `description` mediumtext DEFAULT NULL,
+  `brand_id` int(10) unsigned DEFAULT NULL,
+  `video_url` varchar(255) DEFAULT NULL,
+  `care_instructions` text DEFAULT NULL,
+  `status` enum('draft','active','archived') NOT NULL DEFAULT 'draft',
+  `is_featured` tinyint(1) NOT NULL DEFAULT 0,
+  `is_new_arrival` tinyint(1) NOT NULL DEFAULT 0,
+  `is_best_seller` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `sku` (`sku`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `fk_prod_brand` (`brand_id`),
+  KEY `idx_products_status` (`status`),
+  KEY `idx_products_flags` (`is_featured`,`is_new_arrival`,`is_best_seller`),
+  FULLTEXT KEY `ft_products` (`name`,`short_description`),
+  CONSTRAINT `fk_prod_brand` FOREIGN KEY (`brand_id`) REFERENCES `brands` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `refunds` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(20) unsigned NOT NULL,
+  `return_id` bigint(20) unsigned DEFAULT NULL,
+  `amount` decimal(12,2) NOT NULL,
+  `method` varchar(40) NOT NULL,
+  `status` enum('pending','processed','failed') NOT NULL DEFAULT 'pending',
+  `processed_at` datetime DEFAULT NULL,
+  `processed_by` int(10) unsigned DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_ref_order` (`order_id`),
+  KEY `fk_ref_return` (`return_id`),
+  CONSTRAINT `fk_ref_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_ref_return` FOREIGN KEY (`return_id`) REFERENCES `returns` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `returns` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(20) unsigned NOT NULL,
+  `order_item_id` bigint(20) unsigned DEFAULT NULL,
+  `reason` varchar(255) NOT NULL,
+  `status` enum('requested','approved','rejected','received','refunded') NOT NULL DEFAULT 'requested',
+  `quantity` int(10) unsigned NOT NULL DEFAULT 1,
+  `note` varchar(500) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_ret_order` (`order_id`),
+  KEY `fk_ret_item` (`order_item_id`),
+  CONSTRAINT `fk_ret_item` FOREIGN KEY (`order_item_id`) REFERENCES `order_items` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_ret_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `review_helpful` (
+  `review_id` bigint(20) unsigned NOT NULL,
+  `user_id` bigint(20) unsigned NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`review_id`,`user_id`),
+  KEY `fk_helpful_user` (`user_id`),
+  CONSTRAINT `fk_helpful_review` FOREIGN KEY (`review_id`) REFERENCES `reviews` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_helpful_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `review_media` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `review_id` bigint(20) unsigned NOT NULL,
+  `path` varchar(255) NOT NULL,
+  `kind` enum('image','video') NOT NULL DEFAULT 'image',
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_review_media` (`review_id`,`sort_order`),
+  CONSTRAINT `fk_review_media_review` FOREIGN KEY (`review_id`) REFERENCES `reviews` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `reviews` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `product_id` bigint(20) unsigned NOT NULL,
+  `user_id` bigint(20) unsigned NOT NULL,
+  `order_id` bigint(20) unsigned DEFAULT NULL,
+  `rating` tinyint(3) unsigned NOT NULL,
+  `title` varchar(150) DEFAULT NULL,
+  `body` text DEFAULT NULL,
+  `reply` text DEFAULT NULL,
+  `replied_at` datetime DEFAULT NULL,
+  `helpful_count` int(10) unsigned NOT NULL DEFAULT 0,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_review_user_product` (`product_id`,`user_id`),
+  UNIQUE KEY `uq_review` (`product_id`,`user_id`,`order_id`),
+  KEY `fk_rev_user` (`user_id`),
+  KEY `fk_rev_order` (`order_id`),
+  CONSTRAINT `fk_rev_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_rev_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_rev_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `role_permissions` (
+  `role_id` smallint(5) unsigned NOT NULL,
+  `permission_id` smallint(5) unsigned NOT NULL,
+  PRIMARY KEY (`role_id`,`permission_id`),
+  KEY `fk_rp_perm` (`permission_id`),
+  CONSTRAINT `fk_rp_perm` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_rp_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `roles` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(60) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `seo_meta` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `entity_type` varchar(40) NOT NULL,
+  `entity_id` bigint(20) unsigned NOT NULL,
+  `meta_title` varchar(200) DEFAULT NULL,
+  `meta_description` varchar(320) DEFAULT NULL,
+  `meta_keywords` varchar(255) DEFAULT NULL,
+  `canonical_url` varchar(255) DEFAULT NULL,
+  `og_image` varchar(255) DEFAULT NULL,
+  `schema_json` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_seo_entity` (`entity_type`,`entity_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `shipments` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(20) unsigned NOT NULL,
+  `courier` varchar(80) DEFAULT NULL,
+  `tracking_no` varchar(120) DEFAULT NULL,
+  `status` enum('pending','picked','in_transit','delivered','failed','returned') NOT NULL DEFAULT 'pending',
+  `shipped_at` datetime DEFAULT NULL,
+  `delivered_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_ship_order` (`order_id`),
+  CONSTRAINT `fk_ship_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `stone_clarities` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(20) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `stone_colors` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(20) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `stone_cuts` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(40) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `stone_shapes` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(40) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `stone_types` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(60) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `styles` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(60) NOT NULL,
+  `slug` varchar(80) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `tags` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(60) NOT NULL,
+  `slug` varchar(80) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `testimonials` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `author_name` varchar(120) NOT NULL,
+  `author_title` varchar(120) DEFAULT NULL,
+  `quote` text NOT NULL,
+  `avatar` varchar(255) DEFAULT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `url_redirects` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `from_path` varchar(255) NOT NULL,
+  `to_path` varchar(255) NOT NULL,
+  `status_code` smallint(5) unsigned NOT NULL DEFAULT 301,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `from_path` (`from_path`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `users` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) NOT NULL,
+  `email` varchar(190) DEFAULT NULL,
+  `phone` varchar(30) DEFAULT NULL,
+  `avatar_path` varchar(255) DEFAULT NULL,
+  `password_hash` varchar(255) DEFAULT NULL,
+  `email_verified_at` datetime DEFAULT NULL,
+  `phone_verified_at` datetime DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `notify_order` tinyint(1) NOT NULL DEFAULT 1,
+  `notify_offers` tinyint(1) NOT NULL DEFAULT 0,
+  `notify_sms` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `variant_attributes` (
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `attribute_value_id` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`variant_id`,`attribute_value_id`),
+  KEY `fk_va_value` (`attribute_value_id`),
+  CONSTRAINT `fk_va_value` FOREIGN KEY (`attribute_value_id`) REFERENCES `attribute_values` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_va_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `variant_price_components` (
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `pricing_mode` enum('fixed','rate_based') NOT NULL DEFAULT 'rate_based',
+  `fixed_price` decimal(12,2) DEFAULT NULL,
+  `compare_price` decimal(12,2) DEFAULT NULL,
+  `cost_price` decimal(12,2) DEFAULT NULL,
+  `stone_charge` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `making_charge` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `wastage_percent` decimal(5,2) NOT NULL DEFAULT 0.00,
+  `discount_amount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `tax_percent` decimal(5,2) NOT NULL DEFAULT 5.00,
+  PRIMARY KEY (`variant_id`),
+  CONSTRAINT `fk_vpc_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `variant_stones` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `stone_type_id` smallint(5) unsigned NOT NULL,
+  `stone_shape_id` smallint(5) unsigned DEFAULT NULL,
+  `stone_color_id` smallint(5) unsigned DEFAULT NULL,
+  `stone_clarity_id` smallint(5) unsigned DEFAULT NULL,
+  `stone_cut_id` smallint(5) unsigned DEFAULT NULL,
+  `is_lab_grown` tinyint(1) NOT NULL DEFAULT 0,
+  `carat_each` decimal(8,3) DEFAULT NULL,
+  `carat_total` decimal(8,3) DEFAULT NULL,
+  `quantity` int(10) unsigned NOT NULL DEFAULT 1,
+  `is_center_stone` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `fk_vs_type` (`stone_type_id`),
+  KEY `fk_vs_shape` (`stone_shape_id`),
+  KEY `fk_vs_color` (`stone_color_id`),
+  KEY `fk_vs_clarity` (`stone_clarity_id`),
+  KEY `fk_vs_cut` (`stone_cut_id`),
+  KEY `idx_vs_variant` (`variant_id`),
+  CONSTRAINT `fk_vs_clarity` FOREIGN KEY (`stone_clarity_id`) REFERENCES `stone_clarities` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_vs_color` FOREIGN KEY (`stone_color_id`) REFERENCES `stone_colors` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_vs_cut` FOREIGN KEY (`stone_cut_id`) REFERENCES `stone_cuts` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_vs_shape` FOREIGN KEY (`stone_shape_id`) REFERENCES `stone_shapes` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_vs_type` FOREIGN KEY (`stone_type_id`) REFERENCES `stone_types` (`id`),
+  CONSTRAINT `fk_vs_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `warehouses` (
+  `id` smallint(5) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(120) NOT NULL,
+  `type` enum('warehouse','store') NOT NULL DEFAULT 'warehouse',
+  `address` varchar(255) DEFAULT NULL,
+  `phone` varchar(30) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `wishlists` (
+  `user_id` bigint(20) unsigned NOT NULL,
+  `product_id` bigint(20) unsigned NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`user_id`,`product_id`),
+  KEY `fk_wl_product` (`product_id`),
+  CONSTRAINT `fk_wl_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_wl_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ── Reference data ──────────────────────────────────────────────────────────
+-- Lookups only, plus the testimonials the landing page ships with. Nothing here
+-- is a product, a customer or an order.
+
+LOCK TABLES `attribute_values` WRITE;
+/*!40000 ALTER TABLE `attribute_values` DISABLE KEYS */;
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (1,1,'5',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (2,1,'6',2);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (3,1,'7',3);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (4,1,'8',4);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (5,1,'9',5);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (6,2,'16 inch',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (7,2,'18 inch',2);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (8,2,'20 inch',3);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (9,2,'22 inch',4);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (10,3,'2.4',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (11,3,'2.6',2);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (12,3,'2.8',3);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (13,4,'1',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (14,4,'3',2);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (15,4,'5',3);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (16,4,'7',4);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (17,4,'13',5);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (18,4,'25',6);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (19,5,'Screw',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (20,5,'Wire',2);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (21,6,'Push Back',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (22,6,'Screw Back',2);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (23,6,'Hook',3);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (28,10,'7 mm',3);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (29,10,'8 mm',4);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (30,9,'3 mm',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (31,8,'8 mm',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (32,7,'12 mm',1);
+INSERT INTO `attribute_values` (`id`, `attribute_id`, `value`, `sort_order`) VALUES (33,11,'22G',1);
+/*!40000 ALTER TABLE `attribute_values` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `attributes` WRITE;
+/*!40000 ALTER TABLE `attributes` DISABLE KEYS */;
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (1,'Ring Size','ring_size','select',1,1,1);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (2,'Length','chain_length','select',1,1,2);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (3,'Bangle Size','bangle_size','select',1,1,3);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (4,'Stone Count','stone_count','select',1,1,4);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (5,'Nose Pin Type','nose_pin_type','select',1,1,5);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (6,'Earring Closure','earring_closure','select',1,1,6);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (7,'Height','height','text',0,0,7);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (8,'Width','width','text',0,0,8);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (9,'Thickness','thickness','text',0,0,9);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (10,'Pin Length','pin_length','text',0,0,10);
+INSERT INTO `attributes` (`id`, `name`, `code`, `input_type`, `is_variant_level`, `is_filterable`, `sort_order`) VALUES (11,'Gauge','gauge','text',0,0,11);
+/*!40000 ALTER TABLE `attributes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `categories` WRITE;
+/*!40000 ALTER TABLE `categories` DISABLE KEYS */;
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (1,NULL,'Rings','rings','/uploads/categories/rings.jpg?v=1783939617127',NULL,1,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (2,NULL,'Earrings','earrings','/uploads/categories/earrings.jpg?v=1783939626729',NULL,2,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (3,NULL,'Necklaces','necklaces','/uploads/categories/necklaces.jpg?v=1783984334126',NULL,3,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (4,NULL,'Pendants','pendants',NULL,NULL,4,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (5,NULL,'Bracelets','bracelets','/uploads/categories/bracelets.jpg?v=1783941179168',NULL,5,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (6,NULL,'Bangles','bangles','/uploads/categories/bangles.jpg?v=1783984373142',NULL,6,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (7,NULL,'Chains','chains','/uploads/categories/chains.jpg?v=1783941138723',NULL,7,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (8,NULL,'Lockets','lockets',NULL,NULL,8,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (9,NULL,'Nose Pins','nose-pins','/uploads/categories/nose-pins.jpg?v=1783941089516',NULL,9,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (10,NULL,'Bridal Sets','bridal-sets','/uploads/categories/bridal-sets.jpg?v=1783941067015',NULL,10,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (11,NULL,'Traditional Jewellery','traditional-jewellery',NULL,NULL,11,1,'2026-07-09 10:50:33');
+INSERT INTO `categories` (`id`, `parent_id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_active`, `created_at`) VALUES (15,NULL,'Sitahar','sitahar','/uploads/categories/sitahar.jpg?v=1783939603001',NULL,0,1,'2026-07-12 13:32:52');
+/*!40000 ALTER TABLE `categories` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `collections` WRITE;
+/*!40000 ALTER TABLE `collections` DISABLE KEYS */;
+INSERT INTO `collections` (`id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_featured`, `is_active`, `starts_at`, `ends_at`, `created_at`) VALUES (1,'Royal Heritage','royal-heritage',NULL,NULL,1,0,1,NULL,NULL,'2026-07-09 10:50:33');
+INSERT INTO `collections` (`id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_featured`, `is_active`, `starts_at`, `ends_at`, `created_at`) VALUES (2,'Classic','classic',NULL,NULL,2,0,1,NULL,NULL,'2026-07-09 10:50:33');
+INSERT INTO `collections` (`id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_featured`, `is_active`, `starts_at`, `ends_at`, `created_at`) VALUES (3,'Minimal','minimal',NULL,NULL,3,0,1,NULL,NULL,'2026-07-09 10:50:33');
+INSERT INTO `collections` (`id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_featured`, `is_active`, `starts_at`, `ends_at`, `created_at`) VALUES (4,'Wedding','wedding',NULL,NULL,4,0,1,NULL,NULL,'2026-07-09 10:50:33');
+INSERT INTO `collections` (`id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_featured`, `is_active`, `starts_at`, `ends_at`, `created_at`) VALUES (5,'Luxury','luxury',NULL,NULL,5,0,1,NULL,NULL,'2026-07-09 10:50:33');
+INSERT INTO `collections` (`id`, `name`, `slug`, `image`, `description`, `sort_order`, `is_featured`, `is_active`, `starts_at`, `ends_at`, `created_at`) VALUES (6,'Limited Edition','limited-edition',NULL,NULL,6,0,1,NULL,NULL,'2026-07-09 10:50:33');
+/*!40000 ALTER TABLE `collections` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `genders` WRITE;
+/*!40000 ALTER TABLE `genders` DISABLE KEYS */;
+INSERT INTO `genders` (`id`, `name`) VALUES (3,'Kids');
+INSERT INTO `genders` (`id`, `name`) VALUES (2,'Men');
+INSERT INTO `genders` (`id`, `name`) VALUES (4,'Unisex');
+INSERT INTO `genders` (`id`, `name`) VALUES (1,'Women');
+/*!40000 ALTER TABLE `genders` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `menu_items` WRITE;
+/*!40000 ALTER TABLE `menu_items` DISABLE KEYS */;
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (1,1,NULL,'New Arrivals','/shop?sort=new',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (2,1,NULL,'Gold','/shop?material=Gold',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (3,1,NULL,'Diamond','/shop?material=Diamond',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (4,1,NULL,'Bridal','/shop?occasion=Wedding,Engagement',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (5,1,NULL,'Collections','/shop?collection=Luxury',NULL,5,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (6,1,NULL,'Gifts','/shop?occasion=Anniversary,Festival',NULL,6,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (7,1,NULL,'About','/#craft',NULL,7,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (8,1,NULL,'Contact','/#appointment',NULL,8,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (9,2,NULL,'Shop by Category','#',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (10,2,NULL,'Shop by Purity','#',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (11,2,NULL,'Shop by Gold Color','#',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (12,2,NULL,'Shop by Recipient','#',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (13,2,NULL,'Shop by Occasion','#',NULL,5,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (14,2,NULL,'Shop by Price','#',NULL,6,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (15,2,9,'Rings','/shop?material=Gold&type=Ring',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (16,2,9,'Earrings','/shop?material=Gold&type=Earring',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (17,2,9,'Necklaces','/shop?material=Gold&type=Necklace',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (18,2,9,'Pendants','/shop?material=Gold&type=Pendant',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (19,2,9,'Bracelets','/shop?material=Gold&type=Bracelet',NULL,5,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (20,2,9,'Bangles','/shop?material=Gold&type=Bangle',NULL,6,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (21,2,9,'Chains','/shop?material=Gold&type=Chain',NULL,7,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (22,2,9,'Lockets','/shop?material=Gold&type=Locket',NULL,8,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (23,2,9,'Nose Pins','/shop?material=Gold&type=Nose+Pin',NULL,9,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (24,2,9,'Bridal Sets','/shop?material=Gold&occasion=Wedding',NULL,10,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (25,2,9,'Traditional Jewellery','/shop?material=Gold&style=Polki,Vintage',NULL,11,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (26,2,10,'24K','/shop?material=Gold&purity=24K',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (27,2,10,'22K','/shop?material=Gold&purity=22K',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (28,2,10,'21K','/shop?material=Gold&purity=21K',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (29,2,10,'18K','/shop?material=Gold&purity=18K',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (30,2,10,'14K','/shop?material=Gold&purity=14K',NULL,5,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (31,2,11,'Yellow Gold','/shop?material=Gold&color=Yellow+Gold',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (32,2,11,'White Gold','/shop?material=Gold&color=White+Gold',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (33,2,11,'Rose Gold','/shop?material=Gold&color=Rose+Gold',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (34,2,12,'Women','/shop?material=Gold&gender=Women',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (35,2,12,'Men','/shop?material=Gold&gender=Men',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (36,2,12,'Kids','/shop?material=Gold&gender=Kids',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (37,2,13,'Wedding','/shop?material=Gold&occasion=Wedding',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (38,2,13,'Engagement','/shop?material=Gold&occasion=Engagement',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (39,2,13,'Anniversary','/shop?material=Gold&occasion=Anniversary',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (40,2,13,'Festival','/shop?material=Gold&occasion=Festival',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (41,2,14,'Under ৳50,000','/shop?material=Gold&price=under-50k',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (42,2,14,'৳50K – ৳100K','/shop?material=Gold&price=50k-100k',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (43,2,14,'৳100K – ৳250K','/shop?material=Gold&price=100k-250k',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (44,2,14,'৳250K+','/shop?material=Gold&price=250k-plus',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (46,3,NULL,'Shop by Category','#',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (47,3,NULL,'Shop by Diamond Style','#',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (48,3,NULL,'Shop by Recipient','#',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (49,3,NULL,'Shop by Price','#',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (50,3,NULL,'Shop by Collection','#',NULL,5,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (51,3,46,'Rings','/shop?material=Diamond&type=Ring',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (52,3,46,'Necklaces','/shop?material=Diamond&type=Necklace',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (53,3,46,'Bracelets','/shop?material=Diamond&type=Bracelet',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (54,3,46,'Earrings','/shop?material=Diamond&type=Earring',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (55,3,46,'Pendants','/shop?material=Diamond&type=Pendant',NULL,5,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (56,3,46,'Bangles','/shop?material=Diamond&type=Bangle',NULL,6,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (57,3,46,'Lockets','/shop?material=Diamond&type=Locket',NULL,7,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (58,3,46,'Chains','/shop?material=Diamond&type=Chain',NULL,8,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (59,3,46,'Nose Pins','/shop?material=Diamond&type=Nose+Pin',NULL,9,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (60,3,47,'Solitaire','/shop?material=Diamond&style=Solitaire',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (61,3,47,'Halo','/shop?material=Diamond&style=Halo',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (62,3,47,'Cocktail','/shop?material=Diamond&style=Cocktail',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (63,3,47,'Color Stone','/shop?material=Diamond&style=Color+Stone',NULL,4,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (64,3,47,'Designer','/shop?material=Diamond&style=Designer',NULL,5,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (65,3,47,'Polki','/shop?material=Diamond&style=Polki',NULL,6,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (66,3,48,'Women','/shop?material=Diamond&gender=Women',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (67,3,48,'Men','/shop?material=Diamond&gender=Men',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (68,3,48,'Kids','/shop?material=Diamond&gender=Kids',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (69,3,49,'Under ৳100K','/shop?material=Diamond&price=under-50k,50k-100k',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (70,3,49,'৳100K – ৳250K','/shop?material=Diamond&price=100k-250k',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (71,3,49,'৳250K+','/shop?material=Diamond&price=250k-plus',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (72,3,50,'Royal Heritage','/shop?collection=Royal+Heritage',NULL,1,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (73,3,50,'Luxury','/shop?collection=Luxury',NULL,2,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (74,3,50,'Wedding','/shop?collection=Wedding',NULL,3,1);
+INSERT INTO `menu_items` (`id`, `menu_id`, `parent_id`, `label`, `url`, `image`, `sort_order`, `is_active`) VALUES (75,3,50,'Minimal','/shop?collection=Minimal',NULL,4,1);
+/*!40000 ALTER TABLE `menu_items` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `menus` WRITE;
+/*!40000 ALTER TABLE `menus` DISABLE KEYS */;
+INSERT INTO `menus` (`id`, `name`, `code`, `is_active`) VALUES (1,'Primary Navigation','primary',1);
+INSERT INTO `menus` (`id`, `name`, `code`, `is_active`) VALUES (2,'Gold Mega Menu','gold_mega',1);
+INSERT INTO `menus` (`id`, `name`, `code`, `is_active`) VALUES (3,'Diamond Mega Menu','diamond_mega',1);
+INSERT INTO `menus` (`id`, `name`, `code`, `is_active`) VALUES (4,'Mobile Menu','mobile',1);
+INSERT INTO `menus` (`id`, `name`, `code`, `is_active`) VALUES (5,'Footer Menu','footer',1);
+/*!40000 ALTER TABLE `menus` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `metal_colors` WRITE;
+/*!40000 ALTER TABLE `metal_colors` DISABLE KEYS */;
+INSERT INTO `metal_colors` (`id`, `name`) VALUES (3,'Rose Gold');
+INSERT INTO `metal_colors` (`id`, `name`) VALUES (2,'White Gold');
+INSERT INTO `metal_colors` (`id`, `name`) VALUES (1,'Yellow Gold');
+/*!40000 ALTER TABLE `metal_colors` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `metal_purities` WRITE;
+/*!40000 ALTER TABLE `metal_purities` DISABLE KEYS */;
+INSERT INTO `metal_purities` (`id`, `metal_id`, `name`, `purity_percent`) VALUES (1,1,'24K',99.99);
+INSERT INTO `metal_purities` (`id`, `metal_id`, `name`, `purity_percent`) VALUES (2,1,'22K',91.60);
+INSERT INTO `metal_purities` (`id`, `metal_id`, `name`, `purity_percent`) VALUES (3,1,'21K',87.50);
+INSERT INTO `metal_purities` (`id`, `metal_id`, `name`, `purity_percent`) VALUES (4,1,'18K',75.00);
+INSERT INTO `metal_purities` (`id`, `metal_id`, `name`, `purity_percent`) VALUES (5,1,'14K',58.30);
+INSERT INTO `metal_purities` (`id`, `metal_id`, `name`, `purity_percent`) VALUES (6,2,'PT950',95.00);
+INSERT INTO `metal_purities` (`id`, `metal_id`, `name`, `purity_percent`) VALUES (7,3,'S925',92.50);
+/*!40000 ALTER TABLE `metal_purities` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `metal_rates` WRITE;
+/*!40000 ALTER TABLE `metal_rates` DISABLE KEYS */;
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (1,1,11500.00,'BDT','2026-07-09 16:50:33',NULL,'2026-07-09 10:50:33');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (2,2,10550.00,'BDT','2026-07-09 16:50:33',NULL,'2026-07-09 10:50:33');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (3,3,10050.00,'BDT','2026-07-09 16:50:33',NULL,'2026-07-09 10:50:33');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (4,4,8650.00,'BDT','2026-07-09 16:50:33',NULL,'2026-07-09 10:50:33');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (5,5,6700.00,'BDT','2026-07-09 16:50:33',NULL,'2026-07-09 10:50:33');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (6,2,10725.50,'BDT','2026-07-09 17:19:37',NULL,'2026-07-09 11:19:37');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (7,1,10000.00,'BDT','2026-07-09 21:54:00',NULL,'2026-07-09 15:54:00');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (8,1,12000.00,'BDT','2026-07-09 21:54:19',NULL,'2026-07-09 15:54:19');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (9,1,13000.00,'BDT','2026-07-09 21:54:54',NULL,'2026-07-09 15:54:54');
+INSERT INTO `metal_rates` (`id`, `purity_id`, `rate_per_gram`, `currency`, `effective_from`, `created_by`, `created_at`) VALUES (12,1,200000.00,'BDT','2026-07-14 05:37:28',NULL,'2026-07-13 23:37:28');
+/*!40000 ALTER TABLE `metal_rates` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `metals` WRITE;
+/*!40000 ALTER TABLE `metals` DISABLE KEYS */;
+INSERT INTO `metals` (`id`, `name`) VALUES (1,'Gold');
+INSERT INTO `metals` (`id`, `name`) VALUES (2,'Platinum');
+INSERT INTO `metals` (`id`, `name`) VALUES (3,'Silver');
+/*!40000 ALTER TABLE `metals` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `occasions` WRITE;
+/*!40000 ALTER TABLE `occasions` DISABLE KEYS */;
+INSERT INTO `occasions` (`id`, `name`, `slug`) VALUES (1,'Wedding','wedding');
+INSERT INTO `occasions` (`id`, `name`, `slug`) VALUES (2,'Engagement','engagement');
+INSERT INTO `occasions` (`id`, `name`, `slug`) VALUES (3,'Anniversary','anniversary');
+INSERT INTO `occasions` (`id`, `name`, `slug`) VALUES (4,'Birthday','birthday');
+INSERT INTO `occasions` (`id`, `name`, `slug`) VALUES (5,'Festival','festival');
+INSERT INTO `occasions` (`id`, `name`, `slug`) VALUES (6,'Daily Wear','daily-wear');
+/*!40000 ALTER TABLE `occasions` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `permissions` WRITE;
+/*!40000 ALTER TABLE `permissions` DISABLE KEYS */;
+INSERT INTO `permissions` (`id`, `code`, `name`) VALUES (1,'products.manage','Manage products');
+INSERT INTO `permissions` (`id`, `code`, `name`) VALUES (2,'rates.update','Update metal rates');
+INSERT INTO `permissions` (`id`, `code`, `name`) VALUES (3,'inventory.adjust','Adjust inventory');
+INSERT INTO `permissions` (`id`, `code`, `name`) VALUES (4,'orders.manage','Manage orders');
+INSERT INTO `permissions` (`id`, `code`, `name`) VALUES (5,'discounts.approve','Approve discounts');
+INSERT INTO `permissions` (`id`, `code`, `name`) VALUES (6,'cms.manage','Manage CMS content');
+INSERT INTO `permissions` (`id`, `code`, `name`) VALUES (7,'admin.manage','Manage admin users');
+/*!40000 ALTER TABLE `permissions` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `role_permissions` WRITE;
+/*!40000 ALTER TABLE `role_permissions` DISABLE KEYS */;
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (1,1);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (1,2);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (1,3);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (1,4);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (1,5);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (1,6);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (1,7);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (2,1);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (2,3);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (2,4);
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES (2,6);
+/*!40000 ALTER TABLE `role_permissions` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `roles` WRITE;
+/*!40000 ALTER TABLE `roles` DISABLE KEYS */;
+INSERT INTO `roles` (`id`, `name`) VALUES (2,'Manager');
+INSERT INTO `roles` (`id`, `name`) VALUES (3,'Staff');
+INSERT INTO `roles` (`id`, `name`) VALUES (1,'Super Admin');
+/*!40000 ALTER TABLE `roles` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `stone_clarities` WRITE;
+/*!40000 ALTER TABLE `stone_clarities` DISABLE KEYS */;
+INSERT INTO `stone_clarities` (`id`, `name`) VALUES (1,'IF');
+INSERT INTO `stone_clarities` (`id`, `name`) VALUES (6,'SI1');
+INSERT INTO `stone_clarities` (`id`, `name`) VALUES (7,'SI2');
+INSERT INTO `stone_clarities` (`id`, `name`) VALUES (4,'VS1');
+INSERT INTO `stone_clarities` (`id`, `name`) VALUES (5,'VS2');
+INSERT INTO `stone_clarities` (`id`, `name`) VALUES (2,'VVS1');
+INSERT INTO `stone_clarities` (`id`, `name`) VALUES (3,'VVS2');
+/*!40000 ALTER TABLE `stone_clarities` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `stone_colors` WRITE;
+/*!40000 ALTER TABLE `stone_colors` DISABLE KEYS */;
+INSERT INTO `stone_colors` (`id`, `name`) VALUES (1,'D');
+INSERT INTO `stone_colors` (`id`, `name`) VALUES (2,'E');
+INSERT INTO `stone_colors` (`id`, `name`) VALUES (3,'F');
+INSERT INTO `stone_colors` (`id`, `name`) VALUES (4,'G');
+INSERT INTO `stone_colors` (`id`, `name`) VALUES (5,'H');
+INSERT INTO `stone_colors` (`id`, `name`) VALUES (6,'I');
+INSERT INTO `stone_colors` (`id`, `name`) VALUES (7,'J');
+/*!40000 ALTER TABLE `stone_colors` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `stone_cuts` WRITE;
+/*!40000 ALTER TABLE `stone_cuts` DISABLE KEYS */;
+INSERT INTO `stone_cuts` (`id`, `name`) VALUES (1,'Excellent');
+INSERT INTO `stone_cuts` (`id`, `name`) VALUES (3,'Good');
+INSERT INTO `stone_cuts` (`id`, `name`) VALUES (2,'Very Good');
+/*!40000 ALTER TABLE `stone_cuts` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `stone_shapes` WRITE;
+/*!40000 ALTER TABLE `stone_shapes` DISABLE KEYS */;
+INSERT INTO `stone_shapes` (`id`, `name`) VALUES (7,'Cushion');
+INSERT INTO `stone_shapes` (`id`, `name`) VALUES (5,'Emerald');
+INSERT INTO `stone_shapes` (`id`, `name`) VALUES (6,'Heart');
+INSERT INTO `stone_shapes` (`id`, `name`) VALUES (8,'Marquise');
+INSERT INTO `stone_shapes` (`id`, `name`) VALUES (2,'Oval');
+INSERT INTO `stone_shapes` (`id`, `name`) VALUES (4,'Pear');
+INSERT INTO `stone_shapes` (`id`, `name`) VALUES (3,'Princess');
+INSERT INTO `stone_shapes` (`id`, `name`) VALUES (1,'Round');
+/*!40000 ALTER TABLE `stone_shapes` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `stone_types` WRITE;
+/*!40000 ALTER TABLE `stone_types` DISABLE KEYS */;
+INSERT INTO `stone_types` (`id`, `name`) VALUES (1,'Diamond');
+INSERT INTO `stone_types` (`id`, `name`) VALUES (3,'Emerald');
+INSERT INTO `stone_types` (`id`, `name`) VALUES (5,'Pearl');
+INSERT INTO `stone_types` (`id`, `name`) VALUES (6,'Polki');
+INSERT INTO `stone_types` (`id`, `name`) VALUES (2,'Ruby');
+INSERT INTO `stone_types` (`id`, `name`) VALUES (4,'Sapphire');
+/*!40000 ALTER TABLE `stone_types` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `styles` WRITE;
+/*!40000 ALTER TABLE `styles` DISABLE KEYS */;
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (1,'Solitaire','solitaire');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (2,'Halo','halo');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (3,'Cocktail','cocktail');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (4,'Color Stone','color-stone');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (5,'Multi Stone','multi-stone');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (6,'Single Stone','single-stone');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (7,'Vintage','vintage');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (8,'Minimal','minimal');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (9,'Designer','designer');
+INSERT INTO `styles` (`id`, `name`, `slug`) VALUES (10,'Polki','polki');
+/*!40000 ALTER TABLE `styles` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `tags` WRITE;
+/*!40000 ALTER TABLE `tags` DISABLE KEYS */;
+INSERT INTO `tags` (`id`, `name`, `slug`) VALUES (1,'Trending','trending');
+INSERT INTO `tags` (`id`, `name`, `slug`) VALUES (2,'Editor\'s Choice','editors-choice');
+INSERT INTO `tags` (`id`, `name`, `slug`) VALUES (3,'Celebrity','celebrity');
+INSERT INTO `tags` (`id`, `name`, `slug`) VALUES (4,'Luxury','luxury');
+INSERT INTO `tags` (`id`, `name`, `slug`) VALUES (5,'Best Seller','best-seller');
+/*!40000 ALTER TABLE `tags` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `warehouses` WRITE;
+/*!40000 ALTER TABLE `warehouses` DISABLE KEYS */;
+INSERT INTO `warehouses` (`id`, `name`, `type`, `address`, `phone`, `is_active`) VALUES (1,'Main Warehouse','warehouse','Dhaka',NULL,1);
+INSERT INTO `warehouses` (`id`, `name`, `type`, `address`, `phone`, `is_active`) VALUES (2,'Dhaka Boutique','store','Gulshan, Dhaka',NULL,1);
+INSERT INTO `warehouses` (`id`, `name`, `type`, `address`, `phone`, `is_active`) VALUES (3,'Chittagong Boutique','store','Chittagong',NULL,1);
+/*!40000 ALTER TABLE `warehouses` ENABLE KEYS */;
+UNLOCK TABLES;
+
+LOCK TABLES `testimonials` WRITE;
+/*!40000 ALTER TABLE `testimonials` DISABLE KEYS */;
+INSERT INTO `testimonials` (`id`, `author_name`, `author_title`, `quote`, `avatar`, `sort_order`, `is_active`) VALUES (1,'A. de Villiers','Genève','The rivière necklace I commissioned took eight months. When it arrived, my wife wept. Nothing we own compares to it.',NULL,1,1);
+INSERT INTO `testimonials` (`id`, `author_name`, `author_title`, `quote`, `avatar`, `sort_order`, `is_active`) VALUES (2,'M. Hartwell','New York','Their private salon experience is unlike anything in Paris. Three generations of my family now wear Nahar Jewellers.',NULL,2,1);
+INSERT INTO `testimonials` (`id`, `author_name`, `author_title`, `quote`, `avatar`, `sort_order`, `is_active`) VALUES (3,'S. Al-Rashid','Paris','I have collected high jewelry for twenty years. Nahar Jewellers\' gold work is the finest I have ever held.',NULL,3,1);
+INSERT INTO `testimonials` (`id`, `author_name`, `author_title`, `quote`, `avatar`, `sort_order`, `is_active`) VALUES (4,'N. Rahman','Dhaka','From the first sketch to the final polish, they treated my mother\'s heirloom stones with reverence. The reset bangles are breathtaking.',NULL,4,1);
+INSERT INTO `testimonials` (`id`, `author_name`, `author_title`, `quote`, `avatar`, `sort_order`, `is_active`) VALUES (5,'E. Whitmore','London','The engagement ring was ready before the promised date, with a certificate for every stone. Service as flawless as the diamond.',NULL,5,1);
+/*!40000 ALTER TABLE `testimonials` ENABLE KEYS */;
+UNLOCK TABLES;
 
 SET FOREIGN_KEY_CHECKS = 1;
-
--- ============================================================================
--- SEED DATA — lookup tables + menus (matches the storefront)
--- ============================================================================
-
-INSERT INTO metals (name) VALUES ('Gold'), ('Platinum'), ('Silver');
-
-INSERT INTO metal_purities (metal_id, name, purity_percent) VALUES
-  (1,'24K',99.99),(1,'22K',91.60),(1,'21K',87.50),(1,'18K',75.00),(1,'14K',58.30),
-  (2,'PT950',95.00),(3,'S925',92.50);
-
-INSERT INTO metal_colors (name) VALUES ('Yellow Gold'), ('White Gold'), ('Rose Gold');
-
-INSERT INTO categories (name, slug, sort_order) VALUES
-  ('Rings','rings',1),('Earrings','earrings',2),('Necklaces','necklaces',3),
-  ('Pendants','pendants',4),('Bracelets','bracelets',5),('Bangles','bangles',6),
-  ('Chains','chains',7),('Lockets','lockets',8),('Nose Pins','nose-pins',9),
-  ('Bridal Sets','bridal-sets',10),('Traditional Jewellery','traditional-jewellery',11);
-
-INSERT INTO collections (name, slug, sort_order) VALUES
-  ('Royal Heritage','royal-heritage',1),('Classic','classic',2),('Minimal','minimal',3),
-  ('Wedding','wedding',4),('Luxury','luxury',5),('Limited Edition','limited-edition',6);
-
-INSERT INTO genders (name) VALUES ('Women'),('Men'),('Kids'),('Unisex');
-
-INSERT INTO occasions (name, slug) VALUES
-  ('Wedding','wedding'),('Engagement','engagement'),('Anniversary','anniversary'),
-  ('Birthday','birthday'),('Festival','festival'),('Daily Wear','daily-wear');
-
-INSERT INTO styles (name, slug) VALUES
-  ('Solitaire','solitaire'),('Halo','halo'),('Cocktail','cocktail'),
-  ('Color Stone','color-stone'),('Multi Stone','multi-stone'),('Single Stone','single-stone'),
-  ('Vintage','vintage'),('Minimal','minimal'),('Designer','designer'),('Polki','polki');
-
-INSERT INTO tags (name, slug) VALUES
-  ('Trending','trending'),("Editor's Choice",'editors-choice'),
-  ('Celebrity','celebrity'),('Luxury','luxury'),('Best Seller','best-seller');
-
-INSERT INTO stone_types (name) VALUES
-  ('Diamond'),('Ruby'),('Emerald'),('Sapphire'),('Pearl'),('Polki');
-
-INSERT INTO stone_shapes (name) VALUES
-  ('Round'),('Oval'),('Princess'),('Pear'),('Emerald'),('Heart'),('Cushion'),('Marquise');
-
-INSERT INTO stone_colors (name) VALUES ('D'),('E'),('F'),('G'),('H'),('I'),('J');
-
-INSERT INTO stone_clarities (name) VALUES
-  ('IF'),('VVS1'),('VVS2'),('VS1'),('VS2'),('SI1'),('SI2');
-
-INSERT INTO stone_cuts (name) VALUES ('Excellent'),('Very Good'),('Good');
-
-INSERT INTO attributes (name, code, input_type, is_variant_level, is_filterable, sort_order) VALUES
-  ('Ring Size','ring_size','select',1,1,1),
-  ('Chain Length','chain_length','select',1,1,2),
-  ('Bangle Size','bangle_size','select',1,1,3),
-  ('Stone Count','stone_count','select',1,1,4),
-  ('Nose Pin Type','nose_pin_type','select',1,1,5),
-  ('Earring Closure','earring_closure','select',1,1,6);
-
-INSERT INTO attribute_values (attribute_id, value, sort_order) VALUES
-  (1,'5',1),(1,'6',2),(1,'7',3),(1,'8',4),(1,'9',5),
-  (2,'16 inch',1),(2,'18 inch',2),(2,'20 inch',3),(2,'22 inch',4),
-  (3,'2.4',1),(3,'2.6',2),(3,'2.8',3),
-  (4,'1',1),(4,'3',2),(4,'5',3),(4,'7',4),(4,'13',5),(4,'25',6),
-  (5,'Screw',1),(5,'Wire',2),
-  (6,'Push Back',1),(6,'Screw Back',2),(6,'Hook',3);
-
-INSERT INTO warehouses (name, type, address) VALUES
-  ('Main Warehouse','warehouse','Dhaka'),
-  ('Dhaka Boutique','store','Gulshan, Dhaka'),
-  ('Chittagong Boutique','store','Chittagong');
-
-INSERT INTO roles (name) VALUES ('Super Admin'),('Manager'),('Staff');
-
-INSERT INTO permissions (code, name) VALUES
-  ('products.manage','Manage products'),
-  ('rates.update','Update metal rates'),
-  ('inventory.adjust','Adjust inventory'),
-  ('orders.manage','Manage orders'),
-  ('discounts.approve','Approve discounts'),
-  ('cms.manage','Manage CMS content'),
-  ('admin.manage','Manage admin users');
-
-INSERT INTO role_permissions (role_id, permission_id)
-  SELECT 1, id FROM permissions;                          -- Super Admin: everything
-INSERT INTO role_permissions (role_id, permission_id) VALUES
-  (2,1),(2,3),(2,4),(2,6);                                -- Manager subset
-
-INSERT INTO menus (name, code) VALUES
-  ('Primary Navigation','primary'),
-  ('Gold Mega Menu','gold_mega'),
-  ('Diamond Mega Menu','diamond_mega'),
-  ('Mobile Menu','mobile'),
-  ('Footer Menu','footer');
-
--- Primary nav (matches the live storefront)
-INSERT INTO menu_items (menu_id, label, url, sort_order) VALUES
-  (1,'New Arrivals','/shop?sort=new',1),
-  (1,'Gold','/shop?material=Gold',2),
-  (1,'Diamond','/shop?material=Diamond',3),
-  (1,'Bridal','/shop?occasion=Wedding,Engagement',4),
-  (1,'Collections','/shop?collection=Luxury',5),
-  (1,'Gifts','/shop?occasion=Anniversary,Festival',6),
-  (1,'About','/#craft',7),
-  (1,'Contact','/#appointment',8);
-
--- Gold mega menu: parents = column headings, children = links
-INSERT INTO menu_items (menu_id, label, url, sort_order) VALUES
-  (2,'Shop by Category','#',1),
-  (2,'Shop by Purity','#',2),
-  (2,'Shop by Gold Color','#',3),
-  (2,'Shop by Recipient','#',4),
-  (2,'Shop by Occasion','#',5),
-  (2,'Shop by Price','#',6);
-INSERT INTO menu_items (menu_id, parent_id, label, url, sort_order)
-SELECT 2, p.id, c.label, c.url, c.so FROM menu_items p
-JOIN (
-  SELECT 'Shop by Category' h,'Rings' label,'/shop?material=Gold&type=Ring' url,1 so UNION ALL
-  SELECT 'Shop by Category','Earrings','/shop?material=Gold&type=Earring',2 UNION ALL
-  SELECT 'Shop by Category','Necklaces','/shop?material=Gold&type=Necklace',3 UNION ALL
-  SELECT 'Shop by Category','Pendants','/shop?material=Gold&type=Pendant',4 UNION ALL
-  SELECT 'Shop by Category','Bracelets','/shop?material=Gold&type=Bracelet',5 UNION ALL
-  SELECT 'Shop by Category','Bangles','/shop?material=Gold&type=Bangle',6 UNION ALL
-  SELECT 'Shop by Category','Chains','/shop?material=Gold&type=Chain',7 UNION ALL
-  SELECT 'Shop by Category','Lockets','/shop?material=Gold&type=Locket',8 UNION ALL
-  SELECT 'Shop by Category','Nose Pins','/shop?material=Gold&type=Nose+Pin',9 UNION ALL
-  SELECT 'Shop by Category','Bridal Sets','/shop?material=Gold&occasion=Wedding',10 UNION ALL
-  SELECT 'Shop by Category','Traditional Jewellery','/shop?material=Gold&style=Polki,Vintage',11 UNION ALL
-  SELECT 'Shop by Purity','24K','/shop?material=Gold&purity=24K',1 UNION ALL
-  SELECT 'Shop by Purity','22K','/shop?material=Gold&purity=22K',2 UNION ALL
-  SELECT 'Shop by Purity','21K','/shop?material=Gold&purity=21K',3 UNION ALL
-  SELECT 'Shop by Purity','18K','/shop?material=Gold&purity=18K',4 UNION ALL
-  SELECT 'Shop by Purity','14K','/shop?material=Gold&purity=14K',5 UNION ALL
-  SELECT 'Shop by Gold Color','Yellow Gold','/shop?material=Gold&color=Yellow+Gold',1 UNION ALL
-  SELECT 'Shop by Gold Color','White Gold','/shop?material=Gold&color=White+Gold',2 UNION ALL
-  SELECT 'Shop by Gold Color','Rose Gold','/shop?material=Gold&color=Rose+Gold',3 UNION ALL
-  SELECT 'Shop by Recipient','Women','/shop?material=Gold&gender=Women',1 UNION ALL
-  SELECT 'Shop by Recipient','Men','/shop?material=Gold&gender=Men',2 UNION ALL
-  SELECT 'Shop by Recipient','Kids','/shop?material=Gold&gender=Kids',3 UNION ALL
-  SELECT 'Shop by Occasion','Wedding','/shop?material=Gold&occasion=Wedding',1 UNION ALL
-  SELECT 'Shop by Occasion','Engagement','/shop?material=Gold&occasion=Engagement',2 UNION ALL
-  SELECT 'Shop by Occasion','Anniversary','/shop?material=Gold&occasion=Anniversary',3 UNION ALL
-  SELECT 'Shop by Occasion','Festival','/shop?material=Gold&occasion=Festival',4 UNION ALL
-  SELECT 'Shop by Price','Under ৳50,000','/shop?material=Gold&price=under-50k',1 UNION ALL
-  SELECT 'Shop by Price','৳50K – ৳100K','/shop?material=Gold&price=50k-100k',2 UNION ALL
-  SELECT 'Shop by Price','৳100K – ৳250K','/shop?material=Gold&price=100k-250k',3 UNION ALL
-  SELECT 'Shop by Price','৳250K+','/shop?material=Gold&price=250k-plus',4
-) c ON c.h = p.label
-WHERE p.menu_id = 2 AND p.parent_id IS NULL;
-
--- Diamond mega menu
-INSERT INTO menu_items (menu_id, label, url, sort_order) VALUES
-  (3,'Shop by Category','#',1),
-  (3,'Shop by Diamond Style','#',2),
-  (3,'Shop by Recipient','#',3),
-  (3,'Shop by Price','#',4),
-  (3,'Shop by Collection','#',5);
-INSERT INTO menu_items (menu_id, parent_id, label, url, sort_order)
-SELECT 3, p.id, c.label, c.url, c.so FROM menu_items p
-JOIN (
-  SELECT 'Shop by Category' h,'Rings' label,'/shop?material=Diamond&type=Ring' url,1 so UNION ALL
-  SELECT 'Shop by Category','Necklaces','/shop?material=Diamond&type=Necklace',2 UNION ALL
-  SELECT 'Shop by Category','Bracelets','/shop?material=Diamond&type=Bracelet',3 UNION ALL
-  SELECT 'Shop by Category','Earrings','/shop?material=Diamond&type=Earring',4 UNION ALL
-  SELECT 'Shop by Category','Pendants','/shop?material=Diamond&type=Pendant',5 UNION ALL
-  SELECT 'Shop by Category','Bangles','/shop?material=Diamond&type=Bangle',6 UNION ALL
-  SELECT 'Shop by Category','Lockets','/shop?material=Diamond&type=Locket',7 UNION ALL
-  SELECT 'Shop by Category','Chains','/shop?material=Diamond&type=Chain',8 UNION ALL
-  SELECT 'Shop by Category','Nose Pins','/shop?material=Diamond&type=Nose+Pin',9 UNION ALL
-  SELECT 'Shop by Diamond Style','Solitaire','/shop?material=Diamond&style=Solitaire',1 UNION ALL
-  SELECT 'Shop by Diamond Style','Halo','/shop?material=Diamond&style=Halo',2 UNION ALL
-  SELECT 'Shop by Diamond Style','Cocktail','/shop?material=Diamond&style=Cocktail',3 UNION ALL
-  SELECT 'Shop by Diamond Style','Color Stone','/shop?material=Diamond&style=Color+Stone',4 UNION ALL
-  SELECT 'Shop by Diamond Style','Designer','/shop?material=Diamond&style=Designer',5 UNION ALL
-  SELECT 'Shop by Diamond Style','Polki','/shop?material=Diamond&style=Polki',6 UNION ALL
-  SELECT 'Shop by Recipient','Women','/shop?material=Diamond&gender=Women',1 UNION ALL
-  SELECT 'Shop by Recipient','Men','/shop?material=Diamond&gender=Men',2 UNION ALL
-  SELECT 'Shop by Recipient','Kids','/shop?material=Diamond&gender=Kids',3 UNION ALL
-  SELECT 'Shop by Price','Under ৳100K','/shop?material=Diamond&price=under-50k,50k-100k',1 UNION ALL
-  SELECT 'Shop by Price','৳100K – ৳250K','/shop?material=Diamond&price=100k-250k',2 UNION ALL
-  SELECT 'Shop by Price','৳250K+','/shop?material=Diamond&price=250k-plus',3 UNION ALL
-  SELECT 'Shop by Collection','Royal Heritage','/shop?collection=Royal+Heritage',1 UNION ALL
-  SELECT 'Shop by Collection','Luxury','/shop?collection=Luxury',2 UNION ALL
-  SELECT 'Shop by Collection','Wedding','/shop?collection=Wedding',3 UNION ALL
-  SELECT 'Shop by Collection','Minimal','/shop?collection=Minimal',4
-) c ON c.h = p.label
-WHERE p.menu_id = 3 AND p.parent_id IS NULL;
-
--- Today's example gold rates (per gram, BDT) — update via admin panel
-INSERT INTO metal_rates (purity_id, rate_per_gram, effective_from) VALUES
-  (1, 11500.00, NOW()),   -- 24K
-  (2, 10550.00, NOW()),   -- 22K
-  (3, 10050.00, NOW()),   -- 21K
-  (4,  8650.00, NOW()),   -- 18K
-  (5,  6700.00, NOW());   -- 14K
-
--- ============================================================================
--- MODULE — STOREFRONT ANALYTICS
--- Feeds the dashboard's Visitors / Product Views / Traffic Sources panels.
--- Written by /api/track on each storefront page view. No FKs on purpose: an
--- event must survive the product or user it referenced being deleted.
--- ============================================================================
-
-CREATE TABLE analytics_events (
-  id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  session_id      VARCHAR(64) NOT NULL,                    -- anonymous, cookie-scoped
-  user_id         BIGINT UNSIGNED NULL,                    -- NULL = guest
-  event           ENUM('page_view','product_view','add_to_cart') NOT NULL DEFAULT 'page_view',
-  path            VARCHAR(255) NOT NULL,
-  product_id      BIGINT UNSIGNED NULL,                    -- set for product_view
-  referrer_source ENUM('direct','organic','social','referral','email') NOT NULL DEFAULT 'direct',
-  referrer_host   VARCHAR(190) NULL,
-  country         CHAR(2) NULL,                            -- from CDN geo header
-  created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY idx_ae_created (created_at),
-  KEY idx_ae_session (session_id),
-  KEY idx_ae_event (event, created_at),
-  KEY idx_ae_source (referrer_source, created_at),
-  KEY idx_ae_country (country, created_at)
-) ENGINE=InnoDB;

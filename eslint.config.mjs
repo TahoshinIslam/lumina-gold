@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+
+    // Vendored UI, copied in from animate-ui / shadcn and not maintained here.
+    // Linting code we do not write means CI is red for other people's style
+    // choices, and a red build that is always red tells you nothing.
+    "src/components/animate-ui/**",
+    "src/components/ui/**",
+    "src/hooks/use-mobile.ts",
+    "src/hooks/use-controlled-state.tsx",
   ]),
 ]);
 

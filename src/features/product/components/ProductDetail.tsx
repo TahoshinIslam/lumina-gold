@@ -38,7 +38,16 @@ function breakdown(product: Product, price: number, weight: number, purity: stri
   const spread = price - metal - stone - making - vat;
   return [
     { label: `Metal (${weight} g${purity ? ` · ${purity}` : ''})`, value: metal },
-    ...(stone ? [{ label: `Diamond (${product.diamond!.caratWeight} ct)`, value: stone }] : []),
+    // A piece can carry diamonds with no carat weight on record — label it plainly
+    // rather than as "Diamond (undefined ct)".
+    ...(stone
+      ? [{
+          label: product.diamond?.caratWeight
+            ? `Diamond (${product.diamond.caratWeight} ct)`
+            : 'Diamond',
+          value: stone,
+        }]
+      : []),
     { label: 'Making charges', value: making + Math.max(0, spread) },
     { label: 'VAT (5%)', value: vat },
   ];
@@ -122,6 +131,11 @@ export default function ProductDetail({
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
   useEffect(() => {
     const skus = recent.filter(sku => sku !== product.sku).slice(0, 4);
+    // Clearing the row when there is nothing left to show — the piece you are on
+    // was the only one in the history. Not a cascading render: it runs once per
+    // product, and the alternative (deriving it) would mean keeping the fetched
+    // products keyed by SKU just to answer a question this one line answers.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (skus.length === 0) { setRecentlyViewed([]); return; }
     let cancelled = false;
     fetch(`/api/products/lookup?skus=${skus.map(encodeURIComponent).join(',')}`)
@@ -375,7 +389,15 @@ export default function ProductDetail({
                 <tr><td>Occasions</td><td>{product.occasions.join(', ')}</td></tr>
                 {product.diamond && (
                   <>
-                    <tr><td>Diamond</td><td>{product.diamond.caratWeight} ct {product.diamond.shape}</td></tr>
+                    {(product.diamond.caratWeight || product.diamond.shape) && (
+                      <tr>
+                        <td>Diamond</td>
+                        <td>{[
+                          product.diamond.caratWeight ? `${product.diamond.caratWeight} ct` : null,
+                          product.diamond.shape,
+                        ].filter(Boolean).join(' ')}</td>
+                      </tr>
+                    )}
                     {(product.diamond.color || product.diamond.clarity) && (
                       <tr><td>Color / Clarity</td><td>{[product.diamond.color, product.diamond.clarity].filter(Boolean).join(' / ')}</td></tr>
                     )}

@@ -2,13 +2,22 @@
 
 import Link from 'next/link';
 import { useStore, cartLineKey } from '@/stores/StoreContext';
-import { getProductBySku } from '@/features/catalog/catalog';
+import { useProductsBySkus } from '@/features/catalog/useProductsBySkus';
 import { formatPrice } from '@/types/product';
 
 export default function CartPage() {
   const { cart, cartSubtotal, updateQty, removeFromCart } = useStore();
   const tax = Math.round(cartSubtotal * 0.05);
   const grand = cartSubtotal + tax;
+
+  /* The bag line itself (name, price, image) is a snapshot taken when the piece
+   * was added, and is shown as-is. The only thing missing from it is the slug —
+   * the link back to the piece — which is resolved from the database here. It
+   * came from the mock catalogue before, so a real piece in the bag had no link
+   * at all and its name was dead text. */
+  const bySku = new Map(
+    useProductsBySkus([...new Set(cart.map(item => item.sku))]).products.map(p => [p.sku, p]),
+  );
 
   if (cart.length === 0) {
     return (
@@ -30,7 +39,7 @@ export default function CartPage() {
         <div className="lum-cart-items">
           {cart.map(item => {
             const key = cartLineKey(item);
-            const slug = getProductBySku(item.sku)?.slug;
+            const slug = bySku.get(item.sku)?.slug;
             return (
               <div key={key} className="lum-cart-row">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

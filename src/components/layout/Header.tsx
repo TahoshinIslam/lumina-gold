@@ -29,7 +29,13 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
   const isDesktop = useMediaQuery('(min-width: 900px)');
 
   // Close the mobile menu automatically when resizing back to desktop.
+  //
+  // set-state-in-effect: deriving this instead (`menuOpen && !isDesktop`) looks
+  // tidier and is wrong — the menu would stay open underneath, so crossing to
+  // desktop and back to a phone width springs it open again on its own. The open
+  // menu has to actually be closed, and the width changing is an outside event.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isDesktop) setMenuOpen(false);
   }, [isDesktop]);
 

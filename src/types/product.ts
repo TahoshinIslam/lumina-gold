@@ -66,10 +66,18 @@ export type Availability = 'In Stock' | 'Made To Order' | 'Ready to Ship' | 'Out
 export type Certification = 'GIA' | 'IGI' | 'HRD' | 'SGL' | 'AGS' | 'Other';
 export type DiamondCut = string;
 
-/** Diamond specification — present only on diamond-set pieces. */
+/**
+ * Diamond specification — present only on diamond-set pieces.
+ *
+ * Every grade is optional, carat and shape included. A boutique records what it
+ * knows about a piece: a 30-stone chain may be sold on its stone count and
+ * clarity with no per-stone carat weight ever measured. Requiring a carat here
+ * is what made such a piece carry no diamond spec at all — and so vanish from
+ * every diamond facet in the sidebar.
+ */
 export interface DiamondSpec {
-  caratWeight: number;     // carat weight per stone
-  shape: DiamondShape;
+  caratWeight?: number;    // carat weight per stone
+  shape?: DiamondShape;
   color?: DiamondColor;
   clarity?: DiamondClarity;
   cut?: DiamondCut;

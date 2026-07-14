@@ -416,7 +416,23 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
             }
           });
         },
-        { threshold: 0.08, rootMargin: '0px 0px -12% 0px' },
+        // threshold 0 — fire as soon as any part of the element is inside the
+        // band, and NOT on a fraction of it.
+        //
+        // A fraction deadlocks the `clip` reveal. Its hidden style is
+        // `clip-path: inset(0 0 92% 0)`, and Chrome measures an element's
+        // intersection from its CLIPPED box — so a hidden card can never report
+        // more than 0.08 of itself, which was exactly the threshold this
+        // observer used. Landing on the boundary, it came down to how the card's
+        // pixel height rounded: on some widths the reveal fired, on others it
+        // missed by a rounding step, and an element that never reveals never
+        // drops the clip that is holding its ratio down. That is why the
+        // Collections cards came up blank on a phone, and why the first one
+        // sometimes never appeared on a desktop either.
+        //
+        // The -12% margin, not a ratio, is what keeps a reveal from playing the
+        // instant an element's first pixel clears the fold.
+        { threshold: 0, rootMargin: '0px 0px -12% 0px' },
       );
       els.forEach(el => io!.observe(el));
       cleanup.push(() => io!.disconnect());

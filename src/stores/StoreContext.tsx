@@ -53,6 +53,12 @@ function usePersisted<T>(storageKey: string, initial: T): [T, (v: T | ((p: T) =>
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
+      // set-state-in-effect: this IS the exception the rule allows for. The bag
+      // and the wishlist live in localStorage, which does not exist on the
+      // server — reading it in the initial useState would render different markup
+      // on the server and the client and break hydration. It has to happen after
+      // mount, and after mount means an effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setState(JSON.parse(raw));
     } catch { /* corrupt/blocked storage */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -10,6 +10,7 @@ import { expireStaleBookings } from '@/server/dal/bookings';
 import { ORDER_STATUS, PAYMENT_LABEL, type OrderStatus } from '@/types/order';
 import { formatPrice } from '@/types/product';
 import LiveData from '@/features/shared/LiveData';
+import Select from '@/features/shared/Select';
 
 export const metadata: Metadata = { title: 'My Orders — Nahar Jewellers' };
 export const dynamic = 'force-dynamic';
@@ -83,9 +84,10 @@ export default async function MyOrders({
 
           <form className="lum-orders-filter" method="get">
             <input name="q" defaultValue={params.q ?? ''} placeholder="Search order number or piece" />
-            <select name="status" defaultValue={params.status ?? 'all'}>
-              {FILTERS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-            </select>
+            {/* Still a plain GET form — the listbox carries its value in a hidden
+                input, so "Filter" submits exactly as the <select> used to. */}
+            <Select name="status" options={FILTERS} defaultValue={params.status ?? 'all'}
+              ariaLabel="Filter by status" />
             <button type="submit" className="lum-cta-ghost">Filter</button>
           </form>
 
