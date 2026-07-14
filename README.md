@@ -94,6 +94,20 @@ npm run build
 npm start              # serves the build on http://localhost:3000
 ```
 
+**In production the server refuses to boot without real secrets.** `npm start`
+runs with `NODE_ENV=production`, and a boot guard (`src/instrumentation.ts`)
+throws if `AUTH_SECRET` or `ADMIN_PASSWORD` is missing, still the dev default, or
+(AUTH_SECRET) shorter than 32 chars — because the defaults are printed in this
+repo and AUTH_SECRET signs the session cookie. So a real deploy needs:
+
+```bash
+AUTH_SECRET=$(openssl rand -hex 32) ADMIN_PASSWORD=your-real-password npm start
+```
+
+Without them the process exits on start with a message telling you which is
+missing. This is deliberate: it fails loud at boot rather than quietly shipping
+with a forgeable session key.
+
 ### Two things that catch people out
 
 **Uploads are files on disk, not blobs in the database.** Product, category and home page
@@ -146,6 +160,21 @@ older tutorials — and your memory — still describe the old way. Read the gui
 
 ## Checks
 
-`npm run build` and `npx tsc --noEmit` and `npx eslint` are what CI runs on every push
-(`.github/workflows/ci.yml`). Lint should report **0 errors**; four `<img>` warnings are
-expected and long-standing.
+```bash
+npm run lint           # eslint .
+npm run typecheck      # tsc --noEmit
+npm test               # vitest run — unit tests for the security/inventory primitives
+npm run build          # next build
+npm run check          # all four, in order — the deployment gate
+npm run test:e2e       # playwright (needs `npx playwright install` once; boots the prod build)
+```
+
+`npm run check` is the gate: it runs lint → typecheck → test → build and **exits
+non-zero the moment any one fails**, so a deploy pipeline that keys off the exit
+code blocks automatically. CI (`.github/workflows/ci.yml`) runs the same four
+plus dependency and secret scanning on every push.
+
+Lint should report **0 errors**; four `<img>` warnings are expected and
+long-standing. The e2e smoke suite lives in `e2e/` and asserts the production
+build loads every key route with no console errors, failed requests, hydration
+mismatches, or broken images.

@@ -36,7 +36,15 @@ jobs:
       - name: Lint
         id: lint
         if: ${{ !cancelled() }}
-        run: npx eslint
+        run: npm run lint
+
+      # The unit suite: the security and inventory primitives (file sniffing,
+      # signed URLs, rate limiting, origin checks). Fast and hermetic — no DB, no
+      # server — so it belongs in the same gate as typecheck and lint.
+      - name: Test
+        id: test
+        if: ${{ !cancelled() }}
+        run: npm test
 
       # No database service here on purpose. Every page that touches MySQL is
       # `force-dynamic` or otherwise rendered per-request, so nothing queries it

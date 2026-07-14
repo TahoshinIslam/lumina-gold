@@ -47,3 +47,9 @@ CLAUDE.md
 # only through /api/documents against a signed URL — they are not public assets
 # and they must never enter version control.
 /private-uploads/
+
+# test artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
