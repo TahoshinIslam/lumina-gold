@@ -18,8 +18,16 @@ const randInt = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi 
 
 async function main() {
   const clear = process.argv.includes('--clear');
+  // The same environment the app reads (src/server/db/client.ts), with the same
+  // XAMPP defaults. It used to hardcode root / no password / lumina_jewelry,
+  // which meant this script could only ever run on a machine set up exactly like
+  // the one it was written on.
   const db = await mysql.createConnection({
-    host: '127.0.0.1', user: 'root', password: '', database: 'lumina_jewelry',
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: Number(process.env.DB_PORT) || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'lumina_jewelry',
   });
 
   // Remove any previous demo rows (orders cascade to items/history).
@@ -60,6 +68,20 @@ async function main() {
      WHERE pc.fixed_price > 0`,
   );
   const variants = vrows as { id: number; variant_sku: string; name: string; price: number }[];
+
+  // An order needs something to be an order FOR. On a database straight out of
+  // schema.sql there are no products yet — they come from the admin panel — and
+  // without this the script picked a piece out of an empty list and died on
+  // `undefined.price`, halfway through, leaving its demo customers behind.
+  if (variants.length === 0) {
+    console.error(
+      'No priced products in the database, so there is nothing to order.\n' +
+      'Add a product or two first (admin panel → Products), then run this again.',
+    );
+    await db.end();
+    process.exitCode = 1;
+    return;
+  }
 
   // 60 days of orders — heavier toward recent days
   let made = 0;

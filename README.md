@@ -3,27 +3,108 @@
 The Nahar Jewellers website — a haute-joaillerie storefront and its admin panel, built
 on Next.js 16 (App Router, Turbopack), React 19, TypeScript and MySQL.
 
-## Running it
+## Running it on a new machine
+
+You need **Node 20 or newer** (CI runs 22) and **MySQL / MariaDB**. XAMPP is what this
+was built against and is the easiest way to get MariaDB on Windows or macOS; a plain
+MySQL 8 install works just as well.
+
+### 1. Get the code and its packages
 
 ```bash
-npm install
-npm run dev          # http://localhost:3000
+git clone https://github.com/leotechbd/nahar_jewellers.git
+cd nahar_jewellers
+npm ci                 # `npm install` is fine too; `npm ci` obeys the lockfile exactly
 ```
 
-You need MySQL (XAMPP is fine) with the `lumina_jewelry` schema loaded, and the
-migrations applied in filename order:
+### 2. Create the database
+
+Start MySQL, then load the schema **once**. It creates the `lumina_jewelry` database,
+all 72 tables, and the reference data the app cannot boot without — metals, purities,
+stone shapes and grades, gold rates, categories, collections, occasions, roles, the nav
+menus and the landing page's testimonials.
 
 ```bash
-mysql -u root lumina_jewelry < database/schema.sql
-for f in database/migrations/*.sql; do mysql -u root lumina_jewelry < "$f"; done
+mysql -u root < database/schema.sql
 ```
 
-`.env.local` holds the secrets and is deliberately not committed:
+On XAMPP the client is not on your PATH; call it where it lives:
 
+```bash
+# macOS
+/Applications/XAMPP/xamppfiles/bin/mysql -u root < database/schema.sql
+# Windows
+C:\xampp\mysql\bin\mysql.exe -u root < database\schema.sql
 ```
-ADMIN_PASSWORD=…      # the shared admin password (falls back to lumina123 in dev)
-AUTH_SECRET=…         # signs the customer session cookie
+
+> **Do not also run the migrations.** `database/migrations/` is the upgrade path for a
+> database that *already has data in it*; `schema.sql` is where all of them have already
+> landed. Running both fails — the second one tries to create tables and columns the
+> first has just made.
+
+It ships with **no products, customers or orders**. Those come from the admin panel, so a
+fresh install is a working shop with an empty shelf — that is expected.
+
+Once you have added a product or two, you can fill the dashboard with 60 days of demo
+customers and orders. It is reversible, and every row it writes is tagged
+(`@demo.lumina` emails, `LUM-DEMO-…` order numbers) so it can never touch real data:
+
+```bash
+npx tsx database/seed-demo.ts            # add it
+npx tsx database/seed-demo.ts --clear    # take it away again
 ```
+
+Run it before there are any products and it will tell you so and stop — an order needs
+something to be an order for.
+
+### 3. Point the app at it
+
+Create `.env.local` in the project root. It is deliberately not committed. Every value
+has a working default for a stock XAMPP install, so on a machine like that you can skip
+this file entirely — but do not ship without setting the two secrets.
+
+```bash
+# Database — the defaults below are XAMPP's, so omit any you don't need to change
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=            # XAMPP's root has no password
+DB_NAME=lumina_jewelry
+
+# Secrets — set these
+ADMIN_PASSWORD=…        # the shared admin password. Defaults to "lumina123"
+AUTH_SECRET=…           # signs the customer session cookie. Anyone who knows it can
+                        # forge a login, so use a long random string in production
+```
+
+### 4. Run it
+
+```bash
+npm run dev            # http://localhost:3000
+```
+
+- **Storefront** — http://localhost:3000
+- **Admin panel** — http://localhost:3000/admin (one shared password: `ADMIN_PASSWORD`,
+  or `lumina123` if you never set it)
+
+For a production build:
+
+```bash
+npm run build
+npm start              # serves the build on http://localhost:3000
+```
+
+### Two things that catch people out
+
+**Uploads are files on disk, not blobs in the database.** Product, category and home page
+photographs live under `public/uploads/`, and the database only stores their paths. That
+directory must be writable by whoever runs the app, and it is *not* recreated by
+`schema.sql` — copy it across if you are moving an existing site, or the rows will point
+at pictures that are not there.
+
+**The build does not need the database.** Every page that reads MySQL is rendered per
+request, so `npm run build` succeeds with the database down. If a build ever starts
+failing on a connection error, a page has begun querying at build time.
 
 ## The shape of it
 
@@ -59,5 +140,12 @@ not a flag anyone can set — and a review stays `pending` until an admin approv
 **Payment is Cash on Delivery.** The other methods stay in the `payment_method` enum so a
 gateway can be added later without a migration, but nothing else is wired.
 
-**This is not the Next.js you may remember** — see `AGENTS.md`. Read the guides in
+**This is not the Next.js you may remember.** Next 16 changed APIs and conventions that
+older tutorials — and your memory — still describe the old way. Read the guides in
 `node_modules/next/dist/docs/` before reaching for an API from memory.
+
+## Checks
+
+`npm run build` and `npx tsc --noEmit` and `npx eslint` are what CI runs on every push
+(`.github/workflows/ci.yml`). Lint should report **0 errors**; four `<img>` warnings are
+expected and long-standing.
