@@ -87,11 +87,18 @@ These show the *shape* of the app's behaviour, not production capacity.
 
 | Browse, 500 users | before | after |
 | --- | --- | --- |
-| Home p95 | **2.06 s** | **453 ms** |
+| Blended p95 | 2.36 s | **439 ms** (threshold 500 — now passes) |
+| Home p95 | 2.06 s | **203 ms** |
+| Product p95 | 9.7 s | **1.58 s** |
+| Shop p95 | 3.8 s | **787 ms** |
+| Search p95 | 690 ms | **125 ms** |
 | Errors | 0% | 0% |
 | Home SQL per render | **47 SELECTs** | **16** |
+| Product SQL per render | **26 SELECTs** | **9** |
 | Home page weight | 3,840 KiB | **1,570 KiB** |
 | Home LCP (Lighthouse) | 11.4 s | ~7.3 s |
+
+All three k6 thresholds pass now. They did not before.
 
 Lighthouse, warm: home Perf 76-82 / A11y 96 / BP 100 / SEO 100 · shop 86 / **100** /
 100 / 100 · product 90 / 96 / 96 / 91. (The Perf figure swings several points
@@ -139,19 +146,33 @@ p95 as the real numbers.)
    request, not connections. After the work above, 10 -> 25 bought a further ~18%
    on the product page, so it was kept. It is not a licence to keep climbing.
 
+5. **The product page: 26 SELECTs -> 9.** Three separate faults.
+
+   - It asked for the same product **twice** — once in `generateMetadata` for the
+     `<title>`, once in the body to draw it — and each ask is six queries. React's
+     `cache()` memoises it for the life of one request. This is not staleness:
+     nothing is kept between requests, it just stops one request asking twice.
+   - `attachChildren` ran its four queries (images, stones, certificates, specs)
+     one after another though none needs the one before it. `Promise.all`. This
+     one helps *everything* — it is why `/shop` fell from 3.8 s to 787 ms and
+     search from 690 ms to 125 ms.
+   - Ten of the queries were the two rails beside the piece ("related", "You May
+     Also Admire"). Those are cached (`server/dal/productpage.ts`).
+
+   **The piece itself is deliberately NOT cached.** Its stock and price must be
+   true on the page where somebody is about to buy: a rate-based piece reprices
+   when the gold rate moves, and a piece that has just sold out must say so.
+   Verified by selling one out directly in the database and watching the page say
+   "Out of Stock" on the next request, with no revalidation. A rail of *other*
+   pieces may be a minute stale; the piece you are buying may not.
+
+   The rails are keyed on the three fields they actually depend on (type,
+   collection, own SKU) and **not** on the product object — that carries stock, so
+   keying on it would mint a fresh entry on every sale and never hit.
+
 ### What is still slow
 
-The load moved, as it always does, to the next uncached page.
-
-- **The product page: 26 SELECTs to draw one product**, p95 ~7.9 s at 500 users.
-  This is now the worst page in the app. It is the same `attachChildren` tail
-  (rows, then images, then stones) repeated across the product, its variants, its
-  related pieces and its featured rail.
-- **`/shop`**: p95 ~3.8 s at 500 users. It loads the whole scoped catalogue and
-  filters in memory, which is fine at 15 products and will not be at 1,500.
+- **`/shop` loads the whole scoped catalogue and filters in memory.** Fine at 15
+  products; it will not be at 1,500. The filtering wants to move into SQL with an
+  index, or the page wants paginating server-side.
 - Product page Lighthouse: no `<meta name="description">` (SEO 91).
-
-Neither page is cacheable as bluntly as the home page — `/shop` varies by query
-string and the product page by slug — but both are good candidates for
-`revalidate` + `revalidateTag`, since a product changes when an admin saves it and
-not otherwise.

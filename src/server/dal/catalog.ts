@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { query } from '@/server/db/client';
 import { priceExpr } from '@/server/pricing';
 import { CATEGORY_SLUGS } from '@/features/catalog/taxonomy';
@@ -125,10 +126,50 @@ async function attachChildren(rows: ProductRow[]): Promise<Product[]> {
   const productIds = rows.map(r => r.id);
   const variantIds = rows.map(r => r.variant_id).filter((id): id is number => id != null);
 
-  const images = await query<{ product_id: number; image_path: string }>(
-    `SELECT product_id, image_path FROM product_images WHERE product_id IN (${productIds.map(() => '?').join(',')}) ORDER BY sort_order, id`,
-    productIds,
-  );
+  /* All four of these were awaited one after another, and not one of them needs
+   * anything from the one before it — the round trips simply queued up. On the
+   * product page, where this runs three times over (the piece, its related
+   * pieces, the featured rail), that was twelve trips taken in single file when
+   * they could have gone together.
+   *
+   * Issued at once, waited for once. The pool decides how many actually run in
+   * parallel; the point is that we stop making them wait on each other. */
+  const [images, stones, certs, specs] = await Promise.all([
+    query<{ product_id: number; image_path: string }>(
+      `SELECT product_id, image_path FROM product_images WHERE product_id IN (${productIds.map(() => '?').join(',')}) ORDER BY sort_order, id`,
+      productIds,
+    ),
+    variantIds.length
+      ? query<StoneRow>(
+          `SELECT vs.variant_id, st.name AS stone_name, vs.carat_total, vs.carat_each, vs.quantity,
+                  sh.name AS shape, sc.name AS color, scl.name AS clarity, sct.name AS cut, vs.is_lab_grown
+           FROM variant_stones vs
+           JOIN stone_types st ON st.id = vs.stone_type_id
+           LEFT JOIN stone_shapes sh ON sh.id = vs.stone_shape_id
+           LEFT JOIN stone_colors sc ON sc.id = vs.stone_color_id
+           LEFT JOIN stone_clarities scl ON scl.id = vs.stone_clarity_id
+           LEFT JOIN stone_cuts sct ON sct.id = vs.stone_cut_id
+           WHERE vs.variant_id IN (${variantIds.map(() => '?').join(',')})`,
+          variantIds,
+        )
+      : Promise.resolve([] as StoneRow[]),
+    variantIds.length
+      ? query<{ variant_id: number; issuer: string; certificate_no: string }>(
+          `SELECT variant_id, issuer, certificate_no FROM certificates WHERE variant_id IN (${variantIds.map(() => '?').join(',')})`,
+          variantIds,
+        )
+      : Promise.resolve([] as { variant_id: number; issuer: string; certificate_no: string }[]),
+    // Measured dimensions (Height, Width, ...). Per PRODUCT, never per variant —
+    // they describe the piece rather than offering a choice, so they add no SKUs.
+    query<{ product_id: number; label: string; value: string }>(
+      `SELECT ps.product_id, a.name AS label, ps.value
+       FROM product_specifications ps JOIN attributes a ON a.id = ps.attribute_id
+       WHERE ps.product_id IN (${productIds.map(() => '?').join(',')})
+       ORDER BY a.sort_order`,
+      productIds,
+    ),
+  ]);
+
   const imagesByProduct = new Map<number, string[]>();
   for (const img of images) {
     const list = imagesByProduct.get(img.product_id) ?? [];
@@ -136,20 +177,6 @@ async function attachChildren(rows: ProductRow[]): Promise<Product[]> {
     imagesByProduct.set(img.product_id, list);
   }
 
-  const stones = variantIds.length
-    ? await query<StoneRow>(
-        `SELECT vs.variant_id, st.name AS stone_name, vs.carat_total, vs.carat_each, vs.quantity,
-                sh.name AS shape, sc.name AS color, scl.name AS clarity, sct.name AS cut, vs.is_lab_grown
-         FROM variant_stones vs
-         JOIN stone_types st ON st.id = vs.stone_type_id
-         LEFT JOIN stone_shapes sh ON sh.id = vs.stone_shape_id
-         LEFT JOIN stone_colors sc ON sc.id = vs.stone_color_id
-         LEFT JOIN stone_clarities scl ON scl.id = vs.stone_clarity_id
-         LEFT JOIN stone_cuts sct ON sct.id = vs.stone_cut_id
-         WHERE vs.variant_id IN (${variantIds.map(() => '?').join(',')})`,
-        variantIds,
-      )
-    : [];
   const stonesByVariant = new Map<number, StoneRow[]>();
   for (const s of stones) {
     const list = stonesByVariant.get(s.variant_id) ?? [];
@@ -157,24 +184,9 @@ async function attachChildren(rows: ProductRow[]): Promise<Product[]> {
     stonesByVariant.set(s.variant_id, list);
   }
 
-  const certs = variantIds.length
-    ? await query<{ variant_id: number; issuer: string; certificate_no: string }>(
-        `SELECT variant_id, issuer, certificate_no FROM certificates WHERE variant_id IN (${variantIds.map(() => '?').join(',')})`,
-        variantIds,
-      )
-    : [];
   const certByVariant = new Map<number, { issuer: string; certificate_no: string }>();
   for (const c of certs) certByVariant.set(c.variant_id, c);
 
-  // Measured dimensions (Height, Width, ...). Per PRODUCT, never per variant —
-  // they describe the piece rather than offering a choice, so they add no SKUs.
-  const specs = await query<{ product_id: number; label: string; value: string }>(
-    `SELECT ps.product_id, a.name AS label, ps.value
-     FROM product_specifications ps JOIN attributes a ON a.id = ps.attribute_id
-     WHERE ps.product_id IN (${productIds.map(() => '?').join(',')})
-     ORDER BY a.sort_order`,
-    productIds,
-  );
   const specsByProduct = new Map<number, ProductSpec[]>();
   for (const spec of specs) {
     const list = specsByProduct.get(spec.product_id) ?? [];
@@ -463,14 +475,27 @@ export async function getProductVariants(productId: number): Promise<ProductVari
   }));
 }
 
-/** Single product detail lookup by slug. */
-export async function getProductBySlug(slug: string): Promise<Product | null> {
+/**
+ * Single product detail lookup by slug.
+ *
+ * Wrapped in React's `cache`, which memoises it FOR THE LIFE OF ONE REQUEST. The
+ * product page asks for the same piece twice — once in generateMetadata to put
+ * its name in the <title>, and again in the page body to draw it — and each of
+ * those is six queries (the row, then images, stones, certificates, specs, and
+ * the variant list). Six of the page's twenty-six round trips were the identical
+ * question, asked twice, a few milliseconds apart.
+ *
+ * This is not a cache in the stale-data sense: nothing is held between requests,
+ * so stock and price are as live as they ever were. It only stops one request
+ * asking twice.
+ */
+export const getProductBySlug = cache(async (slug: string): Promise<Product | null> => {
   const rows = await query<ProductRow>(`${BASE_SELECT} WHERE p.status = 'active' AND p.slug = ? LIMIT 1`, [slug]);
   const [product] = await attachChildren(rows);
   if (!product) return null;
   const variants = await getProductVariants(Number(product.id));
   return { ...product, variants };
-}
+});
 
 /** Same type or same collection, excluding itself. */
 export async function getRelatedProducts(product: Product, limit = 4): Promise<Product[]> {

@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductDetail from '@/features/product/components/ProductDetail';
-import { getProductBySlug, getRelatedProducts, getFeaturedProducts } from '@/server/dal/catalog';
+import { getProductBySlug } from '@/server/dal/catalog';
+import { getProductRails } from '@/server/dal/productpage';
 import ProductReviews from '@/features/reviews/components/ProductReviews';
 
 // Real variant data (price/stock/SKU per combination), so render on demand.
@@ -27,10 +28,11 @@ export default async function ProductPage(
 
   // "You May Also Admire" shows the pieces the boutique has FEATURED (the flag
   // on the product form, which nothing read until now), minus this one.
-  const [related, featured] = await Promise.all([
-    getRelatedProducts(product),
-    getFeaturedProducts(12, product.sku),
-  ]);
+  //
+  // Cached: ten of this page's queries were these two rails, and a rail of OTHER
+  // pieces can be a minute stale. The piece being looked at is not cached — its
+  // stock and price have to be true on the page where somebody buys it.
+  const [related, featured] = await getProductRails(product);
 
   return (
     <div className="lum-root">

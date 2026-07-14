@@ -11,6 +11,7 @@ import { VARIANT_AXIS_CODES } from '@/config/sizes';
 import { homeSection } from '@/config/home';
 import { readingMinutes } from '@/server/dal/journal';
 import { HOME_TAG } from '@/server/dal/homepage';
+import { PRODUCT_RAILS_TAG } from '@/server/dal/productpage';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
@@ -35,6 +36,11 @@ function revalidateStorefront() {
   revalidatePath('/admin/products');
   revalidateHome();
   revalidatePath('/shop');
+  // Every product page carries two rails of OTHER pieces, cached together. Editing
+  // any product can change what belongs in them, so they all go at once — there is
+  // no cheap way to know which rails a given piece appears in.
+  revalidateTag(PRODUCT_RAILS_TAG, { expire: 0 });
+  revalidatePath('/products', 'layout');
 }
 
 /** A campaign appears as the home page banner and at /campaigns/[slug]; the admin
