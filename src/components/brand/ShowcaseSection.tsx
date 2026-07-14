@@ -110,7 +110,7 @@ export default function ShowcaseSection({
                       <div className="lum-prod-zoom lum-img-ph">
                         {/* The showcase card paints at ~300px; the stored "large" rendition is
                             1200px. Optimizer resizes and re-encodes to AVIF/WebP. */}
-                        <img src={optimized(firstImage(product), 828)} alt={product.name} />
+                        <img src={optimized(firstImage(product), 828)} alt={product.name} loading="lazy" />
                       </div>
                     </div>
 

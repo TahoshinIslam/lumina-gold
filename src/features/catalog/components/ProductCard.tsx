@@ -48,7 +48,7 @@ export default function ProductCard({
             {/* The card is ~300px wide and was being sent the 1200px rendition. The
                 optimizer resizes and re-encodes to AVIF/WebP; 828 covers the
                 widest card on a retina screen. */}
-            <img src={optimized(firstImage(product), 828)} alt={product.name} />
+            <img src={optimized(firstImage(product), 828)} alt={product.name} loading="lazy" />
           </div>
         </div>
         <div className="lum-prod-body">

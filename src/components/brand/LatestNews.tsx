@@ -32,7 +32,7 @@ export default function LatestNews({ articles }: { articles: Article[] }) {
               <div className="lum-news-media lum-img-ph">
                 {article.cover_image && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={optimized(article.cover_image, 640)} alt={article.title} />
+                  <img src={optimized(article.cover_image, 640)} alt={article.title} loading="lazy" />
                 )}
                 {article.published_at && (
                   <span className="lum-news-date">{WHEN.format(new Date(article.published_at))}</span>

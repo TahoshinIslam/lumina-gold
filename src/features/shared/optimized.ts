@@ -32,7 +32,26 @@ export function optimized(src: string | undefined, width: number): string | unde
    * pinned every re-uploaded tile to its old picture for a day. */
   const [path, version] = src.split('?');
   const bust = version ? `&${version}` : '';
-  return `/_next/image?url=${encodeURIComponent(path)}&w=${width}&q=75${bust}`;
+  return `/_next/image?url=${encodeURIComponent(path)}&w=${allowedWidth(width)}&q=75${bust}`;
+}
+
+/**
+ * Next's optimizer only serves widths in `deviceSizes ∪ imageSizes` — ask for
+ * anything else and it returns a 400, a broken image. This helper accepts a
+ * requested width and snaps it UP to the nearest one the optimizer will honour,
+ * so a caller can pass the actual painted width (128, 160, 560…) without having
+ * to know the config. Snap UP, not down, so the image is never upscaled by the
+ * browser and blurred.
+ *
+ * MUST stay in sync with next.config.ts. imageSizes is left at Next's default
+ * (the config does not override it); deviceSizes is the list set there.
+ */
+const IMAGE_SIZES = [16, 32, 48, 64, 96, 128, 256, 384];
+const DEVICE_SIZES = [640, 828, 1080, 1200, 1920, 2048];
+const ALLOWED = [...IMAGE_SIZES, ...DEVICE_SIZES].sort((a, b) => a - b);
+
+function allowedWidth(requested: number): number {
+  return ALLOWED.find(w => w >= requested) ?? ALLOWED[ALLOWED.length - 1];
 }
 
 /** The widths the backdrops are actually painted at. The backdrop IS the

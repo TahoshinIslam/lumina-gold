@@ -31,7 +31,7 @@ export default function ShopByCategory({ categories }: { categories: CategoryTil
                 // same link and already names it, so an alt here makes a screen
                 // reader announce the link twice ("Rings Rings").
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={optimized(category.image, 640)} alt="" />
+                <img src={optimized(category.image, 640)} alt="" loading="lazy" />
               )}
             </span>
             <span className="lum-cat-label">{category.name}</span>

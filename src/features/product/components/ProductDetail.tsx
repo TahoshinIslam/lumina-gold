@@ -8,6 +8,7 @@ import { productCrumbs } from '@/features/catalog/breadcrumbs';
 import { firstImage } from '@/features/catalog/image';
 import { Product, formatPrice, productBadge } from '@/types/product';
 import { useStore } from '@/stores/StoreContext';
+import { optimized } from '@/features/shared/optimized';
 
 /**
  * ProductDetail — premium product page (IA spec Step 10).
@@ -186,7 +187,12 @@ export default function ProductDetail({
               if (img) img.style.transformOrigin = 'center center';
             }}
           >
-            <img src={product.images[activeImage] || firstImage(product)} alt={product.name} />
+            {/* The zoom is a CSS transform: scale(2) on THIS element (no second
+                download), so the source has to carry enough resolution to stay
+                sharp doubled — hence 1200, not the card's 828 — but it was being
+                served as the raw 2 MB+ original. Optimised, it is the product
+                page's LCP and wants to be small AND crisp. */}
+            <img src={optimized(product.images[activeImage] || firstImage(product), 1200)} alt={product.name} />
             {/* New-arrival badge takes the diamond shimmer on a diamond piece,
                 so it reads the same as the grid card instead of gold. */}
             {product.isNew && (
@@ -205,7 +211,10 @@ export default function ProductDetail({
                 onClick={() => setActiveImage(index)}
                 aria-label={`View image ${index + 1}`}
               >
-                <img src={src} alt="" />
+                {/* 84px thumbs (256 for retina) — were serving the full-size
+                    original, so a 5-image product downloaded five 2 MB files for
+                    a strip of thumbnails. */}
+                <img src={optimized(src, 256)} alt="" loading="lazy" />
               </button>
             ))}
           </div>
