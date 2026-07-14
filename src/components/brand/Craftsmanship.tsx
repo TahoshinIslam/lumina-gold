@@ -19,7 +19,7 @@ export default function Craftsmanship({ images }: { images: SlideImage[] }) {
         <div className="lum-figure" data-reveal="left">
           <div className="lum-figure-outline lum-figure-outline--craft" />
           <div className="lum-figure-media">
-            <MediaSlideshow className="lum-figure-zoom lum-img-ph" images={images} alt="Artisan hands setting a diamond" />
+            <MediaSlideshow renderWidth={1200} className="lum-figure-zoom lum-img-ph" images={images} alt="Artisan hands setting a diamond" />
           </div>
           <div className="lum-stat-card">
             <div className="lum-stat-num">

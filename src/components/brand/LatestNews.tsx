@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Article } from '@/server/dal/journal';
+import { optimized } from '@/features/shared/optimized';
 
 /**
  * LatestNews — the three most recent published articles.
@@ -31,7 +32,7 @@ export default function LatestNews({ articles }: { articles: Article[] }) {
               <div className="lum-news-media lum-img-ph">
                 {article.cover_image && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={article.cover_image} alt={article.title} />
+                  <img src={optimized(article.cover_image, 640)} alt={article.title} />
                 )}
                 {article.published_at && (
                   <span className="lum-news-date">{WHEN.format(new Date(article.published_at))}</span>

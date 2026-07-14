@@ -330,7 +330,70 @@ export async function searchProducts(term: string, limit = 6): Promise<Product[]
   return attachChildren(rows);
 }
 
-/** Scoped, flag-filtered homepage tab query (New Arrivals / Best Sellers / Discounts). */
+/**
+ * Every showcase on the home page, in one trip.
+ *
+ * The page shows eight of these — two metals (Gold, Diamond) × four tabs (New,
+ * Best, Featured, Discounts) — and it used to ask for them one at a time. Each
+ * call is not one query but THREE (the row query, then images, then stones), so
+ * the home page opened with twenty-four round trips to fetch, in total, a couple
+ * of dozen products out of the same small table. Measured: 47 SELECTs to render
+ * the page, against a pool of ten connections. Under load they queued, and the
+ * page's p95 went to two seconds while everything else stayed fast.
+ *
+ * A product on the home page is one that carries a flag — new, best-seller,
+ * featured, or discounted. That is a small set. So fetch it once, and partition
+ * it in memory: the eight lists are eight views of the same rows, and JavaScript
+ * can slice them far more cheaply than MySQL can be asked eight times.
+ *
+ * Three queries now, whatever the number of tabs.
+ */
+export type ShowcaseMetal = Extract<MainCategory, 'gold' | 'diamond'>;
+
+export async function getHomepageShowcases(
+  limit = 8,
+): Promise<Record<ShowcaseMetal, Record<ShowcaseTab, Product[]>>> {
+  const rows = await query<ProductRow>(
+    `${BASE_SELECT}
+      WHERE p.status = 'active'
+        AND (p.is_new_arrival = 1 OR p.is_best_seller = 1 OR p.is_featured = 1
+             OR pc.discount_amount > 0)
+      ORDER BY p.created_at DESC`,
+  );
+  const products = await attachChildren(rows);
+
+  // The flags live on the row, not on the mapped Product, so keep them beside it.
+  const flagged = rows.map((row, i) => ({ row, product: products[i] })).filter(x => x.product);
+
+  const inMetal = (product: Product, metal: ShowcaseMetal) =>
+    metal === 'diamond'
+      ? (product.gemstones?.includes('Diamond') ?? false)
+      : product.material.toLowerCase() === metal;
+
+  const matches = (row: ProductRow, tab: ShowcaseTab) =>
+    tab === 'new' ? !!row.is_new_arrival
+    : tab === 'best' ? !!row.is_best_seller
+    : tab === 'featured' ? !!row.is_featured
+    : Number(row.discount_amount ?? 0) > 0;
+
+  const metals: ShowcaseMetal[] = ['gold', 'diamond'];
+  const tabs: ShowcaseTab[] = ['new', 'best', 'featured', 'discount'];
+
+  const out = {} as Record<ShowcaseMetal, Record<ShowcaseTab, Product[]>>;
+  for (const metal of metals) {
+    out[metal] = {} as Record<ShowcaseTab, Product[]>;
+    for (const tab of tabs) {
+      out[metal][tab] = flagged
+        .filter(x => matches(x.row, tab) && inMetal(x.product, metal))
+        .slice(0, limit)
+        .map(x => x.product);
+    }
+  }
+  return out;
+}
+
+/** Scoped, flag-filtered showcase tab for one metal. Still used where a single
+ *  tab is wanted on its own; the home page takes all eight at once, above. */
 export async function getHomepageSection(mainCategory: MainCategory, tab: ShowcaseTab, limit = 8): Promise<Product[]> {
   const scope = scopeClause(mainCategory);
   const tabClause =

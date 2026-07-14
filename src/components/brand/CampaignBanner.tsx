@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { CampaignWithProducts } from '@/server/dal/campaigns';
 import { formatPrice } from '@/types/product';
+import { optimized } from '@/features/shared/optimized';
 
 /**
  * The campaign an admin ticked "feature on the home page".
@@ -37,7 +38,7 @@ export default function CampaignBanner({ campaign }: { campaign: CampaignWithPro
               <span className="lum-campaign-media lum-img-ph">
                 {product.images?.[0] && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={product.images[0]} alt="" loading="lazy" />
+                  <img src={optimized(product.images[0], 640)} alt="" loading="lazy" />
                 )}
               </span>
               <span className="lum-campaign-name">{product.name}</span>

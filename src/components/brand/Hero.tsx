@@ -1,4 +1,5 @@
 import { CSSProperties } from 'react';
+import { optimized, BACKDROP_WIDTH, BACKDROP_PHONE_WIDTH } from '@/features/shared/optimized';
 
 /** Four-point star used for the twinkles around "Luxury". */
 function Star({ size, style }: { size: number; style: CSSProperties }) {
@@ -30,10 +31,17 @@ function Star({ size, style }: { size: number; style: CSSProperties }) {
 export default function Hero({ image, phoneImage }: { image?: string; phoneImage?: string }) {
   // Custom properties, so one element can carry both and the stylesheet picks.
   // An unset property falls back to the shipped photograph named in the CSS.
+  //
+  // Both go through Next's image optimizer, which re-encodes them to AVIF/WebP
+  // and to the width the screen will actually paint — a background-image cannot
+  // be a <next/image>, but it can point at the same endpoint. The phone gets the
+  // narrow rendition, not a resized desktop backdrop.
+  const wide = optimized(image, BACKDROP_WIDTH);
+  const phone = optimized(phoneImage, BACKDROP_PHONE_WIDTH);
   const backdrop = {
-    ...(image ? { '--lum-bg': `url('${image}')` } : {}),
+    ...(wide ? { '--lum-bg': `url('${wide}')` } : {}),
     // With no upright crop, phones keep the wide one — today's behaviour exactly.
-    ...(phoneImage ? { '--lum-bg-phone': `url('${phoneImage}')` } : {}),
+    ...(phone ? { '--lum-bg-phone': `url('${phone}')` } : {}),
   } as CSSProperties;
 
   return (

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { CategoryTile } from '@/server/dal/home';
+import { optimized } from '@/features/shared/optimized';
 
 /**
  * ShopByCategory — circular category tiles directly under the hero.
@@ -27,7 +28,7 @@ export default function ShopByCategory({ categories }: { categories: CategoryTil
             <span className="lum-cat-circle lum-img-ph">
               {category.image && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={category.image} alt={category.name} />
+                <img src={optimized(category.image, 640)} alt={category.name} />
               )}
             </span>
             <span className="lum-cat-label">{category.name}</span>

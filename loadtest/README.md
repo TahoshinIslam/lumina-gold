@@ -78,52 +78,69 @@ server-rendered. If those hold under load, the till's reads do too. The order
 
 ---
 
-## Baseline (2026-07, local, MariaDB via XAMPP, single machine)
+## Baseline
 
-Measured against the production build. These are the shape of the app's behaviour,
-not production capacity (k6 and the server shared one laptop).
+Measured against the production build, on one laptop shared with k6 and MariaDB.
+These show the *shape* of the app's behaviour, not production capacity.
 
-**Browse**
+### After the July 2026 performance work
 
-| Users | p95 (blended) | Search p95 | Home p95 | Errors |
-| --- | --- | --- | --- | --- |
-| 100 | 36 ms | 17 ms | 40 ms | 0% |
-| 500 | 2.36 s | 40 ms | **2.06 s** | 0% |
+| Browse, 500 users | before | after |
+| --- | --- | --- |
+| Home p95 | **2.06 s** | **68 ms** |
+| Errors | 0% | 0% |
+| Home SQL per render | **47 SELECTs** | **16** |
+| Home page weight | 3,840 KiB | **1,570 KiB** |
+| Home LCP (Lighthouse) | 11.4 s | ~7.3 s |
 
-**Authenticated** (`account.js`, 100 users): account p95 16 ms, 0% errors.
+Lighthouse, warm: home Perf 76-82 / A11y 96 / BP 100 / SEO 100 · shop 86 / **100** /
+100 / 100 · product 90 / 96 / 96 / 91. (The Perf figure swings several points
+between identical runs on a loaded laptop — treat page weight and the load-test
+p95 as the real numbers.)
 
-**Lighthouse**
+**What was done**
 
-| Page | Perf | A11y | Best Practices | SEO |
-| --- | --- | --- | --- | --- |
-| Home | **75** | 96 | 100 | 100 |
-| Shop | 94 | 96 | 100 | 100 |
-| Product | 84 | 92 | 96 | 91 |
+1. **The home page is cached** (`revalidate = 60`). It is the same for every
+   visitor and changes only when an admin edits it. Every admin action that can
+   change it calls `revalidatePath('/')`, so an edit still shows on the very next
+   request — verified by hiding a testimonial in the admin and watching it leave
+   the home page immediately. Gold rates and campaigns did NOT revalidate it and
+   now do; without that, a cached page would have quoted yesterday's gold price.
+   The 60s timer is only a backstop for anything not explicitly revalidated.
 
-### What this says, and what to fix
+2. **Eight showcase queries folded into one.** The page asked for Gold and Diamond
+   × New/Best/Featured/Discounts separately, and each of those is three queries
+   (rows, then images, then stones) — 24 round trips for a couple of dozen
+   products out of one small table. `getHomepageShowcases()` fetches the flagged
+   products once and partitions them in memory. Verified tab-by-tab against the
+   database: identical products, identical order.
 
-Nothing errored even at 500 concurrent users — the app stays *up*. But two things
-keep it from staying *fast*, and both point at the same page.
+3. **Images through the optimizer.** A 1200px product rendition was being poured
+   into a 300px card and a 2560px backdrop onto a phone. Everything now goes
+   through `optimized()` (`src/features/shared/optimized.ts`) → AVIF/WebP at the
+   width actually painted. A CSS background cannot be a `<next/image>`, but it can
+   point at the same endpoint. The hero is also preloaded, per-media-query, since
+   a CSS background is invisible to the browser's preload scanner.
 
-1. **The home page is the bottleneck, on both axes.** Under load its p95 climbs to
-   2 seconds while search stays at 40ms — so it is not the server topping out, it
-   is that one page. It is `force-dynamic` (never cached) and fires **13 sequential
-   queries** against a 10-connection pool on every request, so at 500 users the
-   requests queue on the pool. Fixes, cheapest first:
-   - Cache it. The home page changes when an admin edits it, not per visitor —
-     `revalidate = 60` (or `revalidateTag` on an admin save) would take almost all
-     of that load off the database.
-   - Raise `connectionLimit` in `src/server/db/client.ts` (currently 10) to nearer
-     the DB's `max_connections`.
+4. **The pool, last and on evidence.** Raising `connectionLimit` is the tempting
+   first move and mostly hides the problem. MariaDB never ran out of room during
+   any run (0 connection errors, 51 of 151 used) — the constraint was queries per
+   request, not connections. After the work above, 10 -> 25 bought a further ~18%
+   on the product page, so it was kept. It is not a licence to keep climbing.
 
-2. **Home LCP is 11.4 s** — a Lighthouse failure the load test cannot see. The
-   cause is the hero: a large background image served as PNG/JPEG. Lighthouse puts
-   ~1.6 MB of savings on next-gen formats alone. Serve the backdrops as WebP/AVIF
-   and give the hero a `<link rel="preload">`; the upload route (sharp) already
-   re-encodes, so this is a format change, not new plumbing.
+### What is still slow
 
-3. **Two small Lighthouse misses on the product page**, both quick: no
-   `<meta name="description">` (SEO 91), and an `aria-hidden` container holds a
-   focusable element (A11y 92).
+The load moved, as it always does, to the next uncached page.
 
-Re-run after each change and watch the home p95 and LCP move.
+- **The product page: 26 SELECTs to draw one product**, p95 ~7.9 s at 500 users.
+  This is now the worst page in the app. It is the same `attachChildren` tail
+  (rows, then images, then stones) repeated across the product, its variants, its
+  related pieces and its featured rail.
+- **`/shop`**: p95 ~3.8 s at 500 users. It loads the whole scoped catalogue and
+  filters in memory, which is fine at 15 products and will not be at 1,500.
+- Product page Lighthouse: no `<meta name="description">` (SEO 91).
+
+Neither page is cacheable as bluntly as the home page — `/shop` varies by query
+string and the product page by slug — but both are good candidates for
+`revalidate` + `revalidateTag`, since a product changes when an admin saves it and
+not otherwise.

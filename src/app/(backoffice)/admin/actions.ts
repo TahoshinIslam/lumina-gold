@@ -21,6 +21,15 @@ function revalidateStorefront() {
   revalidatePath('/shop');
 }
 
+/** A campaign appears as the home page banner and at /campaigns/[slug]; the admin
+ *  list also lists it. The home page is cached, so a campaign edit that skipped
+ *  this would not show until the page's timer lapsed. */
+function revalidateCampaigns() {
+  revalidatePath('/admin/campaigns');
+  revalidatePath('/');
+  revalidatePath('/campaigns', 'layout'); // every /campaigns/[slug]
+}
+
 function feedbackUrl(url: string, message: string, tone: 'success' | 'warning' | 'error' | 'info' = 'success') {
   const separator = url.includes('?') ? '&' : '?';
   return `${url}${separator}toast=${encodeURIComponent(message)}&tone=${tone}`;
@@ -651,6 +660,10 @@ export async function addRateAction(formData: FormData) {
     [purityId, rate],
   );
   revalidatePath('/admin/rates');
+  // A new rate re-prices every rate-based piece, so the whole storefront is now
+  // stale — the home showcases and every listing. Without this the cached home
+  // page would keep quoting yesterday's gold price until its timer lapsed.
+  revalidateStorefront();
   return { ok: true, message: 'Rate published successfully' };
 }
 
@@ -894,7 +907,7 @@ export async function saveCampaignAction(formData: FormData) {
     );
   }
 
-  revalidatePath('/admin/campaigns');
+  revalidateCampaigns();
   redirect('/admin/campaigns');
 }
 
@@ -902,21 +915,21 @@ export async function deleteCampaignAction(formData: FormData) {
   const id = Number(formData.get('id'));
   if (!id) return { ok: false };
   await query('DELETE FROM campaigns WHERE id = ?', [id]);
-  revalidatePath('/admin/campaigns');
+  revalidateCampaigns();
   return { ok: true };
 }
 
 export async function bulkDeleteCampaignsAction(formData: FormData) {
   const ids = formData.getAll('ids').map(Number).filter(Boolean);
   if (ids.length) await query(`DELETE FROM campaigns WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
-  revalidatePath('/admin/campaigns');
+  revalidateCampaigns();
 }
 
 export async function toggleCampaignPublishedAction(formData: FormData) {
   const id = Number(formData.get('id'));
   if (!id) return { ok: false };
   await query('UPDATE campaigns SET is_published = 1 - is_published WHERE id = ?', [id]);
-  revalidatePath('/admin/campaigns');
+  revalidateCampaigns();
   return { ok: true };
 }
 

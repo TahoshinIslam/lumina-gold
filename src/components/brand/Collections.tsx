@@ -45,6 +45,7 @@ export default function Collections({ images }: { images: SlideImage[] }) {
               className="lum-col-card" data-reveal="clip" data-tilt="">
               <div className="lum-col-media">
                 <MediaSlideshow
+                  renderWidth={828}
                   className="lum-col-zoom lum-img-ph"
                   images={perCard[card].length ? perCard[card] : [{ src: collection.src }]}
                   alt={collection.alt}

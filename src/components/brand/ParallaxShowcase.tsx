@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CSSProperties } from 'react';
+import { optimized, BACKDROP_WIDTH, BACKDROP_PHONE_WIDTH } from '@/features/shared/optimized';
 
 /**
  * ParallaxShowcase — full-width editorial break. The lifestyle image is
@@ -19,9 +20,13 @@ export default function ParallaxShowcase({ image, phoneImage }: {
   image?: string;
   phoneImage?: string;
 }) {
+  // Same as the hero: a background-image cannot be a <next/image>, but it can
+  // point at the optimizer's endpoint and get AVIF/WebP at the right width.
+  const wide = optimized(image, BACKDROP_WIDTH);
+  const phone = optimized(phoneImage, BACKDROP_PHONE_WIDTH);
   const backdrop = {
-    ...(image ? { '--lum-bg': `url('${image}')` } : {}),
-    ...(phoneImage ? { '--lum-bg-phone': `url('${phoneImage}')` } : {}),
+    ...(wide ? { '--lum-bg': `url('${wide}')` } : {}),
+    ...(phone ? { '--lum-bg-phone': `url('${phone}')` } : {}),
   } as CSSProperties;
 
   return (

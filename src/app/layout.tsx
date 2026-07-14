@@ -1,10 +1,32 @@
 import type { Metadata } from "next";
+import { Fraunces, Archivo } from "next/font/google";
 import "@/styles/tokens.css";
 import "./globals.css";
 import "./lumina.css";
 import { StoreProvider } from "@/stores/StoreContext";
 import PageBeacon from "@/components/analytics/PageBeacon";
 import ScrollToTop from "@/components/layout/ScrollToTop";
+
+// The two brand faces, self-hosted instead of pulled from Google Fonts at
+// runtime. They used to be an `@import` at the top of lumina.css — a remote,
+// render-path stylesheet, and on a throttled connection the headline first
+// painted in a fallback and then RE-painted seconds later when Fraunces finally
+// arrived. That late repaint was the home page's 11-second LCP, not the imagery.
+// next/font downloads the files at build time, serves them from our own origin,
+// and preloads them, so the real font is there for the first paint.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  style: ["normal", "italic"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-archivo",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Nahar Jewellers — Haute Joaillerie",
@@ -25,7 +47,7 @@ export default function RootLayout({
     // smooth scrolling in place: the new page would then ANIMATE its way to the
     // top, through content the reader has not seen. Declaring it lets Next turn
     // smooth off for the duration of a navigation and put it straight back.
-    <html lang="en" data-scroll-behavior="smooth">
+    <html lang="en" data-scroll-behavior="smooth" className={`${fraunces.variable} ${archivo.variable}`}>
       <body><StoreProvider>{children}</StoreProvider><ScrollToTop /><PageBeacon /></body>
     </html>
   );

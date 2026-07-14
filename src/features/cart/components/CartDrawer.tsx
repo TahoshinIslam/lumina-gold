@@ -11,7 +11,17 @@ export default function CartDrawer({ open, onClose }: { open: boolean; onClose: 
   return (
     <>
       <div className={`lum-drawer-scrim${open ? ' is-open' : ''}`} onClick={onClose} />
-      <aside className={`lum-drawer${open ? ' is-open' : ''}`} aria-hidden={!open} aria-label="Shopping bag">
+      {/* `inert` as well as aria-hidden. aria-hidden alone hides the closed bag
+          from a screen reader but leaves its buttons in the tab order, so a
+          keyboard user tabs into a panel that is off screen and cannot be seen —
+          they lose the focus ring entirely. `inert` takes the whole subtree out
+          of focus and out of the accessibility tree together. */}
+      <aside
+        className={`lum-drawer${open ? ' is-open' : ''}`}
+        aria-hidden={!open}
+        inert={!open}
+        aria-label="Shopping bag"
+      >
         <div className="lum-drawer-head">
           <span>Your Bag ({cartCount})</span>
           <button className="lum-drawer-close" aria-label="Close" onClick={onClose}>✕</button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { SlideImage } from '@/server/dal/home';
+import { optimized } from '@/features/shared/optimized';
 
 const INTERVAL_MS = 5200;
 
@@ -21,10 +22,13 @@ const INTERVAL_MS = 5200;
  * carries a hover-zoom transform, and swapping a single <img>'s src would flash
  * and fight the zoom.
  */
-export default function MediaSlideshow({ images, alt, className }: {
+export default function MediaSlideshow({ images, alt, className, renderWidth = 1200 }: {
   images: SlideImage[];
   alt: string;
   className?: string;
+  /** The widest this frame is ever painted, x2 for retina. The optimizer resizes
+   *  to it, so a card never downloads more pixels than it can show. */
+  renderWidth?: number;
 }) {
   const [current, setCurrent] = useState(0);
   // A file that has been deleted from disk while its row still points at it
@@ -51,7 +55,12 @@ export default function MediaSlideshow({ images, alt, className }: {
         <img
           key={image.src}
           className={`lum-slide${index === current ? ' is-on' : ''}`}
-          src={image.src}
+          // Through the optimizer: AVIF/WebP, and at the width this frame is
+          // actually painted at rather than the full-size original. A Collections
+          // card is ~411px wide even on a 1920 screen — sending it a 1200px JPEG
+          // is three times the pixels it can show, and on the home page there are
+          // seven of these.
+          src={optimized(image.src, renderWidth)}
           onError={() => setBroken(b => ({ ...b, [image.src]: true }))}
           // Only the visible one is announced; the rest are decorative duplicates.
           alt={index === current ? alt : ''}

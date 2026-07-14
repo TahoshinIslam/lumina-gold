@@ -44,7 +44,7 @@ export default function Heritage({ images }: { images: SlideImage[] }) {
         <div className="lum-figure" data-reveal="right">
           <div className="lum-figure-outline lum-figure-outline--heritage" />
           <div className="lum-figure-media">
-            <MediaSlideshow className="lum-figure-zoom lum-img-ph" images={images} alt="Heritage archive photograph" />
+            <MediaSlideshow renderWidth={1200} className="lum-figure-zoom lum-img-ph" images={images} alt="Heritage archive photograph" />
           </div>
         </div>
       </div>

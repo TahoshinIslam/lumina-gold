@@ -8,7 +8,7 @@
   padding: 24px 16px 60px;
   background: #E9EAE4;
   color: #171714;
-  font-family: 'Archivo', Georgia, serif;
+  font-family: var(--font-archivo), Georgia, serif;
 }
 
 .inv-bar {
@@ -43,11 +43,11 @@
   display: flex; align-items: center; justify-content: center;
   background: #171714; color: #C9A24A; font-size: 20px;
 }
-.inv-brand-name { font-family: 'Cinzel', 'Fraunces', serif; font-size: 16px; letter-spacing: 0.18em; }
+.inv-brand-name { font-family: 'Cinzel', var(--font-fraunces), serif; font-size: 16px; letter-spacing: 0.18em; }
 .inv-brand-sub { font-size: 11px; letter-spacing: 0.1em; color: #6b6a63; margin-top: 3px; }
 .inv-title { text-align: right; }
 .inv-title h1 {
-  margin: 0 0 8px; font-family: 'Cinzel', 'Fraunces', serif;
+  margin: 0 0 8px; font-family: 'Cinzel', var(--font-fraunces), serif;
   font-size: 30px; letter-spacing: 0.22em; color: #C9A24A;
 }
 .inv-title dl {
