@@ -1119,15 +1119,26 @@ a:hover { color: var(--gold-light); }
   box-shadow: 0 14px 34px rgba(176,141,79, 0.4);
 }
 .lum-car-dots {
-  display: flex; justify-content: center; gap: 12px;
+  display: flex; justify-content: center; gap: 0;
   margin-top: clamp(30px, 4vw, 46px);
 }
+/* The dot you SEE is 8px; the button you TAP is 24px. WCAG 2.5.8 (and the
+   Lighthouse target-size audit) want at least 24x24 CSS px, and an 8px button
+   is a genuinely hard target on a phone — but growing the dot itself would
+   wreck the design. So the button is a 24px transparent box and ::before draws
+   the dot inside it. Hence gap: 0 — the boxes already carry their own spacing. */
 .lum-car-dot {
-  width: 8px; height: 8px; padding: 0; border-radius: 50%; cursor: pointer;
+  width: 24px; height: 24px; padding: 0; cursor: pointer;
+  border: 0; background: transparent;
+  display: grid; place-items: center;
+}
+.lum-car-dot::before {
+  content: ''; display: block;
+  width: 8px; height: 8px; border-radius: 50%;
   border: 1px solid #B08D4F; background: transparent;
   transition: background 0.4s ease, transform 0.4s ease;
 }
-.lum-car-dot.is-active { background: #B08D4F; transform: scale(1.25); }
+.lum-car-dot.is-active::before { background: #B08D4F; transform: scale(1.25); }
 @media (max-width: 899px) {
   .lum-carousel { --slide-w: 92%; }
   .lum-car-arrow { display: none; } /* swipe-sized dots remain */

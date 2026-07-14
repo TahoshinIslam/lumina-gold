@@ -83,27 +83,31 @@ export default function LuminaPage({
       <Preloader />
       <Header />
 
-      {/* Page content */}
+      {/* Page content. The <main> is what a screen reader jumps to, so it holds
+          the content and NOT the footer — every other route already does this
+          via .lum-page-main; the landing page was the one that never did. */}
       <div style={{ position: 'relative', zIndex: 2 }}>
-        <Hero image={heroImage} phoneImage={heroPhoneImage} />
-        <ShopByCategory categories={categories} />
-        <Marquee />
-        <CampaignBanner campaign={campaign} />
-        {/* The two showcases are the only place on this page a shopper can reach
-            a piece and its price. They sat below Collections and Savoir-Faire —
-            two long editorial sections — so on a phone the first product was
-            thousands of pixels down. They now come first, and the editorial
-            follows for whoever keeps reading. */}
-        <GoldShowcase data={goldShowcase} />
-        <DiamondShowcase data={diamondShowcase} />
-        <Collections images={collectionImages} />
-        <Craftsmanship images={craftImages} />
-        <Quote />
-        <Heritage images={heritageImages} />
-        <ParallaxShowcase image={editorialImage} phoneImage={editorialPhoneImage} />
-        <Testimonials items={testimonials} />
-        <LatestNews articles={articles} />
-        <Appointment />
+        <main>
+          <Hero image={heroImage} phoneImage={heroPhoneImage} />
+          <ShopByCategory categories={categories} />
+          <Marquee />
+          <CampaignBanner campaign={campaign} />
+          {/* The two showcases are the only place on this page a shopper can reach
+              a piece and its price. They sat below Collections and Savoir-Faire —
+              two long editorial sections — so on a phone the first product was
+              thousands of pixels down. They now come first, and the editorial
+              follows for whoever keeps reading. */}
+          <GoldShowcase data={goldShowcase} />
+          <DiamondShowcase data={diamondShowcase} />
+          <Collections images={collectionImages} />
+          <Craftsmanship images={craftImages} />
+          <Quote />
+          <Heritage images={heritageImages} />
+          <ParallaxShowcase image={editorialImage} phoneImage={editorialPhoneImage} />
+          <Testimonials items={testimonials} />
+          <LatestNews articles={articles} />
+          <Appointment />
+        </main>
         <Footer />
       </div>
     </div>

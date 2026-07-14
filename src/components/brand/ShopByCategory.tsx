@@ -27,8 +27,11 @@ export default function ShopByCategory({ categories }: { categories: CategoryTil
           <Link key={category.slug} href={`/categories/${category.slug}`} className="lum-cat">
             <span className="lum-cat-circle lum-img-ph">
               {category.image && (
+                // Decorative: alt="" on purpose. The label below is inside the
+                // same link and already names it, so an alt here makes a screen
+                // reader announce the link twice ("Rings Rings").
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={optimized(category.image, 640)} alt={category.name} />
+                <img src={optimized(category.image, 640)} alt="" />
               )}
             </span>
             <span className="lum-cat-label">{category.name}</span>
