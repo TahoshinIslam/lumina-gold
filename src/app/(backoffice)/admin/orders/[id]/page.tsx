@@ -69,16 +69,31 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
             href={`/admin/orders/${order.id}/invoice`}>
             <Printer size={14} /> Invoice
           </a>
+          {/* Two deliberate choices, because a refunded piece is not
+              automatically resellable — it may be damaged or in for repair.
+              The default refund leaves it OFF the shelf; restocking is a
+              separate, explicit tick. */}
           <ConfirmActionButton
             action={refundOrderAction}
-            values={{ id: order.id }}
+            values={{ id: order.id, restock: '0' }}
             title={`Refund ${order.order_no}?`}
-            description="The refund is recorded and the pieces go back into stock. No money moves automatically — the boutique sends it."
+            description="Records the refund. The piece is NOT returned to stock — use ‘Refund & restock’ only if it has come back and is resellable. No money moves automatically; the boutique sends it."
             confirmLabel="Refund order"
             className="adm-btn danger"
             successMessage="Refund recorded"
           >
             Refund
+          </ConfirmActionButton>
+          <ConfirmActionButton
+            action={refundOrderAction}
+            values={{ id: order.id, restock: '1' }}
+            title={`Refund ${order.order_no} and return to stock?`}
+            description="Records the refund AND puts the piece back on the shelf as resellable. Choose this only when the item has physically returned in sellable condition."
+            confirmLabel="Refund & restock"
+            className="adm-btn"
+            successMessage="Refund recorded, stock returned"
+          >
+            Refund &amp; restock
           </ConfirmActionButton>
         </div>
       </div>

@@ -363,6 +363,22 @@ CREATE TABLE `inventory_reservations` (
   CONSTRAINT `fk_ir_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_ir_warehouse` FOREIGN KEY (`warehouse_id`) REFERENCES `warehouses` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `product_serials` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `variant_id` bigint(20) unsigned NOT NULL,
+  `serial_number` varchar(80) NOT NULL,
+  `status` enum('in_stock','reserved','sold','returned','damaged') NOT NULL DEFAULT 'in_stock',
+  `order_id` bigint(20) unsigned DEFAULT NULL,
+  `note` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_serial` (`serial_number`),
+  KEY `idx_serial_variant_status` (`variant_id`,`status`),
+  KEY `fk_serial_order` (`order_id`),
+  CONSTRAINT `fk_serial_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_serial_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `menu_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `menu_id` smallint(5) unsigned NOT NULL,
@@ -433,6 +449,7 @@ CREATE TABLE `order_items` (
   `variant_id` bigint(20) unsigned DEFAULT NULL,
   `product_name` varchar(200) NOT NULL,
   `variant_sku` varchar(64) NOT NULL,
+  `serial_number` varchar(80) DEFAULT NULL,
   `image_path` varchar(255) DEFAULT NULL,
   `metal` varchar(30) DEFAULT NULL,
   `purity` varchar(10) DEFAULT NULL,
@@ -508,6 +525,7 @@ CREATE TABLE `orders` (
   KEY `fk_order_user` (`user_id`),
   KEY `fk_order_coupon` (`coupon_id`),
   KEY `idx_orders_status` (`status`,`placed_at`),
+  KEY `idx_orders_reserved` (`status`,`reserved_until`),
   CONSTRAINT `fk_order_coupon` FOREIGN KEY (`coupon_id`) REFERENCES `coupons` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_order_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

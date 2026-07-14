@@ -16,6 +16,7 @@ import { CATALOG_TAG } from '@/server/dal/browse';
 import { SESSION_COOKIE_OPTIONS } from '@/server/auth/cookieOptions';
 import { hit, reset, clientKey, LIMITS } from '@/server/security/rateLimit';
 import { audit } from '@/server/security/audit';
+import { deductStock, restoreStock, recordMovement, claimSerials, releaseSerials } from '@/server/dal/inventory';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
@@ -302,11 +303,29 @@ export async function saveProductAction(formData: FormData) {
     const stock = v.stock !== '' && v.stock != null ? Number(v.stock) : 0;
     // Availability status is also product-level for now — default variant only.
     const availability = isDefault ? String(formData.get('availability') || 'in_stock') : 'in_stock';
+
+    // A manual stock edit is a stock movement like any other, and it used to
+    // leave no trace: an admin typing "12" over "3" moved nine pieces with
+    // nothing in the ledger to show for it. Record the delta as an adjustment.
+    const [prev] = await query<{ quantity_available: number }>(
+      'SELECT quantity_available FROM inventory WHERE variant_id = ? AND warehouse_id = 1', [variantId],
+    );
+    const before = prev ? Number(prev.quantity_available) : 0;
+
     await query(
       `INSERT INTO inventory (variant_id, warehouse_id, quantity_available, availability)
        VALUES (?, 1, ?, ?) ON DUPLICATE KEY UPDATE quantity_available=VALUES(quantity_available), availability=VALUES(availability)`,
       [variantId, stock, availability],
     );
+
+    if (stock !== before) {
+      await query(
+        `INSERT INTO inventory_movements
+           (variant_id, warehouse_id, movement_type, quantity, reference_type, note)
+         VALUES (?, 1, 'adjustment', ?, 'admin', 'manual stock edit')`,
+        [variantId, stock - before],
+      );
+    }
 
     if (allSizeValueIds.size) {
       const ids = [...allSizeValueIds];
@@ -480,6 +499,45 @@ export async function setPrimaryImageAction(formData: FormData) {
   await query('UPDATE product_images SET is_primary = 0 WHERE product_id = ?', [rows[0].product_id]);
   await query('UPDATE product_images SET is_primary = 1 WHERE id = ?', [id]);
   revalidateStorefront();
+}
+
+/**
+ * Register unique serial numbers against a variant — the hallmark/certificate
+ * number stamped on each physical piece. Once a variant has serials, the
+ * checkout claims one per unit sold, so an individual ring cannot leave twice.
+ *
+ * Idempotent on the serial (INSERT IGNORE against the UNIQUE key), so
+ * re-submitting a list already partly entered adds only the new ones.
+ */
+export async function addSerialsAction(formData: FormData) {
+  const variantId = Number(formData.get('variant_id'));
+  if (!variantId) return { ok: false, message: 'Missing variant.' };
+
+  // One serial per line, trimmed, de-duplicated, capped to a sane batch.
+  const serials = [...new Set(
+    String(formData.get('serials') || '')
+      .split(/[\n,]/).map(s => s.trim()).filter(Boolean),
+  )].slice(0, 500);
+  if (!serials.length) return { ok: false, message: 'Enter at least one serial number.' };
+
+  let added = 0;
+  for (const serial of serials) {
+    const [res] = await db.query(
+      `INSERT IGNORE INTO product_serials (variant_id, serial_number, status) VALUES (?, ?, 'in_stock')`,
+      [variantId, serial.slice(0, 80)],
+    );
+    added += (res as { affectedRows: number }).affectedRows;
+  }
+  if (added) {
+    await query(
+      `INSERT INTO inventory_movements (variant_id, warehouse_id, movement_type, quantity, reference_type, note)
+       VALUES (?, 1, 'adjustment', ?, 'serial', 'serials registered')`,
+      [variantId, added],
+    );
+  }
+  await audit({ action: 'serials.add', entityType: 'variant', entityId: variantId, after: { added, requested: serials.length } });
+  revalidatePath('/admin/products');
+  return { ok: true, message: `${added} serial${added === 1 ? '' : 's'} registered${added < serials.length ? ` (${serials.length - added} already existed)` : ''}.` };
 }
 
 export async function deleteProductAction(formData: FormData) {
@@ -809,6 +867,13 @@ export async function releaseBookingAction(formData: FormData) {
     `UPDATE inventory i JOIN order_items oi ON oi.variant_id = i.variant_id AND i.warehouse_id = 1
      SET i.quantity_available = i.quantity_available + oi.quantity WHERE oi.order_id = ?`, [id],
   );
+  // The stock just moved back onto the shelf; log a movement per line so the
+  // ledger balances. This was the one restore path that wrote none.
+  await query(
+    `INSERT INTO inventory_movements (variant_id, warehouse_id, movement_type, quantity, reference_type, reference_id, note)
+     SELECT oi.variant_id, 1, 'release', oi.quantity, 'order', oi.order_id, 'hold released from admin'
+       FROM order_items oi WHERE oi.order_id = ? AND oi.variant_id IS NOT NULL`, [id],
+  );
   await query(`UPDATE inventory_reservations SET status = 'released' WHERE order_id = ? AND status = 'active'`, [id]);
   await query(
     `INSERT INTO order_status_history (order_id, from_status, to_status, note)
@@ -844,24 +909,31 @@ async function reconcileStock(
     'SELECT variant_id, quantity FROM order_items WHERE order_id = ?', [orderId],
   );
   // Restoring when it comes back, taking it out again if an order is revived.
-  const sign = was && !now ? 1 : -1;
+  const reviving = !was && now;
   for (const item of items) {
     if (!item.variant_id) continue;
-    await conn.query(
-      sign > 0
-        ? `UPDATE inventory SET quantity_available = quantity_available + ?
-             WHERE variant_id = ? AND warehouse_id = 1`
-        : `UPDATE inventory SET quantity_available = GREATEST(0, quantity_available - ?)
-             WHERE variant_id = ? AND warehouse_id = 1`,
-      [item.quantity, item.variant_id],
-    );
-    await conn.query(
-      `INSERT INTO inventory_movements
-         (variant_id, warehouse_id, movement_type, quantity, reference_type, reference_id, note)
-       VALUES (?, 1, ?, ?, 'order', ?, ?)`,
-      [item.variant_id, sign > 0 ? 'return' : 'sale', sign * item.quantity, orderId, `status → ${to}`],
-    );
+
+    if (reviving) {
+      // Re-opening a cancelled/refunded order (rare, admin-driven). The stock
+      // must be there to give — same atomic guard as a fresh sale, or reviving
+      // an order could oversell a piece already sold to someone else.
+      const took = await deductStock(conn, item.variant_id, item.quantity);
+      if (!took) {
+        throw new Error('Cannot re-open this order — a piece on it has since sold out.');
+      }
+      await claimSerials(conn, item.variant_id, item.quantity, orderId);
+    } else {
+      // Piece coming back to the shelf (cancel/return/refund/expire).
+      await restoreStock(conn, item.variant_id, item.quantity);
+    }
+    await recordMovement(conn, {
+      variantId: item.variant_id,
+      type: reviving ? 'sale' : 'return',
+      quantity: (reviving ? -1 : 1) * item.quantity,
+      referenceType: 'order', referenceId: orderId, note: `status → ${to}`,
+    });
   }
+  if (!reviving) await releaseSerials(conn, orderId);
 }
 
 /** Change one order's status, moving its stock with it. */
@@ -1059,6 +1131,12 @@ export async function saveShipmentAction(formData: FormData) {
 export async function refundOrderAction(formData: FormData) {
   const id = Number(formData.get('id'));
   const reason = String(formData.get('reason') || '').trim().slice(0, 255) || 'refunded by the boutique';
+  // A refund does NOT put the piece back on the shelf by default. A refunded
+  // item is often damaged, kept by the customer, or in for repair — silently
+  // re-listing it as sellable is how a boutique promises a ring it doesn't have.
+  // Restocking is a deliberate tick ("the piece is back and resellable"), off
+  // unless the admin says so.
+  const restock = formData.get('restock') === 'on' || formData.get('restock') === '1';
   if (!id) return { ok: false, message: 'Order not found' };
 
   const rows = await query<{ order_no: string; status: string; grand_total: string; payment_method: string }>(
@@ -1075,24 +1153,21 @@ export async function refundOrderAction(formData: FormData) {
     const items = await query<{ variant_id: number; quantity: number }>(
       'SELECT variant_id, quantity FROM order_items WHERE order_id = ?', [id],
     );
-    // Only orders whose stock actually left need it back — a cancelled order
-    // already returned it, and crediting twice invents inventory.
+    // Restock ONLY when the admin asked for it AND the stock had actually left
+    // (a cancelled/expired/returned order already gave it back — crediting again
+    // would invent inventory). Default is to leave the shelf untouched.
     const stockIsOut = !['cancelled', 'expired', 'returned'].includes(order.status);
-    if (stockIsOut) {
+    if (restock && stockIsOut) {
       for (const item of items) {
         if (!item.variant_id) continue;
-        await conn.query(
-          `UPDATE inventory SET quantity_available = quantity_available + ?
-            WHERE variant_id = ? AND warehouse_id = 1`,
-          [item.quantity, item.variant_id],
-        );
-        await conn.query(
-          `INSERT INTO inventory_movements
-             (variant_id, warehouse_id, movement_type, quantity, reference_type, reference_id, note)
-           VALUES (?, 1, 'return', ?, 'order', ?, 'refunded')`,
-          [item.variant_id, item.quantity, id],
-        );
+        await restoreStock(conn, item.variant_id, item.quantity);
+        await recordMovement(conn, {
+          variantId: item.variant_id, type: 'return', quantity: item.quantity,
+          referenceType: 'order', referenceId: id, note: 'refunded — restocked',
+        });
       }
+      // The individual pieces come back too, if they were serial-tracked.
+      await releaseSerials(conn, id);
     }
 
     await conn.query(
@@ -1120,7 +1195,7 @@ export async function refundOrderAction(formData: FormData) {
     await audit({
       action: 'order.refund', entityType: 'order', entityId: id,
       before: { status: order.status, orderNo: order.order_no },
-      after: { status: 'refunded', amount: order.grand_total, method: order.payment_method, reason },
+      after: { status: 'refunded', amount: order.grand_total, method: order.payment_method, reason, restocked: restock && stockIsOut },
     });
   } catch (e) {
     await conn.rollback();

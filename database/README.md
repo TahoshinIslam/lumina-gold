@@ -11,7 +11,7 @@ mysql -u root < database/schema.sql
 npx tsx database/seed-demo.ts        # optional
 ```
 
-`schema.sql` is the whole thing: all 72 tables plus the reference data the app
+`schema.sql` is the whole thing: all 73 tables plus the reference data the app
 cannot boot without — metals, purities, metal colours, stone shapes and grades,
 gold rates, categories, collections, occasions, styles, genders, tags, the
 warehouse, roles/permissions, the nav menus, and the testimonials the landing

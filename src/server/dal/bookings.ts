@@ -55,6 +55,18 @@ export async function expireStaleBookings(): Promise<number> {
        WHERE oi.order_id = ?`,
       [id],
     );
+    // Log the return as a movement per line — the sweep used to move stock with
+    // nothing in the ledger. And release any serial-tracked pieces held.
+    await query(
+      `INSERT INTO inventory_movements (variant_id, warehouse_id, movement_type, quantity, reference_type, reference_id, note)
+       SELECT oi.variant_id, 1, 'release', oi.quantity, 'order', oi.order_id, 'hold expired'
+         FROM order_items oi WHERE oi.order_id = ? AND oi.variant_id IS NOT NULL`,
+      [id],
+    );
+    await query(
+      `UPDATE product_serials SET status = 'in_stock', order_id = NULL WHERE order_id = ? AND status = 'reserved'`,
+      [id],
+    );
     await query(`UPDATE inventory_reservations SET status = 'expired' WHERE order_id = ? AND status = 'active'`, [id]);
     await query(
       `INSERT INTO order_status_history (order_id, from_status, to_status, note)

@@ -14,6 +14,20 @@ import {
 } from '@/server/dal/addresses';
 import { isPaymentMethod, type PaymentMethod } from '@/config/payments';
 import { hit, clientKey, LIMITS } from '@/server/security/rateLimit';
+import { deductStock, claimSerials, recordMovement } from '@/server/dal/inventory';
+
+/**
+ * Thrown when a piece sells out between the shopper seeing it in stock and the
+ * order committing. Caught by placeOrderAction's transaction, which rolls back
+ * and surfaces this message — so the loser of a race gets "just sold out", not
+ * a 500 and not a phantom order.
+ */
+class OversellError extends Error {
+  constructor(name: string) {
+    super(`${name} has just sold out.`);
+    this.name = 'OversellError';
+  }
+}
 
 // A 'use server' module may only export async functions. That includes type
 // re-exports: `export type { AccountOutcome }` compiles to a RUNTIME re-export
@@ -289,15 +303,40 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
     const orderId = (ores as { insertId: number }).insertId;
 
     for (const line of lines) {
+      if (!line.variantId) throw new Error(`${line.name} is no longer available.`);
+
+      // Take the stock FIRST, atomically. The decrement only happens if the
+      // stock is still there at this instant — not when priceCart read it a
+      // moment ago. Two customers racing for the last piece both reach here; the
+      // row lock serialises them, the first wins, and the second's guard
+      // (quantity_available >= qty) fails. That failure throws, which rolls the
+      // whole transaction back: no order row, no line, no half-sale. This is the
+      // difference between "the shelf can't go negative" (the old GREATEST, which
+      // still let both orders through) and "the second sale cannot happen".
+      const took = await deductStock(conn, line.variantId, line.qty);
+      if (!took) {
+        throw new OversellError(line.name);
+      }
+
+      // A serial-tracked piece is claimed here too, so the exact physical ring
+      // is spoken for. Not tracked → null, and quantity_available alone governs.
+      const claim = await claimSerials(conn, line.variantId, line.qty, orderId);
+      if (claim.tracked && claim.serials === null) {
+        // quantity_available said yes but the individual pieces are gone — trust
+        // the pieces. Belt and braces against the two counts disagreeing.
+        throw new OversellError(line.name);
+      }
+      const serials = claim.tracked ? claim.serials.join(', ') : null;
+
       await conn.query(
         `INSERT INTO order_items (
-           order_id, variant_id, product_name, variant_sku, image_path,
+           order_id, variant_id, serial_number, product_name, variant_sku, image_path,
            metal, purity, metal_color, size_label, metal_weight_g,
            diamond_carat, stone_count, certificate_no, certificate_issuer,
            making_charge, stone_charge, quantity, unit_price, line_total, engraving
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          orderId, line.variantId, line.name, line.variantSku, line.image,
+          orderId, line.variantId, serials, line.name, line.variantSku, line.image,
           line.metal, line.purity, line.metalColor, line.sizeLabel, line.metalWeightG,
           line.diamondCarat, line.stoneCount, line.certificateNo, line.certificateIssuer,
           line.makingCharge, line.stoneCharge, line.qty, line.unitPrice, line.lineTotal,
@@ -305,19 +344,10 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
         ],
       );
 
-      // Stock leaves for good here — this is a sale, not a 15-minute hold.
-      // GREATEST() so a race can't drive the shelf negative.
-      await conn.query(
-        `UPDATE inventory SET quantity_available = GREATEST(0, quantity_available - ?)
-          WHERE variant_id = ? AND warehouse_id = 1`,
-        [line.qty, line.variantId],
-      );
-      await conn.query(
-        `INSERT INTO inventory_movements
-           (variant_id, warehouse_id, movement_type, quantity, reference_type, reference_id, note)
-         VALUES (?, 1, 'sale', ?, 'order', ?, ?)`,
-        [line.variantId, -line.qty, orderId, orderNo],
-      );
+      await recordMovement(conn, {
+        variantId: line.variantId, type: 'sale', quantity: -line.qty,
+        referenceType: 'order', referenceId: orderId, note: orderNo,
+      });
     }
 
     await conn.query(
