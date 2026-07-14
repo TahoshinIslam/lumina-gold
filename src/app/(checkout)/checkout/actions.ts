@@ -16,6 +16,7 @@ import { isPaymentMethod, type PaymentMethod } from '@/config/payments';
 import { hit, clientKey, LIMITS } from '@/server/security/rateLimit';
 import { deductStock, claimSerials, recordMovement } from '@/server/dal/inventory';
 import type { ResultSetHeader } from 'mysql2';
+import { recordPurchase } from '@/server/analytics';
 
 /**
  * Thrown when a piece sells out between the shopper seeing it in stock and the
@@ -386,6 +387,17 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
        VALUES (?, NULL, 'pending', 'placed on the storefront')`,
       [orderId],
     );
+
+    // The purchase event, written in the SAME transaction as the order and from
+    // the same server-computed total. It exists iff the order exists — so it
+    // cannot be double-counted by a refresh of the success page, and its revenue
+    // is by definition the amount charged. The browser is never asked.
+    await recordPurchase(conn, {
+      orderId,
+      value: totals.grandTotal,
+      currency: 'BDT',
+      path: '/checkout',
+    });
 
     await conn.commit();
   } catch (e) {

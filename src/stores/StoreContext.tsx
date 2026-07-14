@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { track } from '@/features/analytics/track';
 
 /**
  * StoreContext — the storefront's client-side state: cart, wishlist, and
@@ -85,12 +86,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addToCart: StoreValue['addToCart'] = useCallback((item, qty = 1) => {
     // The cart itself is local-only, so this event is the sole record an add
     // ever happened — it is what the dashboard's conversion funnel counts.
-    fetch('/api/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'add_to_cart', path: window.location.pathname }),
-      keepalive: true,
-    }).catch(() => {});
+    track('add_to_cart', { label: item.sku });
 
     setCart(prev => {
       const k = keyOf(item);
@@ -114,6 +110,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [setCart]);
 
   const removeFromCart: StoreValue['removeFromCart'] = useCallback((key) => {
+    // The bag lives in localStorage, so — exactly as with add_to_cart — this
+    // event is the ONLY record that a removal ever happened. Without it the
+    // funnel can see pieces going into bags and never coming out.
+    track('remove_from_cart', { label: key.split('__')[0] });
     setCart(prev => prev.filter(i => keyOf(i) !== key));
   }, [setCart]);
 

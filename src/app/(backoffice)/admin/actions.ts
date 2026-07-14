@@ -17,6 +17,7 @@ import { SESSION_COOKIE_OPTIONS } from '@/server/auth/cookieOptions';
 import { hit, reset, clientKey, LIMITS } from '@/server/security/rateLimit';
 import { audit } from '@/server/security/audit';
 import { deductStock, restoreStock, recordMovement, claimSerials, releaseSerials } from '@/server/dal/inventory';
+import { recordRefund } from '@/server/analytics';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
@@ -844,6 +845,40 @@ const ORDER_STATUSES = [
   'cancelled', 'returned', 'refunded', 'expired',
 ];
 
+/**
+ * Mark an order as a TEST (or back to real).
+ *
+ * An order placed to check that the checkout works is not revenue. Flagging it
+ * removes it from every figure on the dashboard AND from the purchase event that
+ * feeds the funnel — the analytics queries join `orders` and exclude `is_test`,
+ * so the flag is the single source of truth and nothing has to be deleted.
+ */
+export async function toggleTestOrderAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  if (!id) return { ok: false, message: 'Order not found' };
+
+  const rows = await query<{ is_test: number; order_no: string }>(
+    'SELECT is_test, order_no FROM orders WHERE id = ?', [id],
+  );
+  const order = rows[0];
+  if (!order) return { ok: false, message: 'Order not found' };
+
+  const next = order.is_test ? 0 : 1;
+  await query('UPDATE orders SET is_test = ? WHERE id = ?', [next, id]);
+  await audit({
+    action: 'order.mark_test', entityType: 'order', entityId: id,
+    before: { isTest: !!order.is_test }, after: { isTest: !!next },
+  });
+
+  revalidatePath('/admin');
+  revalidatePath('/admin/orders');
+  revalidatePath(`/admin/orders/${id}`);
+  return {
+    ok: true,
+    message: next ? 'Marked as a test order — excluded from revenue' : 'Restored as a real order',
+  };
+}
+
 /** Confirm a phone booking: lock in the sale, close the hold, clear timer. */
 export async function confirmBookingAction(formData: FormData) {
   const id = Number(formData.get('id'));
@@ -1186,6 +1221,10 @@ export async function refundOrderAction(formData: FormData) {
        VALUES (?, ?, 'refunded', ?)`,
       [id, order.status, reason],
     );
+
+    // The refund event, in the same transaction as the refund itself, for the
+    // amount actually given back. Stored positive; the dashboard subtracts it.
+    await recordRefund(conn, { orderId: id, value: Number(order.grand_total), currency: 'BDT' });
 
     await conn.commit();
 

@@ -5,6 +5,7 @@ import "./globals.css";
 import "./lumina.css";
 import { StoreProvider } from "@/stores/StoreContext";
 import PageBeacon from "@/components/analytics/PageBeacon";
+import WebVitals from "@/components/analytics/WebVitals";
 import ScrollToTop from "@/components/layout/ScrollToTop";
 
 // The two brand faces, self-hosted instead of pulled from Google Fonts at
@@ -48,7 +49,7 @@ export default function RootLayout({
     // top, through content the reader has not seen. Declaring it lets Next turn
     // smooth off for the duration of a navigation and put it straight back.
     <html lang="en" data-scroll-behavior="smooth" className={`${fraunces.variable} ${archivo.variable}`}>
-      <body><StoreProvider>{children}</StoreProvider><ScrollToTop /><PageBeacon /></body>
+      <body><StoreProvider>{children}</StoreProvider><ScrollToTop /><PageBeacon /><WebVitals /></body>
     </html>
   );
 }

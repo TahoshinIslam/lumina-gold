@@ -72,19 +72,25 @@ CREATE TABLE `analytics_events` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `session_id` varchar(64) NOT NULL,
   `user_id` bigint(20) unsigned DEFAULT NULL,
-  `event` enum('page_view','product_view','add_to_cart') NOT NULL DEFAULT 'page_view',
+  `event` enum('page_view','product_view','add_to_cart','search','select_item','remove_from_cart','view_cart','begin_checkout','add_shipping_info','add_payment_info','purchase','refund','web_vital') NOT NULL DEFAULT 'page_view',
   `path` varchar(255) NOT NULL,
   `product_id` bigint(20) unsigned DEFAULT NULL,
+  `value` decimal(12,2) DEFAULT NULL,
+  `currency` char(3) DEFAULT NULL,
+  `order_id` bigint(20) unsigned DEFAULT NULL,
+  `label` varchar(120) DEFAULT NULL,
   `referrer_source` enum('direct','organic','social','referral','email') NOT NULL DEFAULT 'direct',
   `referrer_host` varchar(190) DEFAULT NULL,
   `country` char(2) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_ae_order_event` (`order_id`,`event`),
   KEY `idx_ae_created` (`created_at`),
   KEY `idx_ae_session` (`session_id`),
   KEY `idx_ae_event` (`event`,`created_at`),
   KEY `idx_ae_source` (`referrer_source`,`created_at`),
-  KEY `idx_ae_country` (`country`,`created_at`)
+  KEY `idx_ae_country` (`country`,`created_at`),
+  CONSTRAINT `fk_ae_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `attribute_values` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -491,6 +497,7 @@ CREATE TABLE `orders` (
   `user_id` bigint(20) unsigned DEFAULT NULL,
   `address_id` bigint(20) unsigned DEFAULT NULL,
   `status` enum('reserved','pending','confirmed','processing','crafting','hallmarking','diamond_setting','polishing','quality_check','packed','ready_to_ship','shipped','out_for_delivery','delivered','cancelled','returned','refunded','expired') NOT NULL DEFAULT 'pending',
+  `is_test` tinyint(1) NOT NULL DEFAULT 0,
   `reserved_until` datetime DEFAULT NULL,
   `currency` char(3) NOT NULL DEFAULT 'BDT',
   `subtotal` decimal(12,2) NOT NULL,
@@ -526,6 +533,7 @@ CREATE TABLE `orders` (
   KEY `fk_order_coupon` (`coupon_id`),
   KEY `idx_orders_status` (`status`,`placed_at`),
   KEY `idx_orders_reserved` (`status`,`reserved_until`),
+  KEY `idx_orders_is_test` (`is_test`,`placed_at`),
   CONSTRAINT `fk_order_coupon` FOREIGN KEY (`coupon_id`) REFERENCES `coupons` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_order_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

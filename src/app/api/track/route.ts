@@ -40,6 +40,22 @@ function classify(referrer: string | null, host: string) {
   return { source, refHost: h.slice(0, 190) };
 }
 
+/**
+ * Strip identifiers out of a path before it is stored.
+ *
+ * `/account/orders/LUM-2026-123456` and `/checkout/success/LUM-2026-123456` were
+ * being written to analytics verbatim. An order number is not a name, but it
+ * points at exactly one person's purchase, and the funnel does not need it — the
+ * useful fact is "someone looked at an order page", not which order. So the id
+ * is collapsed and the shape of the page is kept.
+ */
+export function redactPath(path: string): string {
+  return path
+    .replace(/\/(account\/orders|checkout\/success)\/[^/?#]+/, '/$1/:orderNo')
+    // Any other trailing all-caps/number id (an order no. is LUM-YYYY-NNNNNN).
+    .replace(/\/LUM-\d{4}-\d+/gi, '/:orderNo');
+}
+
 export async function POST(req: NextRequest) {
   // Unauthenticated by design — it counts page views — but it also INSERTs on
   // every call, so left open it is a free way to flood the analytics tables.
@@ -55,21 +71,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { path?: unknown; referrer?: unknown; event?: unknown };
+  let body: { path?: unknown; referrer?: unknown; event?: unknown; label?: unknown; value?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const path = typeof body.path === 'string' ? body.path.slice(0, 255) : '';
-  if (!path.startsWith('/') || path.startsWith('/admin') || path.startsWith('/api')) {
+  const rawPath = typeof body.path === 'string' ? body.path.slice(0, 255) : '';
+  if (!rawPath.startsWith('/') || rawPath.startsWith('/admin') || rawPath.startsWith('/api')) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+  // An order number in the path is an identifier for a person's purchase, and
+  // analytics has no need of it — /account/orders/LUM-2026-123456 was being
+  // stored verbatim. Collapse it to the shape of the page.
+  const path = redactPath(rawPath);
 
-  // Only add_to_cart is caller-declared; view events are derived from the path
-  // below, so a client cannot inflate product views by claiming an event type.
-  const isAddToCart = body.event === 'add_to_cart';
+  // ── What the client is ALLOWED to claim ───────────────────────────────────
+  // purchase and refund are NOT on this list, and that is the point: they carry
+  // money. A purchase fired from the browser is re-fired on every refresh of the
+  // success page, and its value would be a number the browser chose. Both are
+  // written server-side instead, inside the order's own transaction
+  // (@/server/analytics). A client asking for one is refused outright.
+  const claimed = typeof body.event === 'string' ? body.event : null;
+  if (claimed === 'purchase' || claimed === 'refund') {
+    return NextResponse.json({ ok: false, error: 'server-only event' }, { status: 403 });
+  }
+  const CLIENT_EVENTS = [
+    'add_to_cart', 'remove_from_cart', 'view_cart', 'search', 'select_item',
+    'begin_checkout', 'add_shipping_info', 'add_payment_info', 'web_vital',
+  ] as const;
+  const declared = CLIENT_EVENTS.includes(claimed as (typeof CLIENT_EVENTS)[number])
+    ? (claimed as (typeof CLIENT_EVENTS)[number])
+    : null;
 
   const referrer = typeof body.referrer === 'string' && body.referrer ? body.referrer : null;
   const { source, refHost } = classify(referrer, req.headers.get('host') ?? '');
@@ -91,13 +125,22 @@ export async function POST(req: NextRequest) {
     productId = row?.id ?? null;
   }
 
-  const event = isAddToCart ? 'add_to_cart' : productId ? 'product_view' : 'page_view';
+  // A declared event wins; otherwise the view type is DERIVED from the path, so
+  // a client still cannot inflate product views by claiming to be on one.
+  const event = declared ?? (productId ? 'product_view' : 'page_view');
+
+  // `label` carries the search term / web-vital name / payment method. `value`
+  // is only ever a web-vital measurement here — money never comes from a client.
+  const label = typeof body.label === 'string' ? body.label.slice(0, 120) : null;
+  const value = event === 'web_vital' && typeof body.value === 'number' && Number.isFinite(body.value)
+    ? Math.round(body.value * 100) / 100
+    : null;
 
   await query(
     `INSERT INTO analytics_events
-       (session_id, event, path, product_id, referrer_source, referrer_host, country)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [sessionId, event, path, productId, source, refHost, country?.slice(0, 2) ?? null],
+       (session_id, event, path, product_id, referrer_source, referrer_host, country, label, value)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [sessionId, event, path, productId, source, refHost, country?.slice(0, 2) ?? null, label, value],
   );
 
   const res = NextResponse.json({ ok: true });

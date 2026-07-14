@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { formatPrice, type Product } from '@/types/product';
+import { track } from '@/features/analytics/track';
 
 /**
  * SearchBox — magnifier button that opens an overlay with live, debounced
@@ -63,6 +64,9 @@ export default function SearchBox() {
     e.preventDefault();
     if (!term.trim()) return;
     setOpen(false);
+    // The search TERM is the point of the event. It is truncated and never
+    // joined to a user id — the session is a random uuid.
+    track('search', { label: term.trim() });
     router.push(`/shop?q=${encodeURIComponent(term.trim())}`);
   };
 

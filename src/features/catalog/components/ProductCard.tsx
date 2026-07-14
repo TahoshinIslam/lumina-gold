@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Product, formatPrice, metalLabel, productBadge } from '@/types/product';
 import { firstImage } from '@/features/catalog/image';
 import ProductImage from '@/features/shared/ProductImage';
+import { track } from '@/features/analytics/track';
 
 /**
  * ProductCard — grid tile used on listing pages and "You may also like".
@@ -42,7 +43,13 @@ export default function ProductCard({
         </svg>
       </button>
 
-      <Link href={`/products/${product.slug}`} className="lum-pcard-link">
+      {/* select_item — the click that takes a shopper from a listing into a
+          product. It is what turns "impressions" into a real funnel step. */}
+      <Link
+        href={`/products/${product.slug}`}
+        className="lum-pcard-link"
+        onClick={() => track('select_item', { label: product.sku })}
+      >
         <div className="lum-prod-media">
           <div className="lum-prod-zoom lum-img-ph">
             {/* Grid card: ~250–350px wide (auto-fit minmax(250px,1fr)), full-width

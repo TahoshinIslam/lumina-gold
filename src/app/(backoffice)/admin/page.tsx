@@ -7,8 +7,11 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const REVENUE_OK = "status NOT IN ('cancelled','returned','refunded')";
-const COMPLETED = "status IN ('confirmed','processing','ready_to_ship','shipped','delivered')";
+// `is_test = 0` on both: an order placed to check the checkout works is not
+// revenue, and it is not a sale. Without this a single test order against
+// production quietly inflated every figure on this page for thirty days.
+const REVENUE_OK = "status NOT IN ('cancelled','returned','refunded') AND is_test = 0";
+const COMPLETED = "status IN ('confirmed','processing','ready_to_ship','shipped','delivered') AND is_test = 0";
 const MONTHLY_TARGET = 15_000_000; // BDT — editable later in Settings
 
 /** Current vs the equivalent preceding window. */

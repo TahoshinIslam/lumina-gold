@@ -34,6 +34,8 @@ export interface OrderRow {
   id: number;
   order_no: string;
   status: OrderStatus;
+  /** Placed to check the checkout works — excluded from revenue and the funnel. */
+  is_test: number;
   payment_method: string;
   payment_status: string;
   currency: string;

@@ -15,6 +15,7 @@ import {
 } from '@/app/(checkout)/checkout/actions';
 import AddressDialog from './AddressDialog';
 import { runAction } from '@/features/shared/runAction';
+import { track } from '@/features/analytics/track';
 
 /**
  * Checkout — address, payment, coupon, notes, and a summary priced by the server.
@@ -91,6 +92,9 @@ export default function CheckoutPage() {
   const items = useMemo(() => JSON.parse(itemsKey) as {
     sku: string; qty: number; size?: string; purity?: string; engraving?: string;
   }[], [itemsKey]);
+
+  // begin_checkout — one per arrival at the checkout, on mount only.
+  useEffect(() => { track('begin_checkout'); }, []);
 
   const absorb = useCallback((next: CheckoutState) => {
     setState(next);
@@ -239,7 +243,7 @@ export default function CheckoutPage() {
                   {state.addresses.map(address => (
                     <label key={address.id} className={`lum-addr${addressId === address.id ? ' is-on' : ''}`}>
                       <input type="radio" name="address" checked={addressId === address.id}
-                        onChange={() => setAddressId(address.id)} />
+                        onChange={() => { setAddressId(address.id); track('add_shipping_info'); }} />
                       <div className="lum-addr-body">
                         <div className="lum-addr-head">
                           <strong>{address.name}</strong>
@@ -304,7 +308,7 @@ export default function CheckoutPage() {
               {PAYMENTS.map(option => (
                 <label key={option.id} className={`lum-pay${payment === option.id ? ' is-on' : ''}`}>
                   <input type="radio" name="payment" checked={payment === option.id}
-                    onChange={() => setPayment(option.id)} />
+                    onChange={() => { setPayment(option.id); track('add_payment_info', { label: option.id }); }} />
                   <option.icon size={18} />
                   <div className="lum-pay-body">
                     <div className="lum-pay-label">{option.label}</div>

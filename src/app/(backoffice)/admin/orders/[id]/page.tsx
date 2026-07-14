@@ -5,6 +5,7 @@ import { query } from '@/server/db/client';
 import { ORDER_STATUS, PAYMENT_LABEL, type OrderStatus } from '@/types/order';
 import {
   updateOrderStatusAction, saveShipmentAction, refundOrderAction, saveInternalNoteAction,
+  toggleTestOrderAction,
 } from '../../actions';
 import { AdminInlineForm, ConfirmActionButton } from '@/features/admin/components/AdminFeedback';
 import type { OrderItemRow, OrderRow } from '@/server/dal/orders';
@@ -73,6 +74,21 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
               automatically resellable — it may be damaged or in for repair.
               The default refund leaves it OFF the shelf; restocking is a
               separate, explicit tick. */}
+          {/* A test order is not revenue. Flagging it removes it from every
+              figure on the dashboard and from the purchase funnel. */}
+          <ConfirmActionButton
+            action={toggleTestOrderAction}
+            values={{ id: order.id }}
+            title={order.is_test ? `Restore ${order.order_no} as a real order?` : `Mark ${order.order_no} as a test order?`}
+            description={order.is_test
+              ? 'It will count towards revenue and the sales funnel again.'
+              : 'It will be excluded from revenue and from the sales funnel. Use this for orders placed to check that checkout works.'}
+            confirmLabel={order.is_test ? 'Restore as real' : 'Mark as test'}
+            className="adm-btn"
+            successMessage={order.is_test ? 'Restored as a real order' : 'Marked as a test order'}
+          >
+            {order.is_test ? 'Restore as real' : 'Mark as test'}
+          </ConfirmActionButton>
           <ConfirmActionButton
             action={refundOrderAction}
             values={{ id: order.id, restock: '0' }}

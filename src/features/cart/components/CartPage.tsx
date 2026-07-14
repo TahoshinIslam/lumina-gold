@@ -4,8 +4,14 @@ import Link from 'next/link';
 import { useStore, cartLineKey } from '@/stores/StoreContext';
 import { useProductsBySkus } from '@/features/catalog/useProductsBySkus';
 import { formatPrice } from '@/types/product';
+import { useEffect } from 'react';
+import { track } from '@/features/analytics/track';
 
 export default function CartPage() {
+  // view_cart — one per visit to the bag. The effect runs on mount only, so a
+  // re-render (removing a line) does not book a second view.
+  useEffect(() => { track('view_cart'); }, []);
+
   const { cart, cartSubtotal, updateQty, removeFromCart } = useStore();
   const tax = Math.round(cartSubtotal * 0.05);
   const grand = cartSubtotal + tax;
