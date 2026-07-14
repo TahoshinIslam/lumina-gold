@@ -46,4 +46,19 @@ export function assertSecrets(): void {
         'Set ADMIN_PASSWORD and AUTH_SECRET in the environment before starting.\n',
     );
   }
+
+  // DB_PASSWORD is WARNED, not hard-failed, and the difference is deliberate.
+  // An empty database password in production is almost always a mistake — but
+  // not always: a MariaDB bound to localhost with socket auth is a legitimate
+  // setup where there is no password to set. Blocking the boot would take down
+  // that deploy for a config we cannot prove is wrong. So we make it loud
+  // instead of fatal: the operator sees it every start and can act, and a real
+  // mistake is not silent.
+  if (!process.env.DB_PASSWORD) {
+    console.warn(
+      '⚠️  DB_PASSWORD is empty in production. If your database is reachable ' +
+        'beyond localhost, this is an open door — set a password. (Ignore this ' +
+        'only if the DB is localhost-bound with socket authentication.)',
+    );
+  }
 }

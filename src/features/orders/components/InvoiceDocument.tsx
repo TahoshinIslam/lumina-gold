@@ -1,4 +1,5 @@
 import QRCode from 'qrcode';
+import { siteUrl } from '@/config/site';
 import type { OrderDetail } from '@/server/dal/orders';
 import { ORDER_STATUS, PAYMENT_LABEL } from '@/types/order';
 import { code128 } from '@/features/orders/barcode';
@@ -34,7 +35,7 @@ export default async function InvoiceDocument({ order, backHref }: {
 }) {
   // The QR resolves to this order's tracking page — a courier or a boutique can
   // scan the paper and land on the live status.
-  const trackUrl = `https://naharjewellers.com/account/orders/${order.order_no}`;
+  const trackUrl = siteUrl(`/account/orders/${order.order_no}`);
   const qr = await QRCode.toDataURL(trackUrl, {
     margin: 0, width: 220, color: { dark: '#171714', light: '#ffffff' },
   });
