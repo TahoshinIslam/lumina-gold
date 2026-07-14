@@ -6,7 +6,8 @@ import Footer from '@/components/layout/Footer';
 import ShopPage from '@/features/catalog/components/ShopPage';
 import { allPresetParams, findPreset } from '@/features/catalog/presets';
 import { presetCrumbs } from '@/features/catalog/breadcrumbs';
-import { getFacetOptions, getStorefrontProducts, type MainCategory } from '@/server/dal/catalog';
+import type { MainCategory } from '@/server/dal/catalog';
+import { getListing } from '@/server/dal/browse';
 
 // Live DB data — see src/app/(storefront)/shop/page.tsx.
 export const dynamic = 'force-dynamic';
@@ -39,30 +40,28 @@ export async function generateMetadata(
 }
 
 export default async function PresetLandingPage(
-  { params }: { params: Promise<{ material: string; entry: string }> },
+  { params, searchParams }: {
+    params: Promise<{ material: string; entry: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
+  },
 ) {
   const { material, entry } = await params;
   const hit = findPreset(material, entry);
   if (!hit) notFound();
 
-  const mainCategory = MAIN_CATEGORY_SLUGS[material];
-  const [products, facetOptions] = await Promise.all([
-    getStorefrontProducts({ mainCategory }),
-    getFacetOptions({ mainCategory }),
-  ]);
+  const listing = await getListing({
+    searchParams: await searchParams,
+    lockedFilters: hit.filters,
+    heading: hit.preset.label,
+    mainCategory: MAIN_CATEGORY_SLUGS[material],
+  });
 
   return (
     <div className="lum-root">
       <Header variant="shop" />
       <main className="lum-page-main">
         <Suspense>
-          <ShopPage
-            lockedFilters={hit.filters}
-            heading={hit.preset.label}
-            crumbs={presetCrumbs(material, entry)}
-            initialProducts={products}
-            facetOptions={facetOptions}
-          />
+          <ShopPage listing={listing} crumbs={presetCrumbs(material, entry)} />
         </Suspense>
       </main>
       <Footer />

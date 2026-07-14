@@ -87,14 +87,15 @@ These show the *shape* of the app's behaviour, not production capacity.
 
 | Browse, 500 users | before | after |
 | --- | --- | --- |
-| Blended p95 | 2.36 s | **439 ms** (threshold 500 — now passes) |
-| Home p95 | 2.06 s | **203 ms** |
-| Product p95 | 9.7 s | **1.58 s** |
-| Shop p95 | 3.8 s | **787 ms** |
-| Search p95 | 690 ms | **125 ms** |
+| Blended p95 | 2.36 s | **169 ms** (threshold 500) |
+| Home p95 | 2.06 s | **152 ms** |
+| Product p95 | 9.7 s | **404 ms** |
+| Shop p95 | 3.8 s | **160 ms** |
+| Search p95 | 690 ms | **108 ms** |
 | Errors | 0% | 0% |
 | Home SQL per render | **47 SELECTs** | **16** |
 | Product SQL per render | **26 SELECTs** | **9** |
+| Listing SQL per render | **10 SELECTs** | **0** |
 | Home page weight | 3,840 KiB | **1,570 KiB** |
 | Home LCP (Lighthouse) | 11.4 s | ~7.3 s |
 
@@ -170,9 +171,33 @@ p95 as the real numbers.)
    collection, own SKU) and **not** on the product object — that carries stock, so
    keying on it would mint a fresh entry on every sale and never hit.
 
+6. **The listings now work themselves out on the server** (`server/dal/browse.ts`).
+   Every listing route used to hand the WHOLE catalogue to the browser and let it
+   filter, sort, count and paginate in memory — fine at fifteen products,
+   indefensible at fifteen hundred, because every listing page carried every
+   product in the shop whether or not it matched. `/shop` fetched the catalogue
+   *twice*, since `getFacetOptions` went and got it again for itself. Now only the
+   page being viewed crosses the wire (`/categories/rings` ships three rings, not
+   fourteen products), and the catalogue behind it is cached: **0 SQL queries per
+   listing request**.
+
+   The filter engine was **not** rewritten into SQL, deliberately. Its rules are
+   subtle — price and carat buckets, "diamond" meaning a gemstone and not a metal,
+   facet-excluded counts — and they are already correct and exercised by the whole
+   shop. Translating nineteen facets into predicates that mean *exactly* the same
+   thing is a wide surface to get quietly wrong, and it would trade one round trip
+   for a dozen COUNT queries per request. Filtering a cached array of a few
+   thousand products takes microseconds. At tens of thousands the answer is a
+   search index, not hand-written SQL.
+
 ### What is still slow
 
-- **`/shop` loads the whole scoped catalogue and filters in memory.** Fine at 15
-  products; it will not be at 1,500. The filtering wants to move into SQL with an
-  index, or the page wants paginating server-side.
+Nothing, at this catalogue size. All three k6 thresholds pass with room to spare
+and every page is under half a second at 500 concurrent users.
+
+The next constraints, when they come:
+
+- **The catalogue array is filtered per request.** O(n) per request in memory. At
+  ~15 products that is free; at tens of thousands it stops being, and the answer
+  then is a search index (Meilisearch/Typesense/OpenSearch), not SQL predicates.
 - Product page Lighthouse: no `<meta name="description">` (SEO 91).

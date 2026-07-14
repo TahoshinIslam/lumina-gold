@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ShopPage from '@/features/catalog/components/ShopPage';
 import { CATEGORY_SLUGS, pluralType } from '@/features/catalog/taxonomy';
-import { getFacetOptions, getStorefrontProducts } from '@/server/dal/catalog';
+import { getListing } from '@/server/dal/browse';
 
 // Live DB data — see src/app/(storefront)/shop/page.tsx.
 export const dynamic = 'force-dynamic';
@@ -25,28 +25,27 @@ export async function generateMetadata(
 
 /** /categories/[type] — a category landing view of the boutique. */
 export default async function CategoryPage(
-  { params }: { params: Promise<{ type: string }> },
+  { params, searchParams }: {
+    params: Promise<{ type: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
+  },
 ) {
   const { type } = await params;
   const jewelleryType = CATEGORY_SLUGS[type];
   if (!jewelleryType) notFound();
 
-  const [products, facetOptions] = await Promise.all([
-    getStorefrontProducts(),
-    getFacetOptions(),
-  ]);
+  const listing = await getListing({
+    searchParams: await searchParams,
+    lockedFilters: { type: [jewelleryType] },
+    heading: pluralType(jewelleryType),
+  });
 
   return (
     <div className="lum-root">
       <Header variant="shop" />
       <main className="lum-page-main">
         <Suspense>
-          <ShopPage
-            lockedFilters={{ type: [jewelleryType] }}
-            heading={pluralType(jewelleryType)}
-            initialProducts={products}
-            facetOptions={facetOptions}
-          />
+          <ShopPage listing={listing} />
         </Suspense>
       </main>
       <Footer />

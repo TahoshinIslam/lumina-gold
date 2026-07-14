@@ -6,7 +6,8 @@ import Footer from '@/components/layout/Footer';
 import ShopPage from '@/features/catalog/components/ShopPage';
 import type { Filters } from '@/features/catalog/filtering';
 import { GEMSTONE_SLUGS, MATERIAL_SLUGS } from '@/features/catalog/taxonomy';
-import { getFacetOptions, getStorefrontProducts, type MainCategory } from '@/server/dal/catalog';
+import type { MainCategory } from '@/server/dal/catalog';
+import { getListing } from '@/server/dal/browse';
 
 // Live DB data per material/gemstone — see src/app/(storefront)/shop/page.tsx.
 export const dynamic = 'force-dynamic';
@@ -44,16 +45,21 @@ export async function generateMetadata(
 
 /** /jewelry/[material] — a material/gemstone landing view of the boutique. */
 export default async function JewelryMaterialPage(
-  { params }: { params: Promise<{ material: string }> },
+  { params, searchParams }: {
+    params: Promise<{ material: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
+  },
 ) {
   const { material } = await params;
   const resolved = resolve(material);
   if (!resolved) notFound();
 
-  const [products, facetOptions] = await Promise.all([
-    getStorefrontProducts({ mainCategory: resolved.mainCategory }),
-    getFacetOptions({ mainCategory: resolved.mainCategory }),
-  ]);
+  const listing = await getListing({
+    searchParams: await searchParams,
+    lockedFilters: resolved.filters,
+    heading: resolved.heading,
+    mainCategory: resolved.mainCategory,
+  });
 
   return (
     <div className="lum-root">
@@ -61,11 +67,8 @@ export default async function JewelryMaterialPage(
       <main className="lum-page-main">
         <Suspense>
           <ShopPage
-            lockedFilters={resolved.filters}
-            heading={resolved.heading}
+            listing={listing}
             crumbs={[{ label: 'Home', href: '/' }, { label: resolved.crumb }]}
-            initialProducts={products}
-            facetOptions={facetOptions}
           />
         </Suspense>
       </main>

@@ -12,6 +12,7 @@ import { homeSection } from '@/config/home';
 import { readingMinutes } from '@/server/dal/journal';
 import { HOME_TAG } from '@/server/dal/homepage';
 import { PRODUCT_RAILS_TAG } from '@/server/dal/productpage';
+import { CATALOG_TAG } from '@/server/dal/browse';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
@@ -41,6 +42,12 @@ function revalidateStorefront() {
   // no cheap way to know which rails a given piece appears in.
   revalidateTag(PRODUCT_RAILS_TAG, { expire: 0 });
   revalidatePath('/products', 'layout');
+  // Every listing — /shop, /categories/*, /jewelry/* — filters a cached copy of
+  // the catalogue. A saved product can change what is in it, what it costs, and
+  // therefore which filters it answers to.
+  revalidateTag(CATALOG_TAG, { expire: 0 });
+  revalidatePath('/categories', 'layout');
+  revalidatePath('/jewelry', 'layout');
 }
 
 /** A campaign appears as the home page banner and at /campaigns/[slug]; the admin
