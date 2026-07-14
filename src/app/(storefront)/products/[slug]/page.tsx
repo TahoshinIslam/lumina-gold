@@ -6,6 +6,7 @@ import ProductDetail from '@/features/product/components/ProductDetail';
 import { getProductBySlug } from '@/server/dal/catalog';
 import { getProductRails } from '@/server/dal/productpage';
 import ProductReviews from '@/features/reviews/components/ProductReviews';
+import { certificateUrl } from '@/server/documents';
 
 // Real variant data (price/stock/SKU per combination), so render on demand.
 export const dynamic = 'force-dynamic';
@@ -34,11 +35,22 @@ export default async function ProductPage(
   // stock and price have to be true on the page where somebody buys it.
   const [related, featured] = await getProductRails(product);
 
+  // The certificate is a private document now. The client used to guess its URL
+  // (/uploads/products/<SKU>/certificate.pdf) and HEAD it — which is exactly why
+  // it was enumerable. The server checks whether one exists and, if so, mints a
+  // signed URL that expires; the browser never learns where the file really is.
+  const certificate = await certificateUrl(product.sku);
+
   return (
     <div className="lum-root">
       <Header variant="shop" />
       <main className="lum-page-main">
-        <ProductDetail product={product} related={related} featured={featured} />
+        <ProductDetail
+          product={product}
+          related={related}
+          featured={featured}
+          certificateUrl={certificate}
+        />
         {/* Reviews are their own server component so the "has this person
             actually received this piece?" check runs on the server. */}
         <ProductReviews productId={Number(product.id)} />

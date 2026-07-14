@@ -9,6 +9,7 @@ import {
 import {
   hashPassword, verifyPassword, setCustomerSession, clearCustomerSession, getCurrentCustomer,
 } from '@/server/auth/customer';
+import { hit, reset, clientKey, LIMITS } from '@/server/security/rateLimit';
 
 /** BD phone: 11 digits starting 01, optionally +880 prefix. Normalise to 01XXXXXXXXX. */
 function normalizePhone(raw: string): string | null {
@@ -17,6 +18,10 @@ function normalizePhone(raw: string): string | null {
 }
 
 export async function registerCustomerAction(formData: FormData) {
+  // Otherwise a script can mint accounts in bulk (and with them, reviews).
+  const reg = hit(await clientKey('register'), LIMITS.register.limit, LIMITS.register.windowSec);
+  if (!reg.ok) redirect('/account/register?error=throttled');
+
   const name = String(formData.get('name') || '').trim();
   const phoneRaw = String(formData.get('phone') || '');
   const email = String(formData.get('email') || '').trim() || null;
@@ -38,6 +43,12 @@ export async function registerCustomerAction(formData: FormData) {
 }
 
 export async function loginCustomerAction(formData: FormData) {
+  // Customer passwords are chosen by customers, so this is the endpoint a
+  // credential-stuffing list gets pointed at.
+  const key = await clientKey('customer-login');
+  const gate = hit(key, LIMITS.login.limit, LIMITS.login.windowSec);
+  if (!gate.ok) redirect('/account/login?error=throttled');
+
   const phone = normalizePhone(String(formData.get('phone') || ''));
   const password = String(formData.get('password') || '');
   if (!phone) redirect('/account/login?error=invalid');
@@ -46,9 +57,13 @@ export async function loginCustomerAction(formData: FormData) {
     'SELECT id, password_hash FROM users WHERE phone = ? AND is_active = 1', [phone],
   );
   const user = rows[0];
+  // One message for "no such phone" and for "wrong password", deliberately:
+  // a distinct error would confirm which numbers are registered customers.
   if (!user || !user.password_hash || !verifyPassword(password, user.password_hash)) {
     redirect('/account/login?error=invalid');
   }
+
+  reset(key);
   await setCustomerSession(user.id);
   redirect('/account');
 }

@@ -3,6 +3,12 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 
+// The CSP nonce (src/proxy.ts) is minted per request, so a page prerendered at
+// build time would ship inline scripts with no nonce and the browser would block
+// them — a dead page. Nothing here was worth prerendering anyway.
+export const dynamic = 'force-dynamic';
+
+
 export const metadata: Metadata = {
   title: 'Boutiques — Nahar Jewellers',
   description: 'Visit a Nahar Jewellers maison. Discover our boutiques and book a private appointment.',

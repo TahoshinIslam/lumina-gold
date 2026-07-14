@@ -13,6 +13,7 @@ import {
   type Address, type AddressInput,
 } from '@/server/dal/addresses';
 import { isPaymentMethod, type PaymentMethod } from '@/config/payments';
+import { hit, clientKey, LIMITS } from '@/server/security/rateLimit';
 
 // A 'use server' module may only export async functions. That includes type
 // re-exports: `export type { AccountOutcome }` compiles to a RUNTIME re-export
@@ -150,6 +151,15 @@ export async function setDefaultAddressAction(formData: FormData): Promise<Actio
 
 /** The subtotal is recomputed from the bag — a client can't claim a big one to unlock a code. */
 export async function applyCouponAction(code: string, items: CartLineInput[]) {
+  // Coupon codes are short and guessable ("SAVE10", "EID20"). An endpoint that
+  // will check them forever is an oracle: you enumerate every live discount on
+  // the site at your leisure. 15 tries per 10 minutes is plenty for a shopper
+  // typing a code off an email and useless for a dictionary.
+  const gate = hit(await clientKey('coupon'), LIMITS.coupon.limit, LIMITS.coupon.windowSec);
+  if (!gate.ok) {
+    return { ok: false as const, error: 'Too many coupon attempts. Please try again shortly.' };
+  }
+
   const { lines } = await priceCart(items);
   const { subtotal } = totalsFor(lines);
   return checkCoupon(code, subtotal);
@@ -193,6 +203,13 @@ export interface PlaceOrderResult {
 export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrderResult> {
   const customer = await getCurrentCustomer();
   if (!customer) return { ok: false, error: 'Please add a delivery address to continue.' };
+
+  // An order writes stock and reserves inventory. Scripted repetition is how
+  // you exhaust a catalogue without ever paying for it.
+  const gate = hit(await clientKey('checkout'), LIMITS.checkout.limit, LIMITS.checkout.windowSec);
+  if (!gate.ok) {
+    return { ok: false, error: 'Too many attempts. Please wait a moment and try again.' };
+  }
 
   if (!input.items?.length) return { ok: false, error: 'Your bag is empty.' };
   if (!isPaymentMethod(input.payment)) {

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { query } from '@/server/db/client';
+import { SESSION_COOKIE_OPTIONS } from '@/server/auth/cookieOptions';
+import { isSameOrigin } from '@/server/security/origin';
+import { hit, clientKey } from '@/server/security/rateLimit';
 
 /**
  * Storefront analytics sink. One row per view — this is what the dashboard's
@@ -38,6 +41,20 @@ function classify(referrer: string | null, host: string) {
 }
 
 export async function POST(req: NextRequest) {
+  // Unauthenticated by design — it counts page views — but it also INSERTs on
+  // every call, so left open it is a free way to flood the analytics tables.
+  // Same-origin only, and capped.
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ ok: false }, { status: 403 });
+  }
+  const gate = hit(await clientKey('track'), 120, 60);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false },
+      { status: 429, headers: { 'Retry-After': String(gate.retryAfterSec) } },
+    );
+  }
+
   let body: { path?: unknown; referrer?: unknown; event?: unknown };
   try {
     body = await req.json();
@@ -86,7 +103,7 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true });
   if (isNewSession) {
     res.cookies.set(SESSION_COOKIE, sessionId, {
-      httpOnly: true, sameSite: 'lax', path: '/', maxAge: SESSION_MAX_AGE,
+      ...SESSION_COOKIE_OPTIONS, maxAge: SESSION_MAX_AGE,
     });
   }
   return res;

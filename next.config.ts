@@ -1,6 +1,50 @@
 import type { NextConfig } from "next";
 
+/**
+ * Security headers that are the same on every request, so they belong here
+ * rather than in the proxy — this way they also cover static assets and
+ * /uploads, which the proxy deliberately skips.
+ *
+ * The Content-Security-Policy is NOT here: it carries a per-request nonce and
+ * so has to be built in src/proxy.ts.
+ */
+const SECURITY_HEADERS = [
+  // Two years, subdomains included, and preload-eligible. Ignored by browsers
+  // over plain HTTP, so it is inert in local dev and arms itself in production.
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  // Stops the browser second-guessing a Content-Type. Load-bearing here: review
+  // videos are the one upload we do not re-encode, so a file that lies about
+  // being a video must never be sniffed into being executed as something else.
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  // Send the full URL to ourselves, only the origin cross-site, nothing over
+  // plain HTTP. Keeps order numbers and account paths out of third-party logs.
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // We ask for none of these. An injected script cannot turn on the camera.
+  {
+    key: "Permissions-Policy",
+    value:
+      "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), interest-cohort=()",
+  },
+  // Severs window.opener between us and anything we open, and vice versa.
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // frame-ancestors 'none' in the CSP already says this; X-Frame-Options is the
+  // fallback for anything that does not implement CSP level 2.
+  { key: "X-Frame-Options", value: "DENY" },
+  // Do not advertise the framework and its version to a scanner.
+  { key: "X-DNS-Prefetch-Control", value: "off" },
+];
+
 const nextConfig: NextConfig = {
+  // Suppress `X-Powered-By: Next.js` — free reconnaissance for an attacker.
+  poweredByHeader: false,
+
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+  },
+
   turbopack: {
     root: __dirname,
   },

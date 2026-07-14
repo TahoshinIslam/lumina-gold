@@ -1,31 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
-import { ADMIN_COOKIE, adminToken } from '@/server/auth/admin';
+import { guardAdminRoute } from '@/server/security/guard';
+import { sniffFile } from '@/server/security/fileType';
+import { certificateFile, safeSku } from '@/server/documents';
 
 /**
  * POST /api/admin/upload-doc  (multipart: sku, file)
- * Saves a Certificate of Authenticity to
- * public/uploads/products/<SKU>/certificate.pdf and returns its public path.
- * The product page finds it by that convention, so no DB column is needed —
- * which is also why the filename is fixed: re-uploading replaces the old one.
- * Admin-cookie guarded, same as the image route.
+ *
+ * Saves a Certificate of Authenticity to private-uploads/products/<SKU>/, which
+ * is OUTSIDE public/ and therefore served by nothing. It used to go into
+ * public/uploads, where the static handler would hand it to anyone who asked —
+ * and since the filename is a fixed convention, "anyone who asked" meant anyone
+ * who could guess a SKU. The SKU is printed on the product page.
+ *
+ * The bytes now come back out only through /api/documents, against a signed,
+ * expiring URL minted server-side (@/server/documents).
  */
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const jar = await cookies();
-  if (jar.get(ADMIN_COOKIE)?.value !== adminToken()) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await guardAdminRoute(req);
+  if (denied) return denied;
 
   const form = await req.formData();
   const file = form.get('file') as File | null;
   const skuRaw = String(form.get('sku') || '').trim();
   if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
   if (!skuRaw) return NextResponse.json({ error: 'SKU required before uploading a certificate' }, { status: 400 });
-  if (file.type !== 'application/pdf') {
+  // A certificate is served for download, never re-encoded, so this is the
+  // only thing standing between an admin session and an arbitrary file on
+  // disk with a .pdf name. Check the %PDF signature, not the Content-Type.
+  if ((await sniffFile(file)) !== 'pdf') {
     return NextResponse.json({ error: 'Only PDF files are allowed' }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
@@ -34,12 +40,14 @@ export async function POST(req: NextRequest) {
 
   // The SKU becomes a path segment, so strip anything that could escape the
   // uploads folder (../, absolute paths) before it ever touches the filesystem.
-  const sku = skuRaw.replace(/[^A-Za-z0-9._-]/g, '');
+  const sku = safeSku(skuRaw);
   if (!sku) return NextResponse.json({ error: 'Invalid SKU' }, { status: 400 });
 
-  const dir = path.join(process.cwd(), 'public', 'uploads', 'products', sku);
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, 'certificate.pdf'), Buffer.from(await file.arrayBuffer()));
+  const dest = certificateFile(sku);
+  await mkdir(path.dirname(dest), { recursive: true });
+  await writeFile(dest, Buffer.from(await file.arrayBuffer()));
 
-  return NextResponse.json({ ok: true, path: `/uploads/products/${sku}/certificate.pdf` });
+  // No path comes back: there is no URL a caller can keep. The product page
+  // gets a fresh signed one, minted per render, from the server.
+  return NextResponse.json({ ok: true });
 }

@@ -13,6 +13,9 @@ import { readingMinutes } from '@/server/dal/journal';
 import { HOME_TAG } from '@/server/dal/homepage';
 import { PRODUCT_RAILS_TAG } from '@/server/dal/productpage';
 import { CATALOG_TAG } from '@/server/dal/browse';
+import { SESSION_COOKIE_OPTIONS } from '@/server/auth/cookieOptions';
+import { hit, reset, clientKey, LIMITS } from '@/server/security/rateLimit';
+import { audit } from '@/server/security/audit';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
@@ -67,13 +70,33 @@ function feedbackUrl(url: string, message: string, tone: 'success' | 'warning' |
 /* ── Auth ─────────────────────────────────────────────────────────────── */
 
 export async function loginAction(formData: FormData) {
+  // The whole admin surface is one shared password, and it DEFAULTS to
+  // "lumina123". Without this, an attacker gets unlimited guesses at it —
+  // which is not a brute-force risk so much as a guarantee. Five tries per
+  // quarter-hour, per IP.
+  const key = await clientKey('admin-login');
+  const gate = hit(key, LIMITS.login.limit, LIMITS.login.windowSec);
+  if (!gate.ok) {
+    redirect(`/admin/login?error=throttled&retry=${gate.retryAfterSec}`);
+  }
+
   const password = String(formData.get('password') || '');
   if (!checkPassword(password)) {
+    // A failed admin sign-in is the single highest-signal event on the site: a
+    // run of these from one IP IS the attack, and without a row here nobody
+    // would ever know it happened.
+    await audit({ action: 'admin.login_failed', entityType: 'admin' });
     redirect('/admin/login?error=1');
   }
+
+  // Signed in: forget the failures, so a legitimate admin who mistyped twice
+  // is not left one attempt from a lockout.
+  reset(key);
+  await audit({ action: 'admin.login', entityType: 'admin' });
+
   const jar = await cookies();
   jar.set(ADMIN_COOKIE, adminToken(), {
-    httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 12,
+    ...SESSION_COOKIE_OPTIONS, maxAge: 60 * 60 * 12,
   });
   redirect('/admin');
 }
@@ -465,6 +488,9 @@ export async function deleteProductAction(formData: FormData) {
     const rows = await query<{ sku: string }>('SELECT sku FROM products WHERE id = ?', [id]);
     await query('DELETE FROM products WHERE id = ?', [id]); // FK cascades (variants, images, pricing, inventory rows)
     if (rows[0]) await rm(productUploadDir(rows[0].sku), { recursive: true, force: true }).catch(() => {});
+    // Cascades through variants, images, pricing and inventory, and takes the
+    // upload folder with it. Irreversible, so it is recorded.
+    await audit({ action: 'product.delete', entityType: 'product', entityId: id, before: rows[0] ?? null });
   }
   revalidateStorefront();
 }
@@ -475,6 +501,7 @@ export async function bulkDeleteProductsAction(formData: FormData) {
     const rows = await query<{ sku: string }>(`SELECT sku FROM products WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
     await query(`DELETE FROM products WHERE id IN (${ids.map(() => '?').join(',')})`, ids); // FK cascades
     await Promise.all(rows.map(r => rm(productUploadDir(r.sku), { recursive: true, force: true }).catch(() => {})));
+    await audit({ action: 'product.bulk_delete', entityType: 'product', before: { ids, skus: rows.map(r => r.sku) } });
   }
   revalidateStorefront();
 }
@@ -688,6 +715,11 @@ export async function addRateAction(formData: FormData) {
     'INSERT INTO metal_rates (purity_id, rate_per_gram, effective_from) VALUES (?, ?, NOW())',
     [purityId, rate],
   );
+  // One row here re-prices every rate-based piece in the shop. It is the single
+  // most consequential thing an admin can do, and until now it left no trace.
+  await audit({ action: 'rate.publish', entityType: 'metal_rate', entityId: purityId,
+                after: { purityId, ratePerGram: rate } });
+
   revalidatePath('/admin/rates');
   // A new rate re-prices every rate-based piece, so the whole storefront is now
   // stale — the home showcases and every listing. Without this the cached home
@@ -850,6 +882,13 @@ async function setOrderStatus(id: number, status: string, note: string) {
     );
     await reconcileStock(conn, id, order.status, status);
     await conn.commit();
+
+    // Changing an order's status moves stock. Logged after the COMMIT, so the
+    // log can never claim a change that was rolled back.
+    await audit({
+      action: 'order.status', entityType: 'order', entityId: id,
+      before: { status: order.status }, after: { status, note },
+    });
   } catch (e) {
     await conn.rollback();
     return { ok: false, message: e instanceof Error ? e.message : 'Could not update the order' };
@@ -1074,6 +1113,15 @@ export async function refundOrderAction(formData: FormData) {
     );
 
     await conn.commit();
+
+    // Money leaving the business. If any single row in this table matters, it is
+    // this one — written after the COMMIT, so the log never claims a refund that
+    // was rolled back.
+    await audit({
+      action: 'order.refund', entityType: 'order', entityId: id,
+      before: { status: order.status, orderNo: order.order_no },
+      after: { status: 'refunded', amount: order.grand_total, method: order.payment_method, reason },
+    });
   } catch (e) {
     await conn.rollback();
     return { ok: false, message: e instanceof Error ? e.message : 'Could not refund' };

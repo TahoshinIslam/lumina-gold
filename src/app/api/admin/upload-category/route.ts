@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import sharp from 'sharp';
-import { ADMIN_COOKIE, adminToken } from '@/server/auth/admin';
+import { guardAdminRoute } from '@/server/security/guard';
+import { sniffFile, IMAGE_TYPES as SIG_IMAGE } from '@/server/security/fileType';
 
 /**
  * POST /api/admin/upload-category  (multipart: slug, file)
@@ -21,16 +21,17 @@ import { ADMIN_COOKIE, adminToken } from '@/server/auth/admin';
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const jar = await cookies();
-  if (jar.get(ADMIN_COOKIE)?.value !== adminToken()) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const denied = await guardAdminRoute(req);
+  if (denied) return denied;
 
   const form = await req.formData();
   const file = form.get('file') as File | null;
   const slugRaw = String(form.get('slug') || '').trim();
   if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
-  if (!file.type.startsWith('image/')) {
+  // Magic bytes, not the client-supplied Content-Type. sharp would reject a
+  // non-image anyway, but the rejection is cheaper and the error honest.
+  const sniffed = await sniffFile(file);
+  if (!sniffed || !SIG_IMAGE.includes(sniffed)) {
     return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {

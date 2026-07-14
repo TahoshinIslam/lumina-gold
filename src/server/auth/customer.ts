@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { query } from '@/server/db/client';
+import { SESSION_COOKIE_OPTIONS } from '@/server/auth/cookieOptions';
 
 /**
  * Storefront customer auth — phone + password.
@@ -47,7 +48,7 @@ function verifyToken(token: string): number | null {
 export async function setCustomerSession(userId: number): Promise<void> {
   const jar = await cookies();
   jar.set(CUSTOMER_COOKIE, sign(userId), {
-    httpOnly: true, sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 30,
+    ...SESSION_COOKIE_OPTIONS, maxAge: 60 * 60 * 24 * 30,
   });
 }
 

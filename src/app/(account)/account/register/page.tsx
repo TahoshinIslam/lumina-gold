@@ -12,6 +12,7 @@ const ERRORS: Record<string, string> = {
   missing: 'Please enter your name and a valid phone number.',
   weak: 'Password must be at least 6 characters.',
   exists: 'An account with this phone number already exists — sign in instead.',
+  throttled: 'Too many attempts. Please wait a few minutes and try again.',
 };
 
 export default async function RegisterPage({

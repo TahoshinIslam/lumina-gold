@@ -4,6 +4,12 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { GEMSTONE_SLUGS, MATERIAL_SLUGS } from '@/features/catalog/taxonomy';
 
+// The CSP nonce (src/proxy.ts) is minted per request, so a page prerendered at
+// build time would ship inline scripts with no nonce and the browser would block
+// them — a dead page. Nothing here was worth prerendering anyway.
+export const dynamic = 'force-dynamic';
+
+
 export const metadata: Metadata = {
   title: 'Shop by Material — Nahar Jewellers',
   description: 'Browse haute joaillerie by metal and gemstone — gold, platinum, silver and diamond.',

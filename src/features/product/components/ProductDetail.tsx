@@ -57,10 +57,19 @@ export default function ProductDetail({
   product,
   related = [],
   featured = [],
+  certificateUrl: certUrl = null,
 }: {
   product: Product;
   related?: Product[];
   featured?: Product[];
+  /**
+   * A signed, expiring URL for the Certificate of Authenticity, or null if the
+   * boutique hasn't uploaded one. Minted on the SERVER (see @/server/documents)
+   * — the client cannot construct this, which is the point: the old code built
+   * the URL itself from the SKU, which made every certificate on the site
+   * enumerable by anyone who could count.
+   */
+  certificateUrl?: string | null;
 }) {
   const { wished, toggleWish, addToCart, pushRecent, recent } = useStore();
 
@@ -90,7 +99,6 @@ export default function ProductDetail({
   const [added, setAdded] = useState(false);
   const [needSelection, setNeedSelection] = useState(false);
 
-  const [certUrl, setCertUrl] = useState<string | null>(null);
 
   const selectedVariant = hasVariants
     ? variants.find(vr =>
@@ -114,17 +122,6 @@ export default function ProductDetail({
 
   // Record this product as recently viewed (once on mount).
   useEffect(() => { pushRecent(product.sku); }, [product.sku, pushRecent]);
-
-  // Certificate of Authenticity: shown only if the admin has uploaded a PDF
-  // to the product's folder (convention: /uploads/products/<SKU>/certificate.pdf).
-  useEffect(() => {
-    let cancelled = false;
-    const url = `/uploads/products/${product.sku}/certificate.pdf`;
-    fetch(url, { method: 'HEAD' })
-      .then(res => { if (!cancelled && res.ok) setCertUrl(url); })
-      .catch(() => { /* no certificate on file */ });
-    return () => { cancelled = true; };
-  }, [product.sku]);
 
   // Recently viewed SKUs are tracked client-side (localStorage), so they're
   // resolved to live product data via a lookup API rather than a mock array.

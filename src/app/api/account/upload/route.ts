@@ -4,6 +4,9 @@ import { randomBytes } from 'crypto';
 import path from 'path';
 import sharp from 'sharp';
 import { getCurrentCustomer } from '@/server/auth/customer';
+import { isSameOrigin } from '@/server/security/origin';
+import { hit, clientKey, LIMITS as RL } from '@/server/security/rateLimit';
+import { sniffFile, IMAGE_TYPES as SIG_IMAGE, VIDEO_TYPES as SIG_VIDEO } from '@/server/security/fileType';
 
 /**
  * POST /api/account/upload  (multipart: kind = 'avatar' | 'review', file)
@@ -27,23 +30,37 @@ const LIMITS = {
  * Video is accepted for a review, but on a short leash.
  *
  * It is NOT re-encoded — there is no transcoder here — so the bytes a customer
- * uploads are the bytes served. That means the guard has to be the type, the
- * size and the extension, and nothing else: an allow-list of container formats
- * every browser can play natively, a hard 25 MB ceiling (a phone clip of a ring
- * catching the light, not a film), and a generated filename so the extension
- * can never be `.php` or `.html` — which is what would turn an upload folder
- * into a way to execute code or serve a phishing page from your own domain.
+ * uploads are the bytes served. The guard is therefore: an allow-list of
+ * container formats every browser can play natively, identified by their MAGIC
+ * BYTES (this used to trust `file.type`, which is just a string the client
+ * chose); a hard 25 MB ceiling (a phone clip of a ring catching the light, not
+ * a film); and a generated filename, so the extension can never be `.php` or
+ * `.html` — which is what would turn an upload folder into a way to execute
+ * code or serve a phishing page from your own domain.
+ *
+ * `X-Content-Type-Options: nosniff` (next.config.ts) is the other half of this:
+ * even if something slipped through, the browser will not sniff it into being
+ * executable.
  */
-const VIDEO_TYPES: Record<string, string> = {
-  'video/mp4': 'mp4',
-  'video/webm': 'webm',
-  'video/quicktime': 'mov',
-};
 const VIDEO_MAX_BYTES = 25 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
+  // A Route Handler gets no CSRF protection from Next (Server Actions do), so
+  // a POST from evil.com would otherwise ride the user's cookie.
+  if (!isSameOrigin(req)) {
+    return NextResponse.json({ error: 'Bad origin' }, { status: 403 });
+  }
+
   const customer = await getCurrentCustomer();
   if (!customer) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+
+  const gate = hit(await clientKey('upload'), RL.upload.limit, RL.upload.windowSec);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: 'Too many uploads. Please wait a moment.' },
+      { status: 429, headers: { 'Retry-After': String(gate.retryAfterSec) } },
+    );
+  }
 
   const form = await req.formData();
   const file = form.get('file') as File | null;
@@ -53,12 +70,16 @@ export async function POST(req: NextRequest) {
 
   if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
 
+  // What the file IS, from its magic bytes — not the Content-Type the caller
+  // typed. Everything below branches on this, never on file.type.
+  const kindOnDisk = await sniffFile(file);
+
   const dir = path.join(process.cwd(), 'public', 'uploads', limits.dir);
   await mkdir(dir, { recursive: true });
 
   // ── Video (reviews only) ────────────────────────────────────────────────
-  const videoExt = VIDEO_TYPES[file.type];
-  if (videoExt) {
+  if (kindOnDisk && SIG_VIDEO.includes(kindOnDisk)) {
+    const videoExt = kindOnDisk === 'mov' ? 'mov' : kindOnDisk; // mp4 | webm | mov
     if (kind !== 'review') {
       return NextResponse.json({ error: 'A profile picture must be an image.' }, { status: 400 });
     }
@@ -74,7 +95,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Image ───────────────────────────────────────────────────────────────
-  if (!file.type.startsWith('image/')) {
+  if (!kindOnDisk || !SIG_IMAGE.includes(kindOnDisk)) {
     return NextResponse.json(
       { error: 'Upload a photo (JPG, PNG) or a short video (MP4, WebM, MOV).' }, { status: 400 },
     );

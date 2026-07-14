@@ -24,7 +24,9 @@ export default async function LoginPage({
           <h1 className="lum-h2 lum-listing-title">Welcome Back</h1>
           <p className="lum-pdp-desc">Sign in to your Nahar Jewellers account.</p>
 
-          {error && <div className="lum-pdp-warn" style={{ marginTop: 16 }}>Wrong phone number or password.</div>}
+          {error === 'throttled'
+            ? <div className="lum-pdp-warn" style={{ marginTop: 16 }}>Too many attempts. Please wait a few minutes and try again.</div>
+            : error && <div className="lum-pdp-warn" style={{ marginTop: 16 }}>Wrong phone number or password.</div>}
 
           <form action={loginCustomerAction} className="lum-checkout-form" style={{ marginTop: 24 }}>
             <label className="lum-field">
