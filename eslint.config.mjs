@@ -20,6 +20,11 @@ const eslintConfig = defineConfig([
     "src/components/ui/**",
     "src/hooks/use-mobile.ts",
     "src/hooks/use-controlled-state.tsx",
+
+    // k6 load-test scripts. They run in k6's own runtime, not the app's — an
+    // anonymous default export is k6's required entry-point shape, and the
+    // `k6/*` imports and __ENV globals mean nothing to the app's config.
+    "loadtest/**",
   ]),
 ]);
 
