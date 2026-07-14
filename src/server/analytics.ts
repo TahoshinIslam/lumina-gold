@@ -56,6 +56,30 @@ export async function recordPurchase(
 }
 
 /**
+ * An appointment request or a bespoke commission.
+ *
+ * Written in the same transaction as the enquiry row, for the same reason
+ * purchase is: an event should mean a request that actually exists. If the
+ * insert rolls back, no event is booked — and a failed submission cannot inflate
+ * the count of people asking to visit the boutique.
+ *
+ * `label` carries the enquiry id, so a row in the funnel can be traced back to
+ * the request it represents. It carries nothing about the person — their name
+ * and number live in `appointments`, where the boutique needs them, and nowhere
+ * near analytics.
+ */
+export async function recordEnquiry(
+  conn: PoolConnection,
+  enquiry: { event: 'book_appointment' | 'submit_bespoke_request'; enquiryId: number },
+): Promise<void> {
+  await conn.query(
+    `INSERT INTO analytics_events (session_id, event, path, label)
+     VALUES (?, ?, '/#appointment', ?)`,
+    [await sessionId(), enquiry.event, `enquiry:${enquiry.enquiryId}`],
+  );
+}
+
+/**
  * Record a refund — the amount given back, as a positive number. The dashboard
  * subtracts it; storing it negative would make every naive SUM() silently wrong
  * in the other direction.

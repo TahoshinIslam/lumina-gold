@@ -18,8 +18,7 @@ import {
   ShoppingBag,
   Star,
   TicketPercent,
-  Users,
-} from 'lucide-react';
+  Users, CalendarDays } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -58,6 +57,7 @@ const GROUPS = [
     label: 'Commerce',
     items: [
       { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+      { href: '/admin/appointments', label: 'Appointments', icon: CalendarDays },
       { href: '/admin/customers', label: 'Customers', icon: Users },
       { href: '/admin/reviews', label: 'Reviews', icon: Star },
       { href: '/admin/campaigns', label: 'Campaigns', icon: Megaphone },

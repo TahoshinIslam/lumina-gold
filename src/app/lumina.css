@@ -1253,6 +1253,70 @@ a:hover { color: var(--gold-light); }
   width: 5px; height: 5px; transform: rotate(45deg); background: #DAA858; display: inline-block;
 }
 
+/* The appointment / bespoke form. The CTA here used to be a link to the section
+   it was already in; this is the form that replaced it. Fields borrow the
+   checkout's dark-and-gold language so it reads as the same shop. */
+.lum-appt-form {
+  width: 100%; max-width: 620px; display: flex; flex-direction: column; gap: 22px;
+  text-align: left;
+}
+/* Private Viewing / Bespoke Commission */
+.lum-appt-kind {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+.lum-appt-tab {
+  padding: 9px 20px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(218,168,88, 0.35); background: transparent;
+  font-family: var(--font-archivo), serif; font-size: 12px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #CDD3CE;
+  transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease;
+}
+.lum-appt-tab:hover { border-color: #DAA858; }
+.lum-appt-tab.is-active { background: #DAA858; border-color: #DAA858; color: #20271F; }
+
+.lum-appt-fields {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.lum-appt-field { display: flex; flex-direction: column; gap: 6px; }
+/* The brief (and anything else that wants room) spans both columns. */
+.lum-appt-field--wide { grid-column: 1 / -1; }
+.lum-appt-field > span {
+  font-family: var(--font-archivo), serif; font-size: 11px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: #DAA858;
+}
+.lum-appt-field > span em { font-style: normal; opacity: 0.6; text-transform: none; letter-spacing: 0.04em; }
+.lum-appt-field input,
+.lum-appt-field select,
+.lum-appt-field textarea {
+  border: 1px solid rgba(218,168,88, 0.35); border-radius: 4px; padding: 11px 13px;
+  background: #151B13; font-family: var(--font-archivo), serif; font-size: 15px;
+  color: #CDD3CE; resize: vertical; width: 100%;
+}
+.lum-appt-field input:focus,
+.lum-appt-field select:focus,
+.lum-appt-field textarea:focus {
+  outline: none; border-color: #DAA858; box-shadow: 0 0 0 3px rgba(218,168,88, 0.15);
+}
+.lum-appt-field input::placeholder,
+.lum-appt-field textarea::placeholder { color: rgba(205,211,206, 0.35); }
+/* The native picker's icon is black-on-black in this palette without this. */
+.lum-appt-field input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1); opacity: 0.55; cursor: pointer;
+}
+
+.lum-appt-form .lum-cta-gold { align-self: center; border: none; cursor: pointer; }
+.lum-appt-form .lum-cta-gold:disabled { opacity: 0.55; cursor: default; }
+.lum-appt-note {
+  font-family: var(--font-archivo), serif; font-size: 12px; text-align: center;
+  color: rgba(205,211,206, 0.5); margin: 0;
+}
+/* The confirmation replaces the form — nothing left to fill in. */
+.lum-appt-done { align-items: center; text-align: center; gap: 18px; }
+
+@media (max-width: 640px) {
+  .lum-appt-fields { grid-template-columns: 1fr; }
+}
+
 /* ── 12b. Footer ─────────────────────────────────────────────────────── */
 
 .lum-footer {

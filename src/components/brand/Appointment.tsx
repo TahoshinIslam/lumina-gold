@@ -1,10 +1,22 @@
 import { APPOINTMENT_FEATURES } from '@/components/brand/data';
+import EnquiryForm from '@/features/appointments/components/EnquiryForm';
+import type { Boutique } from '@/server/dal/boutiques';
 
 /**
  * Appointment — "The Salon Awaits You": private-audience pitch, feature
- * bullets, and the gold reservation CTA.
+ * bullets, and the reservation form.
+ *
+ * The CTA here was `<a href="#appointment">` — a link to the section it was
+ * already inside. It did nothing, which meant every customer who tried to book a
+ * private viewing got a page-jump and no appointment. It is a real form now
+ * (@/features/appointments).
+ *
+ * `boutiques` arrives as a prop rather than being queried here: this renders
+ * inside LuminaPage, which is a client component, so anything that touches the
+ * database has to be fetched by the server page above it and threaded down —
+ * the same way every other piece of homepage data already is.
  */
-export default function Appointment() {
+export default function Appointment({ boutiques }: { boutiques: Boutique[] }) {
   return (
     <section id="appointment" className="lum-appt">
       {/* Drifting glow blobs */}
@@ -28,9 +40,7 @@ export default function Appointment() {
             </div>
           ))}
         </div>
-        <a href="#appointment" className="lum-cta-gold" data-magnetic="">
-          Reserve Your Appointment
-        </a>
+        <EnquiryForm boutiques={boutiques} />
       </div>
     </section>
   );

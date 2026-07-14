@@ -1,6 +1,7 @@
 import LuminaPage from "@/components/brand/LuminaPage";
 import { sectionImages } from "@/server/dal/home";
 import { getHomePageData } from "@/server/dal/homepage";
+import { getBoutiques } from "@/server/dal/boutiques";
 import { optimized, BACKDROP_WIDTH, BACKDROP_PHONE_WIDTH } from "@/features/shared/optimized";
 
 // Rendered per request, but NOT re-queried per request: everything it reads is
@@ -12,8 +13,12 @@ import { optimized, BACKDROP_WIDTH, BACKDROP_PHONE_WIDTH } from "@/features/shar
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { showcases, categories, media, articles, campaign, testimonials } =
-    await getHomePageData();
+  // Issued together: the boutique list has nothing to do with the homepage data
+  // and there is no reason for it to queue behind it.
+  const [
+    { showcases, categories, media, articles, campaign, testimonials },
+    boutiques,
+  ] = await Promise.all([getHomePageData(), getBoutiques()]);
 
   // The opening photograph and the Rings band are fixed backdrops the page
   // scrolls over, not galleries — the first upload is the one that shows.
@@ -58,6 +63,7 @@ export default async function Home() {
         />
       )}
     <LuminaPage
+      boutiques={boutiques}
       goldShowcase={{
         newArrivals: showcases.gold.new, bestSellers: showcases.gold.best,
         featured: showcases.gold.featured, discounts: showcases.gold.discount,

@@ -26,6 +26,7 @@ import LatestNews from '@/components/brand/LatestNews';
 import CampaignBanner from '@/components/brand/CampaignBanner';
 import Appointment from '@/components/brand/Appointment';
 import Footer from '@/components/layout/Footer';
+import type { Boutique } from '@/server/dal/boutiques';
 
 /**
  * LuminaPage — composition root for the LUMINA landing page.
@@ -40,6 +41,9 @@ import Footer from '@/components/layout/Footer';
  * carry data-* attributes the hook picks up.
  */
 export interface LuminaPageProps {
+  /** Bookable boutiques for the appointment form (server-fetched: this is a
+   *  client component and cannot query the database itself). */
+  boutiques: Boutique[];
   goldShowcase: ShowcaseData;
   diamondShowcase: ShowcaseData;
   /** Live category rows — the tiles under the hero (Admin → Categories). */
@@ -69,7 +73,7 @@ export default function LuminaPage({
   goldShowcase, diamondShowcase, categories,
   collectionImages, craftImages, heritageImages,
   heroImage, editorialImage, heroPhoneImage, editorialPhoneImage,
-  testimonials, articles, campaign,
+  testimonials, articles, campaign, boutiques,
 }: LuminaPageProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   useLuminaEffects(rootRef);
@@ -106,7 +110,7 @@ export default function LuminaPage({
           <ParallaxShowcase image={editorialImage} phoneImage={editorialPhoneImage} />
           <Testimonials items={testimonials} />
           <LatestNews articles={articles} />
-          <Appointment />
+          <Appointment boutiques={boutiques} />
         </main>
         <Footer />
       </div>

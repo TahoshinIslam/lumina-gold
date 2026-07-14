@@ -72,7 +72,7 @@ CREATE TABLE `analytics_events` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `session_id` varchar(64) NOT NULL,
   `user_id` bigint(20) unsigned DEFAULT NULL,
-  `event` enum('page_view','product_view','add_to_cart','search','select_item','remove_from_cart','view_cart','begin_checkout','add_shipping_info','add_payment_info','purchase','refund','web_vital') NOT NULL DEFAULT 'page_view',
+  `event` enum('page_view','product_view','add_to_cart','search','select_item','remove_from_cart','view_cart','begin_checkout','add_shipping_info','add_payment_info','purchase','refund','web_vital','book_appointment','submit_bespoke_request') NOT NULL DEFAULT 'page_view',
   `path` varchar(255) NOT NULL,
   `product_id` bigint(20) unsigned DEFAULT NULL,
   `value` decimal(12,2) DEFAULT NULL,
@@ -384,6 +384,28 @@ CREATE TABLE `product_serials` (
   KEY `fk_serial_order` (`order_id`),
   CONSTRAINT `fk_serial_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
   CONSTRAINT `fk_serial_variant` FOREIGN KEY (`variant_id`) REFERENCES `product_variants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `appointments` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `kind` enum('appointment','bespoke') NOT NULL DEFAULT 'appointment',
+  `name` varchar(120) NOT NULL,
+  `phone` varchar(20) NOT NULL,
+  `email` varchar(190) DEFAULT NULL,
+  `user_id` bigint(20) unsigned DEFAULT NULL,
+  `boutique_id` smallint(5) unsigned DEFAULT NULL,
+  `preferred_at` datetime DEFAULT NULL,
+  `message` varchar(1000) DEFAULT NULL,
+  `status` enum('new','contacted','scheduled','completed','cancelled') NOT NULL DEFAULT 'new',
+  `internal_note` varchar(500) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_appt_status` (`status`,`created_at`),
+  KEY `idx_appt_kind` (`kind`,`created_at`),
+  KEY `fk_appt_user` (`user_id`),
+  KEY `fk_appt_boutique` (`boutique_id`),
+  CONSTRAINT `fk_appt_boutique` FOREIGN KEY (`boutique_id`) REFERENCES `warehouses` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_appt_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE `menu_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,

@@ -879,6 +879,22 @@ export async function toggleTestOrderAction(formData: FormData) {
   };
 }
 
+/* ── Appointments & bespoke requests ──────────────────────────────────── */
+
+/** Move an enquiry along: new → contacted → scheduled → completed. */
+export async function setEnquiryStatusAction(formData: FormData) {
+  const id = Number(formData.get('id'));
+  const status = String(formData.get('status') || '');
+  const ALLOWED = ['new', 'contacted', 'scheduled', 'completed', 'cancelled'];
+  if (!id || !ALLOWED.includes(status)) return { ok: false, message: 'Nothing to update' };
+
+  await query('UPDATE appointments SET status = ? WHERE id = ?', [status, id]);
+  await audit({ action: 'enquiry.status', entityType: 'appointment', entityId: id, after: { status } });
+
+  revalidatePath('/admin/appointments');
+  return { ok: true, message: 'Status updated' };
+}
+
 /** Confirm a phone booking: lock in the sale, close the hold, clear timer. */
 export async function confirmBookingAction(formData: FormData) {
   const id = Number(formData.get('id'));
