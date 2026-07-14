@@ -50,6 +50,28 @@ export function priceExpr(variant = 'v', price = 'pc'): string {
 }
 
 /**
+ * What the customer actually PAYS: the list price less the markdown.
+ *
+ * `discount_amount` used to be applied in exactly one place — the homepage
+ * Discounts tab, which computed `price - discount_amount` for display. Nothing
+ * else knew about it, so the shop advertised a piece at ৳10,000, the product
+ * page said ৳20,000, and the till charged ৳20,000. A discount that is shown but
+ * not honoured is not a discount; it is a false quote.
+ *
+ * So the markdown now lives in the price itself. THIS is the expression the
+ * checkout prices from. `priceExpr` above remains the LIST price — the "was",
+ * the number to strike through — and the two are deliberately separate:
+ *
+ *     priceExpr  →  20,000   the list price (struck through)
+ *     sellExpr   →  10,000   what is charged
+ *
+ * GREATEST(…, 0) because a markdown larger than the price must not mint money.
+ */
+export function sellExpr(variant = 'v', price = 'pc'): string {
+  return `GREATEST(0, ${priceExpr(variant, price)} - COALESCE(${price}.discount_amount, 0))`;
+}
+
+/**
  * The same sum in TypeScript, for a row already in hand.
  *
  * Kept beside the SQL on purpose: if one changes and the other doesn't, the
@@ -70,4 +92,9 @@ export function priceOf(parts: PriceParts): number {
   const metal = (parts.ratePerGram ?? 0) * (parts.weightGrams ?? 0);
   const wastage = metal * ((parts.wastagePercent ?? 0) / 100);
   return Math.round(metal + wastage + (parts.makingCharge ?? 0) + (parts.stoneCharge ?? 0));
+}
+
+/** The TS mirror of `sellExpr` — list price less the markdown, never below zero. */
+export function sellPriceOf(parts: PriceParts & { discountAmount?: number | null }): number {
+  return Math.max(0, priceOf(parts) - (parts.discountAmount ?? 0));
 }

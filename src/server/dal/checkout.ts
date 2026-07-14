@@ -1,5 +1,5 @@
 import { query } from '@/server/db/client';
-import { priceExpr } from '@/server/pricing';
+import { sellExpr } from '@/server/pricing';
 
 /**
  * Checkout pricing and specification — the server's view of the bag.
@@ -84,8 +84,12 @@ async function variantsForSkus(skus: string[]): Promise<VariantRow[]> {
             v.id AS variant_id, v.variant_sku, v.is_default, v.status, v.metal_weight_g,
             m.name AS metal, mp.name AS purity, mc.name AS metal_color,
             -- The SAME expression the catalogue quotes from: a rate-based piece
-            -- must cost at the till exactly what the product page said.
-            ${priceExpr('v', 'pc')} AS fixed_price,
+            -- must cost at the till exactly what the product page said — and the
+            -- markdown is IN the price (sellExpr), so a piece advertised at a
+            -- discount is charged at that discount. It used to be priceExpr here,
+            -- which ignored discount_amount: the shop said ৳10,000 and the till
+            -- said ৳20,000.
+            ${sellExpr('v', 'pc')} AS fixed_price,
             pc.making_charge, pc.stone_charge, pc.tax_percent, pc.discount_amount,
             (SELECT SUM(vs.carat_total) FROM variant_stones vs WHERE vs.variant_id = v.id) AS carat_total,
             (SELECT SUM(vs.quantity)    FROM variant_stones vs WHERE vs.variant_id = v.id) AS stone_qty,

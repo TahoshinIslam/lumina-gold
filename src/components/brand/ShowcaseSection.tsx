@@ -124,12 +124,15 @@ export default function ShowcaseSection({
                       </div>
                       <div className="lum-prod-name">{product.name}</div>
                       <div className="lum-prod-price">
-                        {product.hasDiscount && product.discountPrice != null ? (
+                        {/* `price` is what the customer pays; `comparePrice` is the
+                            "was". Both come from the server, and the till charges
+                            `price` — the two can no longer disagree. */}
+                        {product.comparePrice != null ? (
                           <>
                             <span style={{ textDecoration: 'line-through', opacity: 0.55, marginRight: 8, fontSize: '0.82em' }}>
-                              {bdt(product.price)}
+                              {bdt(product.comparePrice)}
                             </span>
-                            {bdt(product.discountPrice)}
+                            {bdt(product.price)}
                           </>
                         ) : product.variantCount && product.variantCount > 1 && product.priceFrom != null && product.priceFrom < product.price
                           ? `From ${bdt(product.priceFrom)}`

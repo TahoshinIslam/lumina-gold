@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import { query } from '@/server/db/client';
-import { priceExpr } from '@/server/pricing';
+import { priceExpr, sellExpr } from '@/server/pricing';
 import { CATEGORY_SLUGS } from '@/features/catalog/taxonomy';
 import type { Availability, GemstoneKind, Gender, Material, Product, ProductSpec, ProductVariant } from '@/types/product';
 
@@ -36,6 +36,7 @@ interface ProductRow {
   purity_name: string | null;
   color_name: string | null;
   fixed_price: number | null;
+  list_price: number | null;
   discount_amount: number | null;
   availability_enum: string | null;
   stock: number | null;
@@ -56,7 +57,12 @@ const BASE_SELECT = `
     v.id AS variant_id, v.metal_weight_g AS weight_g,
     m.name AS material_name, mp.name AS purity_name, mc.name AS color_name,
     pm.name AS purity_metal_name,
-    ${priceExpr('v', 'pc')} AS fixed_price, pc.discount_amount,
+    -- fixed_price is the SELL price (markdown applied) — what the customer
+    -- pays. list_price is the pre-markdown number, carried only so a card
+    -- can strike it through.
+    ${sellExpr('v', 'pc')} AS fixed_price,
+    ${priceExpr('v', 'pc')} AS list_price,
+    pc.discount_amount,
     inv.availability AS availability_enum, inv.quantity_available AS stock,
     (SELECT c.name FROM product_categories x JOIN categories c ON c.id = x.category_id
        WHERE x.product_id = p.id ORDER BY c.sort_order LIMIT 1) AS category_name,
@@ -74,7 +80,7 @@ const BASE_SELECT = `
     (SELECT GROUP_CONCAT(o.name ORDER BY o.name) FROM product_occasions x
        JOIN occasions o ON o.id = x.occasion_id
        WHERE x.product_id = p.id) AS occasion_names,
-    (SELECT MIN(${priceExpr('v2', 'pc2')}) FROM product_variants v2
+    (SELECT MIN(${sellExpr('v2', 'pc2')}) FROM product_variants v2
        JOIN variant_price_components pc2 ON pc2.variant_id = v2.id
       WHERE v2.product_id = p.id AND v2.status = 'active') AS price_from,
     (SELECT COUNT(*) FROM product_variants v2 WHERE v2.product_id = p.id AND v2.status = 'active') AS variant_count
@@ -255,9 +261,12 @@ function mapRowToProduct(
       }
     : undefined;
 
-  const fixedPrice = Number(row.fixed_price ?? 0);
+  // `price` is what the customer PAYS (markdown already applied by sellExpr);
+  // `listPrice` is the pre-markdown number, struck through when it is higher.
+  const sellPrice = Number(row.fixed_price ?? 0);
+  const listPrice = Number(row.list_price ?? 0);
   const discountAmount = Number(row.discount_amount ?? 0);
-  const hasDiscount = discountAmount > 0 && fixedPrice > 0;
+  const hasDiscount = discountAmount > 0 && listPrice > sellPrice;
 
   return {
     id: String(row.id),
@@ -279,7 +288,8 @@ function mapRowToProduct(
     // every product failed every occasion test, so the facet returned nothing.
     occasions: (row.occasion_names?.split(',').filter(Boolean) ?? []) as Product['occasions'],
     style: row.style_name || undefined,
-    price: fixedPrice,
+    price: sellPrice,
+    ...(hasDiscount ? { comparePrice: listPrice } : {}),
     weightGrams: Number(row.weight_g ?? 0),
     ...(diamond ? { diamond: diamond as unknown as NonNullable<Product['diamond']> } : {}),
     availability: AVAILABILITY_MAP[row.availability_enum ?? ''] ?? 'In Stock',
@@ -291,8 +301,7 @@ function mapRowToProduct(
     ...(hasDiscount
       ? {
           hasDiscount: true,
-          discountPrice: Math.round((fixedPrice - discountAmount) * 100) / 100,
-          discountPercent: Math.round((discountAmount / fixedPrice) * 100),
+          discountPercent: Math.round((discountAmount / listPrice) * 100),
         }
       : {}),
     variantCount: Number(row.variant_count ?? 1),
@@ -430,10 +439,16 @@ export async function getHomepageSection(mainCategory: MainCategory, tab: Showca
 export async function getProductVariants(productId: number): Promise<ProductVariant[]> {
   const rows = await query<{
     id: number; sku: string; barcode: string | null; status: string; weight_g: number | null;
-    purity_name: string | null; fixed_price: number | null; compare_price: number | null; stock: number | null;
+    purity_name: string | null; fixed_price: number | null; list_price: number | null;
+    compare_price: number | null; stock: number | null;
   }>(
+    // `fixed_price` is the SELL price (markdown applied) — the number the product
+    // page quotes and the till charges. `list_price` is the pre-markdown price,
+    // carried so the page can strike it through.
     `SELECT v.id, v.variant_sku sku, v.barcode, v.status, v.metal_weight_g weight_g,
-            mp.name purity_name, ${priceExpr('v', 'pc')} AS fixed_price,
+            mp.name purity_name,
+            ${sellExpr('v', 'pc')} AS fixed_price,
+            ${priceExpr('v', 'pc')} AS list_price,
             pc.compare_price, inv.quantity_available stock
      FROM product_variants v
      LEFT JOIN metal_purities mp ON mp.id = v.purity_id
@@ -461,18 +476,30 @@ export async function getProductVariants(productId: number): Promise<ProductVari
     attrsByVariant.set(a.variant_id, list);
   }
 
-  return rows.map(row => ({
-    id: String(row.id),
-    sku: row.sku,
-    ...(row.purity_name ? { purity: row.purity_name as ProductVariant['purity'] } : {}),
-    price: Number(row.fixed_price ?? 0),
-    ...(row.compare_price != null ? { comparePrice: Number(row.compare_price) } : {}),
-    stock: Number(row.stock ?? 0),
-    ...(row.weight_g != null ? { weightGrams: Number(row.weight_g) } : {}),
-    ...(row.barcode ? { barcode: row.barcode } : {}),
-    status: row.status === 'active' ? 'active' : 'inactive',
-    attributes: attrsByVariant.get(row.id) ?? [],
-  }));
+  return rows.map(row => {
+    const sell = Number(row.fixed_price ?? 0);   // markdown already applied
+    const list = Number(row.list_price ?? 0);    // before the markdown
+    // What to strike through: the admin's explicit "was" if they set one,
+    // otherwise the list price whenever a markdown actually lowered it. Either
+    // way the struck number must be ABOVE what we charge, or it is not a saving.
+    const explicit = row.compare_price != null ? Number(row.compare_price) : null;
+    const was = explicit != null && explicit > sell ? explicit
+      : list > sell ? list
+      : null;
+
+    return {
+      id: String(row.id),
+      sku: row.sku,
+      ...(row.purity_name ? { purity: row.purity_name as ProductVariant['purity'] } : {}),
+      price: sell,
+      ...(was != null ? { comparePrice: was } : {}),
+      stock: Number(row.stock ?? 0),
+      ...(row.weight_g != null ? { weightGrams: Number(row.weight_g) } : {}),
+      ...(row.barcode ? { barcode: row.barcode } : {}),
+      status: row.status === 'active' ? 'active' : 'inactive',
+      attributes: attrsByVariant.get(row.id) ?? [],
+    };
+  });
 }
 
 /**

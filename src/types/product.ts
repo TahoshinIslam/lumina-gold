@@ -144,7 +144,15 @@ export interface Product {
   style?: Style;
 
   /* Commerce */
-  price: number;             // BDT (৳) — original/list price
+  /**
+   * BDT (৳) — WHAT THE CUSTOMER PAYS. Any markdown is already applied, so this
+   * is the number the till will charge. It used to mean the pre-discount list
+   * price, which is how the homepage came to advertise ৳10,000 for a piece the
+   * checkout rang up at ৳20,000. `price` now means one thing everywhere.
+   */
+  price: number;
+  /** The struck-through "was" — only set when it is genuinely above `price`. */
+  comparePrice?: number;
   weightGrams: number;       // metal weight
   diamond?: DiamondSpec;
   /** Measured dimensions — display only, never a variant axis. */
@@ -159,9 +167,8 @@ export interface Product {
   isNew?: boolean;
   featured?: boolean;
   isBestSeller?: boolean;
-  hasDiscount?: boolean;
-  discountPrice?: number;    // price after discount, only set when hasDiscount
-  discountPercent?: number;  // 0-100, only set when hasDiscount
+  hasDiscount?: boolean;     // a markdown is applied — `price` already reflects it
+  discountPercent?: number;  // 0-100, only set when hasDiscount (drives the -X% badge)
 
   /* Variants — only populated on the product detail fetch (getProductBySlug).
      `price`/`stock` above stay "the default variant's" for cards/listings. */

@@ -62,7 +62,17 @@ export default function ProductCard({
           </div>
           <div className="lum-prod-name">{product.name}</div>
           <div className="lum-prod-price">
-            {product.variantCount && product.variantCount > 1 && product.priceFrom != null && product.priceFrom < product.price
+            {/* The grid never showed a markdown at all — a discounted piece looked
+                full price here while the homepage advertised the saving. `price`
+                is now what the till charges, and `comparePrice` the "was". */}
+            {product.comparePrice != null ? (
+              <>
+                <span style={{ textDecoration: 'line-through', opacity: 0.55, marginRight: 8, fontSize: '0.82em' }}>
+                  {formatPrice(product.comparePrice)}
+                </span>
+                {formatPrice(product.price)}
+              </>
+            ) : product.variantCount && product.variantCount > 1 && product.priceFrom != null && product.priceFrom < product.price
               ? `From ${formatPrice(product.priceFrom)}`
               : formatPrice(product.price)}
           </div>

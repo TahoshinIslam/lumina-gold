@@ -1,5 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import { priceOf } from './pricing';
+import { priceOf, sellPriceOf } from './pricing';
+
+describe('sellPriceOf — the markdown is IN the price', () => {
+  const fixed = (fixedPrice: number) => ({
+    pricingMode: 'fixed' as const, fixedPrice,
+    ratePerGram: null, weightGrams: null, wastagePercent: null, makingCharge: null, stoneCharge: null,
+  });
+
+  it('subtracts the markdown, so the till charges what the shop advertised', () => {
+    // The bug this locks out: shop said 10,000, checkout charged 20,000.
+    expect(sellPriceOf({ ...fixed(20000), discountAmount: 10000 })).toBe(10000);
+  });
+
+  it('is the list price when there is no markdown', () => {
+    expect(sellPriceOf({ ...fixed(20000), discountAmount: 0 })).toBe(20000);
+    expect(sellPriceOf({ ...fixed(20000) })).toBe(20000);
+  });
+
+  it('never goes below zero — a markdown cannot mint money', () => {
+    expect(sellPriceOf({ ...fixed(5000), discountAmount: 9999999 })).toBe(0);
+  });
+
+  it('applies to rate-based pieces too', () => {
+    const p = sellPriceOf({
+      pricingMode: 'rate_based', fixedPrice: 0,
+      ratePerGram: 9000, weightGrams: 10, wastagePercent: 0, makingCharge: 0, stoneCharge: 0,
+      discountAmount: 20000,
+    });
+    expect(p).toBe(70000); // 90,000 list − 20,000
+  });
+});
 
 describe('priceOf — the money formula, in one place', () => {
   it('fixed pricing returns the typed price, rounded', () => {
