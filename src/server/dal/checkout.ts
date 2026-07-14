@@ -195,15 +195,24 @@ export interface CouponResult {
 /**
  * Validate a coupon against a subtotal. Every rule the admin can set is checked
  * here, on the server — the code the customer types is only a claim.
+ *
+ * `customerId` enables the per-user limit. It is optional because the checkout
+ * summary previews a discount before an account necessarily exists; the binding
+ * check happens at order placement, where the customer is always known AND the
+ * global count is claimed atomically (see placeOrderAction).
  */
-export async function checkCoupon(codeRaw: string, subtotal: number): Promise<CouponResult> {
+export async function checkCoupon(
+  codeRaw: string,
+  subtotal: number,
+  customerId?: number,
+): Promise<CouponResult> {
   const code = codeRaw.trim().toUpperCase();
   if (!code) return { ok: false, error: 'Enter a code.' };
 
   const rows = await query<{
     id: number; code: string; type: 'percent' | 'fixed'; value: string;
     min_order: string | null; max_discount: string | null;
-    usage_limit: number | null; used_count: number;
+    usage_limit: number | null; used_count: number; per_user_limit: number | null;
     starts_at: string | null; expires_at: string | null; is_active: number;
   }>('SELECT * FROM coupons WHERE UPPER(code) = ?', [code]);
 
@@ -220,6 +229,22 @@ export async function checkCoupon(codeRaw: string, subtotal: number): Promise<Co
   if (coupon.usage_limit !== null && coupon.used_count >= coupon.usage_limit) {
     return { ok: false, error: 'That code has been fully redeemed.' };
   }
+
+  // Per-user limit: how many times THIS customer has already redeemed it. Counts
+  // their live orders carrying this coupon — a cancelled/expired/refunded order
+  // freed the redemption, so it does not count against them.
+  if (coupon.per_user_limit !== null && customerId != null) {
+    const [used] = await query<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM orders
+        WHERE user_id = ? AND coupon_id = ?
+          AND status NOT IN ('cancelled', 'expired', 'refunded')`,
+      [customerId, coupon.id],
+    );
+    if (Number(used?.n ?? 0) >= coupon.per_user_limit) {
+      return { ok: false, error: 'You have already used this code.' };
+    }
+  }
+
   const min = Number(coupon.min_order ?? 0);
   if (min > 0 && subtotal < min) {
     return { ok: false, error: `Spend ৳ ${min.toLocaleString('en-IN')} to use this code.` };

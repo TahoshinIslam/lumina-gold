@@ -15,6 +15,7 @@ import {
 import { isPaymentMethod, type PaymentMethod } from '@/config/payments';
 import { hit, clientKey, LIMITS } from '@/server/security/rateLimit';
 import { deductStock, claimSerials, recordMovement } from '@/server/dal/inventory';
+import type { ResultSetHeader } from 'mysql2';
 
 /**
  * Thrown when a piece sells out between the shopper seeing it in stock and the
@@ -176,7 +177,11 @@ export async function applyCouponAction(code: string, items: CartLineInput[]) {
 
   const { lines } = await priceCart(items);
   const { subtotal } = totalsFor(lines);
-  return checkCoupon(code, subtotal);
+  // Pass the customer if signed in, so the preview reflects their per-user limit
+  // too — placement re-checks regardless, but this avoids quoting a discount the
+  // shopper can't actually redeem.
+  const customer = await getCurrentCustomer();
+  return checkCoupon(code, subtotal, customer?.id);
 }
 
 /* ── Placing the order ────────────────────────────────────────────────── */
@@ -259,8 +264,9 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
   }
 
   // Re-validated here, not trusted from the summary panel the client rendered.
+  // customer.id enables the per-user limit — this is the authoritative check.
   const coupon = input.couponCode
-    ? await checkCoupon(input.couponCode, lines.reduce((n, l) => n + l.lineTotal, 0))
+    ? await checkCoupon(input.couponCode, lines.reduce((n, l) => n + l.lineTotal, 0), customer.id)
     : null;
   if (input.couponCode && !coupon?.ok) {
     return { ok: false, error: coupon?.error ?? 'That code isn’t valid.' };
@@ -357,7 +363,22 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<PlaceOrd
     );
 
     if (coupon?.ok) {
-      await conn.query('UPDATE coupons SET used_count = used_count + 1 WHERE id = ?', [coupon.couponId]);
+      // Claim the redemption ATOMICALLY, exactly like stock. checkCoupon read
+      // used_count a moment ago, outside this transaction; between then and now
+      // another order could have taken the last redemption of a single-use code.
+      // A blind `used_count + 1` would let both orders through — the coupon used
+      // twice. The conditional guard only increments if a slot is still free, and
+      // if it isn't, we throw: the customer agreed to a total that included this
+      // discount, so honouring the order without it would overcharge them —
+      // better to fail and let them re-checkout against the real state.
+      const [claim] = await conn.query<ResultSetHeader>(
+        `UPDATE coupons SET used_count = used_count + 1
+          WHERE id = ? AND (usage_limit IS NULL OR used_count < usage_limit)`,
+        [coupon.couponId],
+      );
+      if (claim.affectedRows === 0) {
+        throw new Error('That code has just been fully redeemed. Please remove it and try again.');
+      }
     }
 
     await conn.query(
