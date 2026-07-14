@@ -156,7 +156,11 @@ a:hover { color: var(--gold-light); }
 }
 /* No backdrop-filter here: blurring the whole header band re-renders it
    every scroll frame (hot CPU). The near-opaque background is enough. */
-.lum-header.is-scrolled {
+/* Driven by a class on the PAGE ROOT (.lum-root / .lum-page-enter), not on the
+   header itself — see the note in useLuminaEffects. The header lives inside the
+   route's Suspense boundary and the hook that watches the scroll does not, so
+   writing to the header before React hydrates it broke hydration. */
+.is-scrolled .lum-header {
   background: rgba(21,27,19, 0.95);
   box-shadow: 0 8px 34px rgba(176,141,79, 0.16);
 }
@@ -168,7 +172,7 @@ a:hover { color: var(--gold-light); }
   border-bottom: 1px solid rgba(218,168,88, 0.16);
   transition: padding 0.5s ease;
 }
-.lum-header.is-scrolled .lum-header-top { padding-top: 10px; padding-bottom: 8px; }
+.is-scrolled .lum-header-top { padding-top: 10px; padding-bottom: 8px; }
 .lum-header-contact {
   display: flex; flex-direction: column; gap: 5px;
   font-family: var(--font-archivo), serif; font-size: 11.5px;
@@ -773,6 +777,59 @@ a:hover { color: var(--gold-light); }
     max-width: calc(50% - 7px);
     margin-inline: auto;
   }
+}
+
+/* ── Scroll reveals: the hidden state ─────────────────────────────────────
+   This used to be written onto every [data-reveal] element as inline styles the
+   instant useLuminaEffects mounted. On every route but the landing page that hook
+   is mounted from a template, which sits OUTSIDE the route's Suspense boundary —
+   while the elements it was writing to (the footer, the page's own sections) sit
+   INSIDE it. So on a slow enough machine the hook wrote to DOM React had not yet
+   hydrated, and React reported a hydration mismatch and refused to patch the tree.
+
+   Now the hook writes ONE attribute, to its own root, and the hidden state is
+   declared here as a descendant of it. Nothing React owns is touched until an
+   element actually reveals — which happens from an IntersectionObserver, long
+   after hydration.
+
+   Arming it from JavaScript rather than declaring it unconditionally is what
+   keeps the page readable when the script never runs: no `data-rv-armed`, no
+   hidden content. The same is true for prefers-reduced-motion, where the hook
+   deliberately never arms it.
+
+   These must mirror HIDDEN and `dur` in useLuminaEffects — the hook's own
+   showEl/hideEl write inline styles that override them. */
+[data-rv-armed] [data-reveal] {
+  opacity: 0;
+  transition: opacity 1.45s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 1.45s cubic-bezier(0.22, 1, 0.36, 1),
+              clip-path 1.45s cubic-bezier(0.22, 1, 0.36, 1),
+              letter-spacing 1.45s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+[data-rv-armed] [data-reveal='up']    { transform: translateY(48px); }
+[data-rv-armed] [data-reveal='left']  { transform: translateX(-70px); }
+[data-rv-armed] [data-reveal='right'] { transform: translateX(70px); }
+[data-rv-armed] [data-reveal='scale'] { transform: scale(0.86); }
+[data-rv-armed] [data-reveal='flip'] {
+  transform: perspective(1000px) rotateX(18deg) translateY(30px);
+  transform-origin: center bottom;
+}
+[data-rv-armed] [data-reveal='clip'] {
+  transform: translateY(30px);
+  clip-path: inset(0 0 92% 0);
+}
+[data-rv-armed] [data-reveal='tracking'] {
+  transform: translateY(16px);
+  letter-spacing: 0.24em;
+}
+/* A stagger hides its CHILDREN, and reveals them one after another. */
+[data-rv-armed] [data-reveal='stagger'] { opacity: 1; transform: none; }
+[data-rv-armed] [data-reveal='stagger'] > * {
+  opacity: 0;
+  transform: translateY(48px);
+  transition: opacity 1.45s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 1.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Glare layer (driven by useLuminaEffects tilt handler) */

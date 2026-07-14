@@ -287,16 +287,28 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
     let navSolid: boolean | null = null;
     let heroScrollTarget = 0;
     let heroScrollProgress = 0;
-    const nav = $('.lum-header');
     const heroMedia = $('[data-hero-media]');
     const heroSection = heroMedia?.closest('section') ?? null;
 
     const applyScroll = () => {
       const y = window.scrollY || 0;
       const solid = y > 70;
-      if (nav && solid !== navSolid) {
+      if (solid !== navSolid) {
         navSolid = solid;
-        nav.classList.toggle('is-scrolled', solid);
+        /* On OUR root, not on the header.
+         *
+         * The header belongs to the page, and on every route but the landing one
+         * this hook is mounted from a template — which sits OUTSIDE the route's
+         * Suspense boundary, while the header sits inside it. So this effect can
+         * run before React has hydrated the header, and writing a class onto it
+         * then is writing to DOM React has not claimed yet: it reports a
+         * hydration mismatch and refuses to patch the tree. (Reproducible by
+         * throttling the CPU hard enough to widen the gap.)
+         *
+         * The root is this hook's own element and is hydrated by the time its
+         * effect runs, so it is always safe to write to. The stylesheet reads it
+         * as a descendant selector — `.is-scrolled .lum-header`. */
+        root.classList.toggle('is-scrolled', solid);
       }
       if (heroMedia && heroSection) {
         const sectionTop = heroSection.offsetTop;
@@ -378,6 +390,15 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
       if (kind === 'clip') el.style.clipPath = 'inset(0 0 92% 0)';
       if (kind === 'tracking') el.style.letterSpacing = '0.24em';
     };
+    /* A `tracking` reveal ends at the element's OWN letter-spacing, whatever its
+     * class says it is. That used to happen for free: the hidden state was an
+     * inline style, and clearing it fell back to the stylesheet. The hidden state
+     * is now a CSS rule (so that nothing is written to un-hydrated DOM), and a
+     * rule cannot be cleared by removing an inline style — so the natural value is
+     * read off the element BEFORE the reveals are armed and put back explicitly.
+     * Reading a computed style mutates nothing. */
+    const naturalLetterSpacing = new Map<HTMLElement, string>();
+
     const showEl = (el: HTMLElement, kind: string, delay = 0) => {
       if (el.dataset.rvLock) return;
       const extra = parseFloat(el.getAttribute('data-reveal-delay') || '') || 0;
@@ -385,17 +406,39 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
       el.style.opacity = '1';
       el.style.transform = el.dataset.rvT || 'none';
       if (kind === 'clip') el.style.clipPath = 'inset(0 0 0% 0)';
-      if (kind === 'tracking') el.style.letterSpacing = el.dataset.rvLs || '';
+      if (kind === 'tracking') {
+        el.style.letterSpacing = naturalLetterSpacing.get(el) ?? el.dataset.rvLs ?? '';
+      }
     };
 
     let io: IntersectionObserver | null = null;
     if (!reduced) {
       const els = $$('[data-reveal]');
+
+      /* Arm the reveals by marking OUR OWN root, and let the stylesheet put the
+       * hidden state on the elements (see `[data-rv-armed]` in lumina.css).
+       *
+       * This used to walk every element and write inline styles onto it. On every
+       * route but the landing page this hook is mounted from a template, which
+       * sits outside the route's Suspense boundary — while the elements it was
+       * writing to sit inside it. So on a slow enough machine it wrote to DOM that
+       * React had not hydrated yet, and React reported a hydration mismatch and
+       * refused to patch the tree. (Throttle the CPU 20x and it happens every
+       * time.) The root is this hook's own element and is always safe to write to.
+       *
+       * Arming it from here rather than declaring it unconditionally in CSS is
+       * also what keeps the page readable if the script never runs: no attribute,
+       * no hidden content. Same for prefers-reduced-motion, which never gets here. */
+      // Read the natural tracking BEFORE arming — once armed, the CSS rule below
+      // reports the tracked-out value instead.
       els.forEach(el => {
-        const kind = el.getAttribute('data-reveal') || 'up';
-        if (kind === 'stagger') Array.from(el.children).forEach(ch => hideEl(ch as HTMLElement, 'up'));
-        else hideEl(el, kind);
+        if ((el.getAttribute('data-reveal') || '') === 'tracking') {
+          naturalLetterSpacing.set(el, window.getComputedStyle(el).letterSpacing);
+        }
       });
+
+      root.dataset.rvArmed = '1';
+      cleanup.push(() => { delete root.dataset.rvArmed; });
       io = new IntersectionObserver(
         entries => {
           entries.forEach(entry => {
