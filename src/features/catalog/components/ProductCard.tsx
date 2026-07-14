@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Product, formatPrice, metalLabel, productBadge } from '@/types/product';
 import { firstImage } from '@/features/catalog/image';
-import { optimized } from '@/features/shared/optimized';
+import ProductImage from '@/features/shared/ProductImage';
 
 /**
  * ProductCard — grid tile used on listing pages and "You may also like".
@@ -45,10 +45,15 @@ export default function ProductCard({
       <Link href={`/products/${product.slug}`} className="lum-pcard-link">
         <div className="lum-prod-media">
           <div className="lum-prod-zoom lum-img-ph">
-            {/* The card is ~300px wide and was being sent the 1200px rendition. The
-                optimizer resizes and re-encodes to AVIF/WebP; 828 covers the
-                widest card on a retina screen. */}
-            <img src={optimized(firstImage(product), 828)} alt={product.name} loading="lazy" />
+            {/* Grid card: ~250–350px wide (auto-fit minmax(250px,1fr)), full-width
+                on a phone. next/image builds the srcset; sizes tells it which
+                rendition to pull per breakpoint so a phone never fetches the
+                desktop width. */}
+            <ProductImage
+              src={firstImage(product)}
+              alt={product.name}
+              sizes="(max-width: 640px) 90vw, (max-width: 1080px) 45vw, 320px"
+            />
           </div>
         </div>
         <div className="lum-prod-body">

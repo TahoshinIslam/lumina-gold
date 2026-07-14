@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Product, productBadge } from '@/types/product';
 import { useWishlist } from '@/features/wishlist/useWishlist';
 import { firstImage } from '@/features/catalog/image';
-import { optimized } from '@/features/shared/optimized';
+import ProductImage from '@/features/shared/ProductImage';
 
 /**
  * ShowcaseSection — shared tab-bar + card-grid markup for the homepage's
@@ -108,9 +108,13 @@ export default function ShowcaseSection({
                   <Link href={`/products/${product.slug}`} className="lum-prod-link">
                     <div className="lum-prod-media">
                       <div className="lum-prod-zoom lum-img-ph">
-                        {/* The showcase card paints at ~300px; the stored "large" rendition is
-                            1200px. Optimizer resizes and re-encodes to AVIF/WebP. */}
-                        <img src={optimized(firstImage(product), 828)} alt={product.name} loading="lazy" />
+                        {/* Showcase card paints at ~300px; next/image serves the
+                            matching srcset rendition (AVIF/WebP) per breakpoint. */}
+                        <ProductImage
+                          src={firstImage(product)}
+                          alt={product.name}
+                          sizes="(max-width: 640px) 90vw, (max-width: 1080px) 45vw, 320px"
+                        />
                       </div>
                     </div>
 

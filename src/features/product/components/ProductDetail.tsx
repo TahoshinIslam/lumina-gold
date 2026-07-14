@@ -8,7 +8,7 @@ import { productCrumbs } from '@/features/catalog/breadcrumbs';
 import { firstImage } from '@/features/catalog/image';
 import { Product, formatPrice, productBadge } from '@/types/product';
 import { useStore } from '@/stores/StoreContext';
-import { optimized } from '@/features/shared/optimized';
+import ProductImage from '@/features/shared/ProductImage';
 
 /**
  * ProductDetail — premium product page (IA spec Step 10).
@@ -187,12 +187,19 @@ export default function ProductDetail({
               if (img) img.style.transformOrigin = 'center center';
             }}
           >
-            {/* The zoom is a CSS transform: scale(2) on THIS element (no second
-                download), so the source has to carry enough resolution to stay
-                sharp doubled — hence 1200, not the card's 828 — but it was being
-                served as the raw 2 MB+ original. Optimised, it is the product
-                page's LCP and wants to be small AND crisp. */}
-            <img src={optimized(product.images[activeImage] || firstImage(product), 1200)} alt={product.name} />
+            {/* The product page's LCP. next/image gives it a responsive srcset;
+                `priority` preloads it (this is the one prominent above-the-fold
+                image on the page). The zoom is a CSS transform: scale(2) on the
+                rendered <img> — no second download — and `sizes` asks for a
+                rendition wide enough to stay sharp doubled: ~half the viewport on
+                desktop, full width on a phone, so the srcset tops out around the
+                1080–1200 mark on a large retina screen. */}
+            <ProductImage
+              src={product.images[activeImage] || firstImage(product)}
+              alt={product.name}
+              sizes="(max-width: 980px) 100vw, 45vw"
+              priority
+            />
             {/* New-arrival badge takes the diamond shimmer on a diamond piece,
                 so it reads the same as the grid card instead of gold. */}
             {product.isNew && (
@@ -211,10 +218,10 @@ export default function ProductDetail({
                 onClick={() => setActiveImage(index)}
                 aria-label={`View image ${index + 1}`}
               >
-                {/* 84px thumbs (256 for retina) — were serving the full-size
-                    original, so a 5-image product downloaded five 2 MB files for
-                    a strip of thumbnails. */}
-                <img src={optimized(src, 256)} alt="" loading="lazy" />
+                {/* 84px thumbs. sizes lets next/image serve a ~96/256 rendition
+                    (1x/2x) instead of the full-size original — a 5-image product
+                    used to download five 2 MB files for this strip. */}
+                <ProductImage src={src} alt="" sizes="84px" />
               </button>
             ))}
           </div>
