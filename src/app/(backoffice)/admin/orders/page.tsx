@@ -162,6 +162,7 @@ export default async function AdminOrdersPage({
             </select>
           </BulkActionsBar>
 
+          <div className="adm-table-wrap">
           <table className="adm-table">
             <thead>
               <tr>
@@ -224,6 +225,7 @@ export default async function AdminOrdersPage({
               })}
             </tbody>
           </table>
+          </div>
         </>
       )}
 

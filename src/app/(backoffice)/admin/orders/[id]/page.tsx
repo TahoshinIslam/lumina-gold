@@ -119,6 +119,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
           {/* Pieces, with the spec as sold. */}
           <div className="adm-card">
             <h2 className="adm-h2">Pieces</h2>
+            <div className="adm-table-wrap">
             <table className="adm-table">
               <thead>
                 <tr><th>Piece</th><th>Specification</th><th>Qty</th><th>Line</th></tr>
@@ -146,6 +147,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Delivery partner. */}
@@ -183,6 +185,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
           {/* Activity log. */}
           <div className="adm-card">
             <h2 className="adm-h2">Activity</h2>
+            <div className="adm-table-wrap">
             <table className="adm-table">
               <thead><tr><th>When</th><th>Change</th><th>Note</th></tr></thead>
               <tbody>
@@ -205,6 +208,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
 
@@ -243,6 +247,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
 
           <div className="adm-card">
             <h2 className="adm-h2">Money</h2>
+            <div className="adm-table-wrap adm-table-wrap--fit">
             <table className="adm-table">
               <tbody>
                 <tr><td>Subtotal</td><td>{bdt(order.subtotal)}</td></tr>
@@ -257,6 +262,7 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                   <td>{PAYMENT_LABEL[order.payment_method] ?? order.payment_method} · {order.payment_status}</td></tr>
               </tbody>
             </table>
+            </div>
           </div>
         </aside>
       </div>

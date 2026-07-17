@@ -36,6 +36,7 @@ export default async function AdminHomePage() {
             2nd → card two, 3rd → card three, 4th → back to card one, and so on. A card holding more
             than one image fades between them.
           </p>
+          <div className="adm-table-wrap adm-table-wrap--fit">
           <table className="adm-table">
             <thead><tr><th>Card</th><th>Shows</th></tr></thead>
             <tbody>
@@ -49,6 +50,7 @@ export default async function AdminHomePage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </>

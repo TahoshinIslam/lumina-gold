@@ -100,6 +100,7 @@ export default async function AdminSizesPage() {
             create a SKU — a locket with 3 heights × 3 widths × 2 thicknesses would otherwise become
             18 variants of an item sold exactly one way.
           </p>
+          <div className="adm-table-wrap adm-table-wrap--fit">
           <table className="adm-table">
             <thead><tr><th>Category</th><th>Recorded on the product</th></tr></thead>
             <tbody>
@@ -113,6 +114,7 @@ export default async function AdminSizesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </>

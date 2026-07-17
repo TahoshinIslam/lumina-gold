@@ -31,6 +31,7 @@ export default async function AdminOffersPage() {
           description="Coupons apply automatic discounts at checkout — create one to run your first promotion."
           actionHref="/admin/offers/new" actionLabel="+ Add coupon" />
       ) : (
+        <div className="adm-table-wrap">
         <table className="adm-table">
           <thead><tr><th>Code</th><th>Discount</th><th>Min order</th><th>Usage</th><th>Expires</th><th>Status</th><th></th></tr></thead>
           <tbody>
@@ -68,6 +69,7 @@ export default async function AdminOffersPage() {
             })}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );

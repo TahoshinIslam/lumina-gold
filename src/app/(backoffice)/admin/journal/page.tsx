@@ -48,6 +48,7 @@ export default async function AdminJournal({
           description="Write the first one — it appears on the Journal and in Latest News on the home page."
         />
       ) : (
+        <div className="adm-table-wrap">
         <table className="adm-table">
           <thead>
             <tr>
@@ -93,6 +94,7 @@ export default async function AdminJournal({
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <h2 className="adm-h2" style={{ marginTop: 34 }}>
@@ -107,7 +109,8 @@ export default async function AdminJournal({
       {comments.length === 0 ? (
         <p className="adm-sub" style={{ marginTop: 14 }}>No comments yet.</p>
       ) : (
-        <table className="adm-table" style={{ marginTop: 14 }}>
+        <div className="adm-table-wrap" style={{ marginTop: 14 }}>
+        <table className="adm-table">
           <thead><tr><th>Comment</th><th>Article</th><th>When</th><th>Status</th><th /></tr></thead>
           <tbody>
             {comments.map(comment => (
@@ -148,6 +151,7 @@ export default async function AdminJournal({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );

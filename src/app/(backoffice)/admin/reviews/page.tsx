@@ -75,6 +75,7 @@ export default async function AdminReviewsPage({
       {metrics.mostReviewed.length > 0 && (
         <div className="adm-card" style={{ marginBottom: 20 }}>
           <h2 className="adm-h2">Most reviewed</h2>
+          <div className="adm-table-wrap adm-table-wrap--fit">
           <table className="adm-table">
             <thead><tr><th>Piece</th><th>Reviews</th><th>Average</th></tr></thead>
             <tbody>
@@ -87,6 +88,7 @@ export default async function AdminReviewsPage({
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

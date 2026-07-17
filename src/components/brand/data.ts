@@ -81,15 +81,6 @@ export const CRAFT_FEATURES: CraftFeature[] = [
   { title: 'Lifetime Craftsmanship', description: 'Every piece guaranteed for a lifetime of wear.' },
 ];
 
-export type Product = { sku: string; name: string; price: string; src: string };
-
-export const PRODUCTS: Product[] = [
-  { sku: 'eclat-solitaire', name: "L'Éclat Solitaire", price: '$48,500', src: '/uploads/home/GZdjz.jpg' },
-  { sku: 'riviere-eternelle', name: 'Rivière Éternelle', price: '$186,000', src: '/uploads/home/fSg1p.jpg' },
-  { sku: 'manchette-or', name: 'Manchette d’Or', price: '$62,300', src: '/uploads/home/bvE3z.jpg' },
-  { sku: 'lueur-pendants', name: 'Lueur Pendants', price: '$34,900', src: '/uploads/home/9v96v.jpg' },
-];
-
 export type HeritageStat = { value: number; label: string };
 
 export const HERITAGE_STATS: HeritageStat[] = [

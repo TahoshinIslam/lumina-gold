@@ -31,6 +31,12 @@ export type ClientEvent =
 export function track(event: ClientEvent, opts: { label?: string; value?: number } = {}): void {
   if (typeof window === 'undefined') return;
 
+  // The back office is not tracked: /api/track rejects any /admin or /api path
+  // with a 400 by design, so firing here (Web Vitals report on every route, incl.
+  // admin) just floods the log with guaranteed failures. Skip before the fetch.
+  const path = window.location.pathname;
+  if (path.startsWith('/admin') || path.startsWith('/api')) return;
+
   // No await, no return value — the caller carries on regardless.
   fetch('/api/track', {
     method: 'POST',

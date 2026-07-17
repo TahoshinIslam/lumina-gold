@@ -123,6 +123,7 @@ export default async function AdminCampaignsPage({
               { label: 'Delete', formAction: bulkDeleteCampaignsAction, danger: true, confirm: 'Delete the selected campaigns? This cannot be undone.' },
             ]}
           />
+          <div className="adm-table-wrap">
           <table className="adm-table">
             <thead>
               <tr>
@@ -177,6 +178,7 @@ export default async function AdminCampaignsPage({
               ))}
             </tbody>
           </table>
+          </div>
         </>
       )}
 

@@ -436,6 +436,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
         {orderRows.length === 0 ? (
           <div className="adm-empty">{q || cat ? 'No orders match this filter.' : 'No orders yet.'}</div>
         ) : (
+          <div className="adm-table-wrap">
           <table className="adm-table dash-table">
             <thead>
               <tr>
@@ -470,6 +471,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 

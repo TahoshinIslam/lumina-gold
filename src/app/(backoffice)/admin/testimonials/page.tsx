@@ -43,6 +43,7 @@ export default async function AdminTestimonials() {
           description="Add the first one — it appears in the carousel on the home page."
         />
       ) : (
+        <div className="adm-table-wrap">
         <table className="adm-table">
           <thead>
             <tr>
@@ -103,6 +104,7 @@ export default async function AdminTestimonials() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </>
   );

@@ -102,3 +102,66 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Continuous deployment ──────────────────────────────────────────────────
+  # Ships to the VPS ONLY when everything above is green AND this is a push to
+  # main (never on a pull request, never on the feature branch). The deploy
+  # itself is the same sequence a human would run by hand (see hosting-
+  # process.md §5): pull, install, build, then a zero-downtime pm2 reload.
+  #
+  # Requires four repository secrets (Settings → Secrets and variables →
+  # Actions):
+  #   SSH_HOST         server IP or hostname
+  #   SSH_USER         the deploy user that owns /var/www/nahar
+  #   SSH_KEY          that user's PRIVATE key (a deploy key with no passphrase)
+  #   SSH_KNOWN_HOSTS  output of `ssh-keyscan <SSH_HOST>` — pins the server's
+  #                    identity so a hijacked DNS record can't redirect the
+  #                    deploy to an attacker's box. (Optional SSH_PORT if not 22.)
+  deploy:
+    name: Deploy to VPS
+    needs: [check, security]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+
+    # One deploy at a time, and NEVER cancel one mid-flight — a half-applied
+    # `npm ci`/build on the live server is worse than waiting.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    # A GitHub "environment" — lets you add a manual-approval gate or restrict
+    # which branches may deploy later, without touching this file.
+    environment:
+      name: production
+      url: https://naharjewellers.com
+
+    steps:
+      - name: Deploy over SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+          # Remote deploy. `git pull --ff-only` refuses to deploy anything the
+          # server has diverged onto; .env.production and public/uploads/ live
+          # only on the server (git-ignored) and are untouched. Migrations are
+          # deliberately NOT auto-run — apply new database/migrations/*.sql by
+          # hand, since a failed migration mid-deploy is not something to
+          # discover from a red pipeline.
+          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT:-22}" \
+              -o IdentitiesOnly=yes \
+              "$SSH_USER@$SSH_HOST" 'bash -seuo pipefail' <<'REMOTE'
+            cd /var/www/nahar
+            git pull --ff-only
+            npm ci
+            npm run build
+            pm2 reload nahar
+          REMOTE

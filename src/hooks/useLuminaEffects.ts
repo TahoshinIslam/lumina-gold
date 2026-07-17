@@ -90,7 +90,21 @@ export function useLuminaEffects(rootRef: RefObject<HTMLDivElement | null>) {
     if (canvas && !reduced) {
       ctx = canvas.getContext('2d');
       const resize = () => {
-        dpr = Math.min(1.5, window.devicePixelRatio || 1);
+        // Capped at 1, not the 1.5 this used to ask for. The canvas is
+        // position:fixed across the whole viewport and repaints at CANVAS_FPS
+        // forever, so its cost is fill rate — pixels cleared and redrawn per
+        // second — and nothing else on an idle page comes close.
+        //
+        // Measured on the landing page, idle, no input, at deviceScaleFactor 2
+        // (i.e. a retina laptop): median 47% of one core at 1.5, 10% at 1.0.
+        // That is far more than the 2.25x the pixel count alone predicts — on a
+        // 2x display a 1.5x buffer also has to be resampled to the physical
+        // grid, and paying that every frame is what made laptops hot.
+        //
+        // What 1.5 buys is crisper edges on out-of-focus dust motes and hairline
+        // sparkle strokes. It is not worth a third of a core. This is the single
+        // most expensive knob in this file — raise it and measure, don't guess.
+        dpr = Math.min(1, window.devicePixelRatio || 1);
         canvas.width = window.innerWidth * dpr;
         canvas.height = window.innerHeight * dpr;
       };

@@ -98,7 +98,11 @@
 .adm-topbar button { color: var(--text-secondary); }
 .adm-topbar button:hover { background: var(--surface-hover); color: var(--text-primary); }
 
-.adm-main { flex: 1; padding: 36px 44px; max-width: 1200px; }
+.adm-main { flex: 1; padding: 36px 44px; max-width: 1200px; width: 100%; min-width: 0;
+  margin-inline: auto; box-sizing: border-box; }
+/* Tablet / phone: the fixed 44px gutters ate a third of a small screen. */
+@media (max-width: 1024px) { .adm-main { padding: 28px 24px; } }
+@media (max-width: 640px)  { .adm-main { padding: 20px 14px; } }
 .adm-h1 { font-family: 'Cinzel', serif; font-size: 26px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
 .adm-sub { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 28px; }
 
@@ -181,6 +185,9 @@
   box-shadow: var(--card-shadow); }
 .adm-table-wrap { width: 100%; max-width: 100%; overflow-x: auto; border-radius: 10px; }
 .adm-table-wrap .adm-table { min-width: 760px; box-shadow: none; }
+/* Narrow tables (two/three short columns, or ones living in a 320px side
+   column) still get the scroll guard but must not be inflated to 760px. */
+.adm-table-wrap--fit .adm-table { min-width: 0; }
 .adm-table th { text-align: left; padding: 12px 14px; font-size: 11px; text-transform: uppercase;
   letter-spacing: 0.15em; color: var(--text-muted); background: var(--surface-secondary);
   border-bottom: 1px solid var(--border-primary); }
@@ -237,7 +244,12 @@
   content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px;
   background: var(--border-primary); transform: translateX(-16px);
 }
-@media (max-width: 760px) { .adm-grid2--divided > :first-child::after { display: none; } }
+/* Two tables shoulder-to-shoulder need real width each; below ~1050px they
+   stack (and the vertical rule between them goes away). */
+@media (max-width: 1050px) {
+  .adm-grid2--divided { grid-template-columns: 1fr; }
+  .adm-grid2--divided > :first-child::after { display: none; }
+}
 .adm-field > label { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.15em;
   color: var(--text-muted); margin-bottom: 6px; }
 .adm-field { min-width: 0; }
@@ -319,7 +331,7 @@
   background: var(--surface-secondary); }
 .adm-field input:user-invalid, .adm-field select:user-invalid, .adm-field textarea:user-invalid {
   border-color: var(--error); box-shadow: 0 0 0 3px rgba(201, 96, 93, 0.13); }
-.adm-inline-form { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 24px; }
+.adm-inline-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 24px; }
 .adm-error { background: rgba(201, 96, 93, 0.08); border: 1px solid rgba(201, 96, 93, 0.32); color: var(--error);
   border-radius: 6px; padding: 10px 14px; font-size: 13.5px; margin-bottom: 18px; }
 .adm-empty { text-align: center; padding: 60px 24px; color: var(--text-muted); background: var(--surface-primary);
@@ -431,7 +443,8 @@
 /* ── Login ────────────────────────────────────────────────────────── */
 .adm-login { min-height: 100vh; display: flex; align-items: center; justify-content: center;
   background: var(--admin-background); color: var(--text-primary); font-family: 'Spectral', Georgia, serif; }
-.adm-login-card { width: 360px; background: var(--surface-primary); border: 1px solid var(--border-primary);
+.adm-login-card { width: 360px; max-width: calc(100vw - 32px);
+  background: var(--surface-primary); border: 1px solid var(--border-primary);
   border-radius: 12px; padding: 40px; text-align: center; box-shadow: 0 24px 60px rgba(34, 39, 32, 0.1); }
 
 /* ── Page transition ──────────────────────────────────────────────────
@@ -457,7 +470,8 @@
  * TOPBAR — search, notifications, account
  * ════════════════════════════════════════════════════════════════════════*/
 .adm-topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.adm-topsearch { display: flex; align-items: center; gap: 8px; padding: 8px 14px; width: 300px;
+.adm-topsearch { display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  width: auto; flex: 0 1 300px; min-width: 0;
   border: 1px solid var(--border-input); border-radius: 999px; background: var(--input-background);
   color: var(--text-muted); transition: border-color 0.2s, box-shadow 0.2s; }
 .adm-topsearch:focus-within { border-color: var(--gold-primary); box-shadow: 0 0 0 3px rgba(201, 154, 74, 0.16); }
@@ -491,12 +505,28 @@
 .adm-user-menu a:hover, .adm-user-menu button:hover { background: var(--gold-soft); color: var(--gold-active); }
 .adm-user-menu form { width: 100%; }
 
+/* Topbar on small screens: keep the icons and account reachable. The global
+   search hides on phones (every list page carries its own search field);
+   the name/role text goes before that so the avatar alone identifies you. */
+@media (max-width: 900px) { .adm-user-meta { display: none; } }
+@media (max-width: 700px) {
+  .adm-topsearch { display: none; }
+  .adm-topbar { padding: 0 12px; gap: 8px; }
+  .adm-topbar-right { gap: 8px; }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
  * DASHBOARD GRID
  * The mock's layout: KPIs + a tall Top-Categories column, then chart + target,
  * then the three analytics panels, then orders + activity.
  * ════════════════════════════════════════════════════════════════════════*/
 .adm-main:has(.dash) { max-width: 1600px; }
+/* Large desktops: stop letterboxing — let the workspace use the width it has.
+   (Both rules needed: the :has() one outranks the plain .adm-main override.) */
+@media (min-width: 1680px) {
+  .adm-main { max-width: 1440px; }
+  .adm-main:has(.dash) { max-width: none; }
+}
 
 .dash { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; align-items: start; }
 .dash > .dash-title { grid-column: 1 / -1; margin: 0; }
@@ -611,13 +641,18 @@
   background: linear-gradient(180deg, var(--gold-soft), rgba(201, 154, 74, 0.35));
   border-top: 2px solid var(--gold-primary); }
 .dash-funnel-col > :not(.dash-funnel-bar) { position: relative; z-index: 1; }
+/* Five columns cannot survive a phone; two-up keeps the stage labels legible. */
+@media (max-width: 900px) {
+  .dash-funnel { grid-template-columns: repeat(2, 1fr); min-height: 0; }
+  .dash-funnel-col { min-height: 150px; }
+}
 
 /* ── Recent orders ────────────────────────────────────────────────────── */
 .dash-orders-head { flex-wrap: wrap; gap: 12px; }
 .dash-orders-tools { display: flex; align-items: center; gap: 8px; }
 .dash-search, .dash-select { padding: 8px 12px; border: 1px solid var(--border-input); border-radius: 8px;
   background: var(--input-background); color: var(--text-primary); font-family: inherit; font-size: 13px; }
-.dash-search { width: 230px; }
+.dash-search { width: 230px; max-width: 100%; }
 .dash-search:focus, .dash-select:focus { outline: none; border-color: var(--gold-primary);
   box-shadow: 0 0 0 3px rgba(201, 154, 74, 0.16); }
 .dash-table { box-shadow: none; }
@@ -679,7 +714,8 @@
  * ════════════════════════════════════════════════════════════════════════*/
 
 .adm-toolbar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-.adm-toolbar-search { display: flex; align-items: center; gap: 8px; padding: 9px 14px; width: 260px;
+.adm-toolbar-search { display: flex; align-items: center; gap: 8px; padding: 9px 14px;
+  width: 260px; max-width: 100%;
   border: 1px solid var(--border-input); border-radius: 999px; background: var(--input-background);
   color: var(--text-muted); transition: border-color 0.2s, box-shadow 0.2s; }
 .adm-toolbar-search:focus-within { border-color: var(--gold-primary); box-shadow: 0 0 0 3px rgba(201, 154, 74, 0.16); }
@@ -787,7 +823,8 @@
 }
 @media (max-width: 760px) {
   .adm-identity-grid, .adm-classification-grid, .adm-taxonomy-grid, .adm-media-grid,
-  .adm-variant-generator, .adm-drawer-body .adm-grid2, .adm-drawer-body .adm-grid3 {
+  .adm-variant-generator, .adm-grid2, .adm-grid3,
+  .adm-drawer-body .adm-grid2, .adm-drawer-body .adm-grid3 {
     grid-template-columns: 1fr;
   }
   .adm-field--categories, .adm-field--full { grid-column: auto; }

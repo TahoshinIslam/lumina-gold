@@ -2039,7 +2039,8 @@ a:hover { color: var(--gold-light); }
 
 /* Shop: always-expanded filter groups, tools row, mobile drawer */
 .lum-listing-tools { display: flex; align-items: center; gap: 14px; }
-.lum-filter-toggle { display: none; background: #151B13; border: 1px solid rgba(218,168,88,0.4); border-radius: 4px;
+.lum-filter-toggle { display: none; align-items: center; justify-content: center; gap: 8px;
+  white-space: nowrap; background: #151B13; border: 1px solid rgba(218,168,88,0.4); border-radius: 4px;
   padding: 10px 16px; cursor: pointer; font-family: var(--font-archivo), serif; font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; color: #9CA39E; }
 .lum-filter-heading { font-family: var(--font-fraunces), serif; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
@@ -2050,7 +2051,7 @@ a:hover { color: var(--gold-light); }
 .lum-filters-apply { display: none; }
 
 @media (max-width: 980px) {
-  .lum-filter-toggle { display: inline-block; }
+  .lum-filter-toggle { display: inline-flex; }
   .lum-filters {
     position: fixed; top: 0; right: 0; bottom: 0; z-index: 115; width: min(360px, 100%);
     background: #242A23; border-left: 1px solid rgba(218,168,88,0.3); box-shadow: -20px 0 60px rgba(8,11,8,0.55);
@@ -2577,19 +2578,37 @@ a:hover { color: var(--gold-light); }
   border-radius: 8px; padding: 20px;
 }
 
-/* Timeline — draws itself top-down, one step after another. */
-.lum-timeline { display: flex; flex-direction: column; }
+/* Timeline — flows left→right and wraps to the next row like reading (a "Z"):
+   eleven pipeline steps as one tall column said nothing more than rows do,
+   and cost a page of scrolling. Steps still light up in order. */
+.lum-timeline {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  row-gap: 30px; margin-bottom: 8px;
+}
 .lum-tl-step {
-  position: relative; display: flex; gap: 14px; padding-bottom: 22px;
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  text-align: center; padding: 0 10px; min-width: 0;
   animation: lum-tl-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 @keyframes lum-tl-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-/* The rail is drawn by each step except the last, so it never overshoots. */
-.lum-tl-step:not(:last-child)::before {
-  content: ''; position: absolute; left: 12px; top: 26px; bottom: 0;
-  width: 1px; background: rgba(218,168,88,0.22);
+/* The rail: each step draws the segment entering from the left (::before) and
+   leaving to the right (::after) at marker height; neighbours' segments meet
+   across the gap so a row reads as one continuous line. The stub left hanging
+   at a row's edge is the cue that the line carries on in the next row. */
+.lum-tl-step::before, .lum-tl-step::after {
+  content: ''; position: absolute; top: 12px; height: 1px;
+  background: rgba(218,168,88,0.22);
 }
-.lum-tl-step.is-done:not(:last-child)::before { background: rgba(218,168,88,0.6); }
+.lum-tl-step::before { left: 0; right: calc(50% + 17px); }
+.lum-tl-step::after  { left: calc(50% + 17px); right: 0; }
+.lum-tl-step:first-child::before, .lum-tl-step:last-child::after { display: none; }
+/* Gold up to (and arriving into) wherever the piece currently is. */
+.lum-tl-step.is-done::before, .lum-tl-step.is-done::after,
+.lum-tl-step.is-now::before { background: rgba(218,168,88,0.6); }
+.lum-tl-body { margin-top: 10px; min-width: 0; }
+/* Horizontal cells are narrow: the explanatory sentence only shows for the
+   step the piece is actually at — the labels and dates tell the rest. */
+.lum-tl-step:not(.is-now):not(.is-dead) .lum-tl-note { display: none; }
 .lum-tl-marker {
   flex: none; width: 25px; height: 25px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;

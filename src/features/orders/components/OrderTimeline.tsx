@@ -49,8 +49,8 @@ export default function OrderTimeline({ status, history }: {
 
         return (
           <div key={step} className={`lum-tl-step is-${state}`}
-            // Each step fades in a beat after the one above it, so the timeline
-            // draws itself top-down rather than appearing all at once.
+            // Each step fades in a beat after the previous one, so the timeline
+            // draws itself along the reading order rather than all at once.
             style={{ animationDelay: `${index * 70}ms` }}>
             <div className="lum-tl-marker">
               {done ? <Check size={13} /> : <span className="lum-tl-dot" />}

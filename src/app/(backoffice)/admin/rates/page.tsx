@@ -54,7 +54,7 @@ export default async function AdminRatesPage() {
       <div className="adm-grid2 adm-grid2--divided" style={{ alignItems: 'start' }}>
         <div>
           <h2 className="adm-h2 adm-h2--icon" style={{ fontSize: 16 }}><Coins size={16} /> Current rates</h2>
-          <div className="adm-table-wrap"><table className="adm-table">
+          <div className="adm-table-wrap adm-table-wrap--fit"><table className="adm-table">
             <thead><tr><th>Purity</th><th>Rate / gram</th><th>Since</th></tr></thead>
             <tbody>
               {purities.map(p => {
@@ -76,7 +76,7 @@ export default async function AdminRatesPage() {
             <AdminEmptyState icon={History} title="No rate history yet"
               description="Published rates will show up here." />
           ) : (
-            <div className="adm-table-wrap"><table className="adm-table">
+            <div className="adm-table-wrap adm-table-wrap--fit"><table className="adm-table">
               <thead><tr><th>Purity</th><th>Rate</th><th>Published</th></tr></thead>
               <tbody>
                 {history.map((h, i) => (

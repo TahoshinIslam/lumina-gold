@@ -413,23 +413,6 @@ export async function getHomepageShowcases(
   return out;
 }
 
-/** Scoped, flag-filtered showcase tab for one metal. Still used where a single
- *  tab is wanted on its own; the home page takes all eight at once, above. */
-export async function getHomepageSection(mainCategory: MainCategory, tab: ShowcaseTab, limit = 8): Promise<Product[]> {
-  const scope = scopeClause(mainCategory);
-  const tabClause =
-    tab === 'new' ? 'AND p.is_new_arrival = 1'
-    : tab === 'best' ? 'AND p.is_best_seller = 1'
-    // is_featured has been on the product form all along; nothing read it.
-    : tab === 'featured' ? 'AND p.is_featured = 1'
-    : 'AND pc.discount_amount > 0';
-  const rows = await query<ProductRow>(
-    `${BASE_SELECT} WHERE p.status = 'active' ${scope.sql} ${tabClause} ORDER BY p.created_at DESC LIMIT ?`,
-    [...scope.params, limit],
-  );
-  return attachChildren(rows);
-}
-
 /**
  * Every real, purchasable variant of a product (Purity × Ring Size / Chain
  * Length, or just one row for a single-price product) — its own price,
@@ -547,37 +530,6 @@ export async function getProductsBySkus(skus: string[]): Promise<Product[]> {
     skus,
   );
   return attachChildren(rows);
-}
-
-/** Distinct facet values actually present within a scope, so a filter panel never offers a value with zero matches (e.g. no Diamond-only facet on the Gold page). */
-export async function getFacetOptions(opts: { mainCategory?: MainCategory } = {}): Promise<{
-  type: string[]; collection: string[]; purity: string[]; color: string[]; gender: string[];
-  shape: string[]; dcolor: string[]; clarity: string[]; stones: string[]; cert: string[];
-}> {
-  const products = await getStorefrontProducts(opts);
-  const uniq = (values: (string | undefined)[]) => [...new Set(values.filter((v): v is string => !!v))];
-  return {
-    type: uniq(products.map(p => p.type)),
-    collection: uniq(products.map(p => p.collection)),
-    purity: uniq(products.map(p => p.purity)),
-    color: uniq(products.map(p => p.goldColor)),
-    gender: uniq(products.map(p => p.gender)),
-    // Diamond facets come from the admin's own lookup tables (stone_shapes,
-    // stone_colors, stone_clarities), which grow — a hand-kept list in
-    // filtering.ts had already drifted, hiding every Cushion and Marquise piece
-    // from the shape filter.
-    shape: uniq(products.map(p => p.diamond?.shape)),
-    dcolor: uniq(products.map(p => p.diamond?.color)),
-    clarity: uniq(products.map(p => p.diamond?.clarity)),
-    cert: uniq(products.map(p => p.diamond?.certification)),
-    stones: uniq(products.map(p => p.diamond?.quantity?.toString()))
-      .sort((a, b) => Number(a) - Number(b)),
-  };
-}
-
-/** Active categories for /categories listing + admin-added-category awareness. */
-export async function getCategorySlugs(): Promise<{ id: number; name: string; slug: string }[]> {
-  return query('SELECT id, name, slug FROM categories WHERE is_active = 1 ORDER BY sort_order, name');
 }
 
 /**

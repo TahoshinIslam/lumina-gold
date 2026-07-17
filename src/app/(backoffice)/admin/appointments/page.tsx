@@ -66,6 +66,7 @@ export default async function AdminAppointments() {
             Requests from the homepage’s “Reserve Your Appointment” form appear here.
           </p>
         ) : (
+          <div className="adm-table-wrap">
           <table className="adm-table">
             <thead>
               <tr>
@@ -104,6 +105,7 @@ export default async function AdminAppointments() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </>
