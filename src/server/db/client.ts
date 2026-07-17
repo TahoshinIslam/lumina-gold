@@ -6,6 +6,24 @@ import mysql from 'mysql2/promise';
  */
 const globalForDb = globalThis as unknown as { _luminaPool?: mysql.Pool };
 
+/**
+ * How many connections ONE instance of this module may hold.
+ *
+ * This used to be a flat 25, which was measured and correct for a VPS: one Node
+ * process, one pool, a MariaDB allowing 151 connections, 51 in use at peak.
+ *
+ * Serverless invalidates the arithmetic rather than the reasoning. There is no
+ * single process — every warm function instance loads this module and opens its
+ * own pool, and Vercel runs as many instances as it likes. At 25 apiece, ten
+ * concurrent instances ask for 250 connections and a hosted MySQL starts
+ * refusing them. The failure looks like a database problem and is not one.
+ *
+ * So the pool is sized per-instance, and concurrency is the platform's job:
+ * a few connections each, multiplied by however many instances are warm.
+ */
+const SERVERLESS = !!process.env.VERCEL;
+const CONNECTION_LIMIT = SERVERLESS ? 3 : 25;
+
 export const db =
   globalForDb._luminaPool ??
   mysql.createPool({
@@ -29,11 +47,28 @@ export const db =
      * at peak). It is not a licence to keep climbing — every connection is memory
      * and a scheduling slot on a database with finite CPU, and the product page's
      * real fault is that it still asks 26 questions to draw one product. */
-    connectionLimit: 25,
+    connectionLimit: CONNECTION_LIMIT,
     namedPlaceholders: true,
   });
 
-if (process.env.NODE_ENV !== 'production') globalForDb._luminaPool = db;
+/**
+ * Reuse the pool across invocations — in every environment, production included.
+ *
+ * This was `NODE_ENV !== 'production'`, which is the standard Next incantation
+ * and means "stop HMR spawning a pool per reload in dev". On a VPS the exclusion
+ * costs nothing: the module is evaluated once for the life of the process, so
+ * there is exactly one pool whether or not it is cached.
+ *
+ * On a serverless platform that assumption is simply false. A warm instance
+ * survives between requests and re-evaluates modules on a cold start, and
+ * skipping the cache in production is precisely where a pool leaks — a fresh set
+ * of connections each time, none of them reclaimed, against a hosted database
+ * with a hard connection ceiling.
+ *
+ * globalThis is the one thing that outlives a module evaluation on a warm
+ * instance, so the pool belongs there in all environments.
+ */
+globalForDb._luminaPool = db;
 
 export async function query<T = Record<string, unknown>>(
   sql: string,
