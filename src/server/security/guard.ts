@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { ADMIN_COOKIE, adminToken } from '@/server/auth/admin';
+import { ADMIN_COOKIE } from '@/server/auth/admin';
+import { verifySession } from '@/server/auth/adminSession';
 import { isSameOrigin } from './origin';
 import { hit, clientKey, LIMITS } from './rateLimit';
 
@@ -20,7 +21,7 @@ export async function guardAdminRoute(req: NextRequest): Promise<NextResponse | 
   }
 
   const jar = await cookies();
-  if (jar.get(ADMIN_COOKIE)?.value !== adminToken()) {
+  if (verifySession(jar.get(ADMIN_COOKIE)?.value) === null) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

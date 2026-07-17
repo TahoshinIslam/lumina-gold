@@ -101,13 +101,26 @@ DB_PASSWORD=CHOOSE-A-STRONG-PASSWORD
 DB_NAME=lumina_jewelry
 
 # Secrets — generate each with: openssl rand -hex 32
-ADMIN_PASSWORD=...      # admin panel login (default is "lumina123" — change it!)
-AUTH_SECRET=...         # signs customer session cookies
+AUTH_SECRET=...         # signs customer sessions AND admin sessions
 CRON_SECRET=...         # protects /api/cron/expire-holds
+
+# First admin — BOOTSTRAP ONLY. Admin accounts live in the admin_users table
+# with per-account scrypt hashes; these two seed the very first Super Admin the
+# first time someone signs in, and are ignored forever after. Log in once with
+# them, then change the password (and email/name) at /admin/profile.
+ADMIN_EMAIL=admin@naharjewellers.com   # the email you'll sign in with
+ADMIN_PASSWORD=...                      # its initial password (NOT "lumina123")
 
 # Canonical URL (SEO, sitemap, absolute links — src/config/site.ts)
 SITE_URL=https://naharjewellers.com
 ```
+
+> **Admin login changed.** It used to be a single shared password read straight
+> from `ADMIN_PASSWORD`. It is now real per-account auth: sign in with an
+> **email + password**, accounts are rows in `admin_users`, and each admin
+> changes their own password at **/admin/profile**. `ADMIN_PASSWORD` is only the
+> bootstrap for the first account — changing it in the environment after that
+> does nothing to an admin whose password now lives (hashed) in the database.
 
 ### Build and run
 

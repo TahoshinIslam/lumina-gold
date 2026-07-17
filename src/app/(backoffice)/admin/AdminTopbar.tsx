@@ -57,7 +57,7 @@ export function AdminTopbar({ name, role }: { name: string; role: string }) {
 
         {open && (
           <div className="adm-user-menu" role="menu">
-            <Link href="/account" role="menuitem"><User size={15} /> Profile</Link>
+            <Link href="/admin/profile" role="menuitem"><User size={15} /> Profile</Link>
             <form action={logoutAction}>
               <button type="submit" role="menuitem"><LogOut size={15} /> Sign out</button>
             </form>

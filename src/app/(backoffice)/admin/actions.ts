@@ -6,7 +6,19 @@ import { cookies } from 'next/headers';
 import { rm, unlink } from 'fs/promises';
 import path from 'path';
 import { query, db } from '@/server/db/client';
-import { ADMIN_COOKIE, adminToken, checkPassword } from '@/server/auth/admin';
+import { ADMIN_COOKIE } from '@/server/auth/admin';
+import { signSession, SESSION_TTL_SEC } from '@/server/auth/adminSession';
+import { verifyPassword } from '@/server/auth/password';
+import {
+  ensureAdminSeed,
+  getAdminByEmail,
+  getAdminById,
+  touchLastLogin,
+  updateAdminPassword,
+  updateAdminProfile,
+  normaliseEmail,
+} from '@/server/dal/adminUsers';
+import { verifySession } from '@/server/auth/adminSession';
 import { VARIANT_AXIS_CODES } from '@/config/sizes';
 import { homeSection } from '@/config/home';
 import { readingMinutes } from '@/server/dal/journal';
@@ -71,34 +83,55 @@ function feedbackUrl(url: string, message: string, tone: 'success' | 'warning' |
 
 /* ── Auth ─────────────────────────────────────────────────────────────── */
 
+/**
+ * A valid scrypt hash that no password produces. Login runs verifyPassword
+ * against THIS when the email is unknown, so a missing account and a wrong
+ * password cost the same scrypt work — otherwise the response time tells an
+ * attacker which admin emails are real. (Rate limiting already bounds guessing;
+ * this closes the enumeration side-channel underneath it.)
+ */
+const DUMMY_HASH =
+  'scrypt$16384$8$1$64$BUHCjcM4ckgaj8RvcRlWZA==$8HJKXIJdmTyk8S1tqSZQgt+ABDd/E5uGLfbp0mNzmK7siMxs2SFe/jeojxcXMam4UVktNHscQ1ryR71YoqWRLQ==';
+
 export async function loginAction(formData: FormData) {
-  // The whole admin surface is one shared password, and it DEFAULTS to
-  // "lumina123". Without this, an attacker gets unlimited guesses at it —
-  // which is not a brute-force risk so much as a guarantee. Five tries per
-  // quarter-hour, per IP.
+  // Five tries per quarter-hour, per IP. Without it an attacker gets unlimited
+  // guesses; with rows now per-admin in the database, that is a password
+  // brute-force, which is exactly what this bounds.
   const key = await clientKey('admin-login');
   const gate = hit(key, LIMITS.login.limit, LIMITS.login.windowSec);
   if (!gate.ok) {
     redirect(`/admin/login?error=throttled&retry=${gate.retryAfterSec}`);
   }
 
+  const email = String(formData.get('email') || '');
   const password = String(formData.get('password') || '');
-  if (!checkPassword(password)) {
-    // A failed admin sign-in is the single highest-signal event on the site: a
-    // run of these from one IP IS the attack, and without a row here nobody
-    // would ever know it happened.
+
+  // First-ever login: the table ships empty, so seed one Super Admin from
+  // ADMIN_EMAIL + ADMIN_PASSWORD. No-ops once a row exists.
+  await ensureAdminSeed();
+
+  const admin = await getAdminByEmail(email);
+  // Always run the KDF — against the real hash if the admin exists, a dummy if
+  // not — so timing does not distinguish "no such email" from "wrong password".
+  const passwordOk = await verifyPassword(password, admin?.password_hash ?? DUMMY_HASH);
+
+  if (!admin || admin.is_active !== 1 || !passwordOk) {
+    // A failed admin sign-in is the highest-signal event on the site: a run of
+    // these from one IP IS the attack, and without a row here nobody would know.
     await audit({ action: 'admin.login_failed', entityType: 'admin' });
     redirect('/admin/login?error=1');
   }
 
-  // Signed in: forget the failures, so a legitimate admin who mistyped twice
-  // is not left one attempt from a lockout.
+  // Signed in: forget the failures, so a legitimate admin who mistyped twice is
+  // not left one attempt from a lockout.
   reset(key);
-  await audit({ action: 'admin.login', entityType: 'admin' });
+  await audit({ action: 'admin.login', entityType: 'admin', entityId: admin.id });
+  await touchLastLogin(admin.id);
 
   const jar = await cookies();
-  jar.set(ADMIN_COOKIE, adminToken(), {
-    ...SESSION_COOKIE_OPTIONS, maxAge: 60 * 60 * 12,
+  jar.set(ADMIN_COOKIE, signSession(admin.id), {
+    ...SESSION_COOKIE_OPTIONS,
+    maxAge: SESSION_TTL_SEC,
   });
   redirect('/admin');
 }
@@ -107,6 +140,69 @@ export async function logoutAction() {
   const jar = await cookies();
   jar.delete(ADMIN_COOKIE);
   redirect('/admin/login');
+}
+
+/* ── Profile (self-service account management) ────────────────────────── */
+
+/** The signed-in admin, resolved from the session cookie, or null. Every
+ *  profile action re-derives identity from the cookie — never from a form
+ *  field — so one admin cannot edit another by tampering with a hidden id. */
+async function currentAdmin() {
+  const jar = await cookies();
+  const id = verifySession(jar.get(ADMIN_COOKIE)?.value);
+  return id ? getAdminById(id) : null;
+}
+
+const PROFILE_URL = '/admin/profile';
+
+export async function updateProfileAction(formData: FormData) {
+  const admin = await currentAdmin();
+  if (!admin) redirect('/admin/login');
+
+  const name = String(formData.get('name') || '').trim();
+  const email = normaliseEmail(String(formData.get('email') || ''));
+  if (!name) redirect(feedbackUrl(PROFILE_URL, 'Name cannot be empty', 'warning'));
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    redirect(feedbackUrl(PROFILE_URL, 'Enter a valid email address', 'warning'));
+  }
+
+  try {
+    await updateAdminProfile(admin.id, { name, email });
+  } catch {
+    // email is UNIQUE — a collision is the realistic failure, not a 500.
+    redirect(feedbackUrl(PROFILE_URL, 'That email is already in use', 'warning'));
+  }
+  await audit({ action: 'admin.profile_updated', entityType: 'admin', entityId: admin.id });
+  redirect(feedbackUrl(PROFILE_URL, 'Profile updated'));
+}
+
+export async function changePasswordAction(formData: FormData) {
+  const admin = await currentAdmin();
+  if (!admin) redirect('/admin/login');
+
+  const current = String(formData.get('current_password') || '');
+  const next = String(formData.get('new_password') || '');
+  const confirm = String(formData.get('confirm_password') || '');
+
+  // Knowing the current password is what stops someone with a borrowed, still
+  // open session from locking the real admin out by changing it.
+  if (!(await verifyPassword(current, admin.password_hash))) {
+    await audit({ action: 'admin.password_change_failed', entityType: 'admin', entityId: admin.id });
+    redirect(feedbackUrl(PROFILE_URL, 'Current password is incorrect', 'warning'));
+  }
+  if (next.length < 10) {
+    redirect(feedbackUrl(PROFILE_URL, 'New password must be at least 10 characters', 'warning'));
+  }
+  if (next !== confirm) {
+    redirect(feedbackUrl(PROFILE_URL, 'New passwords do not match', 'warning'));
+  }
+
+  await updateAdminPassword(admin.id, next);
+  await audit({ action: 'admin.password_changed', entityType: 'admin', entityId: admin.id });
+
+  // The session token is keyed to the admin id, not the password, so it stays
+  // valid — the person who just changed their own password is not signed out.
+  redirect(feedbackUrl(PROFILE_URL, 'Password changed'));
 }
 
 /* ── Products ─────────────────────────────────────────────────────────── */

@@ -61,24 +61,45 @@ function csp(nonce: string): string {
   ].join('; ');
 }
 
+const ADMIN_SECRET = process.env.AUTH_SECRET || 'lumina-dev-secret-change-me';
+
 /**
- * The expected admin token is sha256("lumina-admin:" + ADMIN_PASSWORD),
- * computed with WebCrypto because proxy runs on the edge runtime.
+ * Verify the admin session cookie at the edge, with WebCrypto because proxy
+ * runs on the edge runtime and cannot use node:crypto or reach the database.
+ *
+ * The cookie is "<adminId>.<expiresUnix>.<hmacHex>" — see adminSession.ts,
+ * which signs it in Node. This MUST accept exactly what that module produces;
+ * a parity test (adminSession.test.ts) reimplements this with crypto.subtle and
+ * asserts the two agree. Returns true iff the signature matches and the token
+ * has not expired.
  */
-async function expectedToken(): Promise<string> {
-  const password = process.env.ADMIN_PASSWORD || 'lumina123';
-  const data = new TextEncoder().encode(`lumina-admin:${password}`);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest))
+async function validAdminSession(token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+
+  const [idStr, expStr, sig] = parts;
+  const adminId = Number(idStr);
+  const expires = Number(expStr);
+  if (!Number.isInteger(adminId) || adminId <= 0) return false;
+  if (!Number.isInteger(expires) || expires < Math.floor(Date.now() / 1000)) return false;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(ADMIN_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sigBuf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${adminId}.${expires}`));
+  const expected = Array.from(new Uint8Array(sigBuf))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
-}
 
-/** Constant-time compare, so the token cannot be recovered a byte at a time. */
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
+  // Constant-time compare, so the signature cannot be recovered a byte at a time.
+  if (sig.length !== expected.length) return false;
   let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  for (let i = 0; i < sig.length; i++) diff |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0;
 }
 
@@ -98,7 +119,7 @@ export async function proxy(req: NextRequest) {
 
   if (needsAdmin) {
     const cookie = req.cookies.get('lum_admin')?.value;
-    if (!cookie || !safeEqual(cookie, await expectedToken())) {
+    if (!(await validAdminSession(cookie))) {
       const url = req.nextUrl.clone();
       url.pathname = '/admin/login';
       const redirect = NextResponse.redirect(url);

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import ExcelJS from 'exceljs';
 import { query } from '@/server/db/client';
-import { ADMIN_COOKIE, adminToken } from '@/server/auth/admin';
+import { ADMIN_COOKIE } from '@/server/auth/admin';
+import { verifySession } from '@/server/auth/adminSession';
 
 /**
  * GET /api/admin/orders/export?format=csv|xlsx&status=&q=&from=&to=
@@ -28,7 +29,7 @@ function csvCell(value: unknown): string {
 
 export async function GET(req: NextRequest) {
   const jar = await cookies();
-  if (jar.get(ADMIN_COOKIE)?.value !== adminToken()) {
+  if (verifySession(jar.get(ADMIN_COOKIE)?.value) === null) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

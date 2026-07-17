@@ -22,8 +22,12 @@ export default async function AdminLoginPage({
         ) : null}
         <form action={loginAction} style={{ display: 'grid', gap: 14 }}>
           <div className="adm-field">
+            <label>Email</label>
+            <input type="email" name="email" autoComplete="username" autoFocus required />
+          </div>
+          <div className="adm-field">
             <label>Password</label>
-            <input type="password" name="password" autoFocus required />
+            <input type="password" name="password" autoComplete="current-password" required />
           </div>
           <button className="adm-btn" type="submit">Enter</button>
         </form>
