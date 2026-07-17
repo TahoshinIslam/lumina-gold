@@ -291,6 +291,19 @@
 .adm-field input::placeholder, .adm-field textarea::placeholder { color: var(--text-muted); }
 .adm-field input:focus, .adm-field select:focus, .adm-field textarea:focus {
   outline: none; border-color: var(--gold-primary); box-shadow: 0 0 0 3px rgba(201, 154, 74, 0.16); }
+
+/* Client-side validation (formValidation.ts). A flagged field turns red; the
+   inline message sits under it. Aria-invalid is the single source of truth, so
+   the styling and the screen-reader state can never drift apart. */
+[aria-invalid='true'],
+.adm-field [aria-invalid='true'] {
+  border-color: var(--error) !important;
+  box-shadow: 0 0 0 3px rgba(201, 96, 93, 0.15);
+}
+.adm-field-error {
+  display: block; margin-top: 6px;
+  font-size: 12px; line-height: 1.4; color: var(--error);
+}
 .adm-check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-secondary); }
 .adm-check input { accent-color: var(--gold-primary); }
 .adm-form-section { padding: 16px 0; border-bottom: 1px solid var(--border-primary); }

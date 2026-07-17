@@ -1,4 +1,5 @@
 import { loginAction } from '../actions';
+import { ValidatedForm } from '@/features/admin/components/AdminFeedback';
 
 export default async function AdminLoginPage({
   searchParams,
@@ -20,7 +21,7 @@ export default async function AdminLoginPage({
         ) : error ? (
           <div className="adm-error">Wrong password — try again.</div>
         ) : null}
-        <form action={loginAction} style={{ display: 'grid', gap: 14 }}>
+        <ValidatedForm action={loginAction} style={{ display: 'grid', gap: 14 }}>
           <div className="adm-field">
             <label>Email</label>
             <input type="email" name="email" autoComplete="username" autoFocus required />
@@ -30,7 +31,7 @@ export default async function AdminLoginPage({
             <input type="password" name="password" autoComplete="current-password" required />
           </div>
           <button className="adm-btn" type="submit">Enter</button>
-        </form>
+        </ValidatedForm>
       </div>
     </div>
   );

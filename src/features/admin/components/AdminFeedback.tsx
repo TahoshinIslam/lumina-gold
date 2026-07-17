@@ -4,6 +4,7 @@ import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, u
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Dialog } from 'radix-ui';
 import { AlertTriangle, CheckCircle2, Info, LoaderCircle, TriangleAlert, X, XCircle } from 'lucide-react';
+import { runInlineValidation, attachLiveValidation } from './formValidation';
 
 export type ToastTone = 'success' | 'warning' | 'error' | 'info';
 type ToastItem = { id: number; message: string; tone: ToastTone };
@@ -221,9 +222,15 @@ export function AdminInlineForm({
   const [pending, startTransition] = useTransition();
   const toast = useAdminToast();
   return (
-    <form className={className} style={style} onSubmit={event => {
+    <form className={className} style={style} noValidate onSubmit={event => {
       event.preventDefault();
       const form = event.currentTarget;
+      // Client-side validation before the action fires — inline messages, no
+      // wasted round-trip on a form the browser can already tell is incomplete.
+      if (!runInlineValidation(form)) {
+        toast('Please correct the highlighted fields', 'warning');
+        return;
+      }
       const data = new FormData(form);
       startTransition(async () => {
         const result = await action(data);
@@ -239,6 +246,37 @@ export function AdminInlineForm({
       <fieldset disabled={pending} style={{ border: 0, margin: 0, padding: 0, display: 'contents' }}>
         {children}
       </fieldset>
+    </form>
+  );
+}
+
+/**
+ * A `<form>` that runs client-side validation before it submits, for forms that
+ * post directly to a Server Action (login, profile, and any plain admin form)
+ * rather than going through AdminInlineForm.
+ *
+ * The trick with a Server Action form is to validate in onSubmit and only
+ * preventDefault when INVALID — when valid, we let the event through untouched
+ * and React invokes the action exactly as it normally would. `noValidate`
+ * silences the native bubbles so our inline messages are the whole story.
+ */
+export function ValidatedForm({
+  action, className, style, id, children,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  className?: string;
+  style?: React.CSSProperties;
+  id?: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => (ref.current ? attachLiveValidation(ref.current) : undefined), []);
+  return (
+    <form
+      ref={ref} id={id} className={className} style={style} action={action} noValidate
+      onSubmit={event => { if (!runInlineValidation(event.currentTarget)) event.preventDefault(); }}
+    >
+      {children}
     </form>
   );
 }

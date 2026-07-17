@@ -6,6 +6,7 @@ import { verifySession } from '@/server/auth/adminSession';
 import { getAdminById } from '@/server/dal/adminUsers';
 import { query } from '@/server/db/client';
 import { updateProfileAction, changePasswordAction } from '../actions';
+import { ValidatedForm } from '@/features/admin/components/AdminFeedback';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,17 +47,17 @@ export default async function AdminProfilePage() {
             <UserCog size={16} /> Account details
           </h2>
           <div className="adm-card">
-            <form action={updateProfileAction} style={{ display: 'grid', gap: 14 }}>
+            <ValidatedForm action={updateProfileAction} style={{ display: 'grid', gap: 14 }}>
               <div className="adm-field">
                 <label>Display name</label>
-                <input name="name" defaultValue={admin.name} required />
+                <input name="name" defaultValue={admin.name} required minLength={2} maxLength={120} />
               </div>
               <div className="adm-field">
                 <label>Email (used to sign in)</label>
                 <input name="email" type="email" defaultValue={admin.email} autoComplete="username" required />
               </div>
               <button className="adm-btn" type="submit">Save changes</button>
-            </form>
+            </ValidatedForm>
           </div>
         </div>
 
@@ -66,7 +67,7 @@ export default async function AdminProfilePage() {
             <KeyRound size={16} /> Change password
           </h2>
           <div className="adm-card">
-            <form action={changePasswordAction} style={{ display: 'grid', gap: 14 }}>
+            <ValidatedForm action={changePasswordAction} style={{ display: 'grid', gap: 14 }}>
               <div className="adm-field">
                 <label>Current password</label>
                 <input name="current_password" type="password" autoComplete="current-password" required />
@@ -83,7 +84,7 @@ export default async function AdminProfilePage() {
                 At least 10 characters. You stay signed in after changing it.
               </p>
               <button className="adm-btn" type="submit">Update password</button>
-            </form>
+            </ValidatedForm>
           </div>
         </div>
       </div>
