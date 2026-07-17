@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { ImageIcon } from 'lucide-react';
 import { useAdminToast } from '@/features/admin/components/AdminFeedback';
@@ -103,7 +104,7 @@ export default function ArticleForm({ article, error }: {
         <button className="adm-btn" type="submit" disabled={busy}>
           {article?.id ? 'Save article' : 'Create article'}
         </button>
-        <a className="adm-btn ghost" href="/admin/journal">Cancel</a>
+        <Link className="adm-btn ghost" href="/admin/journal">Cancel</Link>
       </div>
     </form>
   );

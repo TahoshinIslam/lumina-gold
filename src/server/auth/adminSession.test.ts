@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { signSession, verifySession, SESSION_TTL_SEC } from './adminSession';
 
 describe('admin session token (Node side)', () => {

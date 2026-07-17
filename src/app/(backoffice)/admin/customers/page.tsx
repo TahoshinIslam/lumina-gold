@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { query } from '@/server/db/client';
 import { AdminEmptyState } from '@/features/admin/components/AdminEmptyState';
 import { Users } from 'lucide-react';
@@ -45,7 +46,7 @@ export default async function AdminCustomersPage({
           <input name="q" placeholder="Search name, email or phone…" defaultValue={q} />
         </div>
         <button className="adm-btn ghost sm" type="submit">Search</button>
-        {q ? <a href="/admin/customers" className="adm-toolbar-reset">Reset</a> : null}
+        {q ? <Link href="/admin/customers" className="adm-toolbar-reset">Reset</Link> : null}
       </form>
 
       {customers.length === 0 ? (
