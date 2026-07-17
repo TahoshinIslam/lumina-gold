@@ -30,6 +30,8 @@ import { hit, reset, clientKey, LIMITS } from '@/server/security/rateLimit';
 import { audit } from '@/server/security/audit';
 import { deductStock, restoreStock, recordMovement, claimSerials, releaseSerials } from '@/server/dal/inventory';
 import { recordRefund } from '@/server/analytics';
+import type { ActionResult } from '@/features/admin/components/AdminFeedback';
+import type { PoolConnection } from 'mysql2/promise';
 
 const UPLOAD_SIZES = ['original', 'zoom', 'large', 'medium', 'thumb'];
 const productUploadDir = (sku: string) => path.join(process.cwd(), 'public', 'uploads', 'products', sku);
@@ -203,6 +205,120 @@ export async function changePasswordAction(formData: FormData) {
   // The session token is keyed to the admin id, not the password, so it stays
   // valid — the person who just changed their own password is not signed out.
   redirect(feedbackUrl(PROFILE_URL, 'Password changed'));
+}
+
+/* ── Inventory (adjust stock, delete a variant) ───────────────────────── */
+
+const INVENTORY_URL = '/admin/inventory';
+
+/**
+ * Set a variant's on-hand quantity to an exact number.
+ *
+ * Returns an ActionResult (not a redirect) because it is driven by an inline
+ * AJAX form — the row updates in place via revalidatePath rather than a full
+ * navigation, which matters when you are correcting a dozen counts in a row.
+ *
+ * The write is transactional and records an inventory_movement, because a
+ * quantity_available that changed with no movement row is the "who took this
+ * off the shelf?" question the movement log exists to answer. Availability is
+ * kept honest as a side effect: a stocked line that hits 0 flips to
+ * out_of_stock, and a refilled one flips back — this is the "0 but still says
+ * In Stock" oddity, fixed at the source. made_to_order / ready_to_ship are left
+ * alone: 0 on hand is legitimate for them.
+ */
+export async function setStockAction(formData: FormData): Promise<ActionResult> {
+  const admin = await currentAdmin();
+  if (!admin) return { ok: false, message: 'Your session expired — sign in again.' };
+
+  const variantId = Number(formData.get('variant_id'));
+  const qty = Number(String(formData.get('qty') ?? '').trim());
+  if (!variantId || !Number.isInteger(qty) || qty < 0 || qty > 1_000_000) {
+    return { ok: false, message: 'Enter a whole number of units (0–1,000,000).' };
+  }
+
+  let outcome: ActionResult = { ok: true, message: `Stock set to ${qty} unit${qty === 1 ? '' : 's'}.` };
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    // FOR UPDATE: lock the row so a concurrent order's deduct/reserve serialises
+    // against this manual set instead of racing it.
+    const [rows] = await conn.query(
+      `SELECT quantity_available AS qa, availability AS av FROM inventory WHERE variant_id = ? FOR UPDATE`,
+      [variantId],
+    );
+    const cur = (rows as { qa: number; av: string }[])[0];
+    if (!cur) {
+      await conn.rollback();
+      outcome = { ok: false, message: 'That variant no longer exists.' };
+    } else {
+      const delta = qty - Number(cur.qa);
+      let availability = cur.av;
+      if (qty === 0 && availability === 'in_stock') availability = 'out_of_stock';
+      else if (qty > 0 && availability === 'out_of_stock') availability = 'in_stock';
+
+      await conn.query(
+        `UPDATE inventory SET quantity_available = ?, availability = ? WHERE variant_id = ?`,
+        [qty, availability, variantId],
+      );
+      if (delta !== 0) {
+        await recordMovement(conn as unknown as PoolConnection, {
+          variantId, type: 'adjustment', quantity: delta,
+          referenceType: 'admin', referenceId: admin.id, note: `Manual set to ${qty}`,
+        });
+      }
+      await conn.commit();
+    }
+  } catch {
+    await conn.rollback().catch(() => {});
+    outcome = { ok: false, message: 'Could not update stock — please retry.' };
+  } finally {
+    conn.release();
+  }
+
+  if (outcome.ok) {
+    await audit({ action: 'inventory.stock_set', entityType: 'variant', entityId: variantId, after: { qty } });
+    revalidatePath(INVENTORY_URL);
+  }
+  return outcome;
+}
+
+/**
+ * Delete a variant outright.
+ *
+ * FK-safe by the schema's own design: order_items.variant_id is ON DELETE SET
+ * NULL and the line already snapshots product_name / variant_sku / unit_price,
+ * so order history survives intact; inventory, prices, images, and serials
+ * cascade away. The one thing that must NOT be deleted is a variant with live
+ * reservations — that would strand a cart or an unpaid order mid-checkout — so
+ * a positive quantity_reserved refuses the delete.
+ */
+export async function deleteVariantAction(formData: FormData) {
+  const admin = await currentAdmin();
+  if (!admin) redirect('/admin/login');
+
+  const variantId = Number(formData.get('variant_id'));
+  if (!variantId) redirect(feedbackUrl(INVENTORY_URL, 'Missing variant', 'warning'));
+
+  const rows = await query<{ reserved: number; sku: string }>(
+    `SELECT COALESCE(i.quantity_reserved, 0) AS reserved, v.variant_sku AS sku
+       FROM product_variants v LEFT JOIN inventory i ON i.variant_id = v.id
+      WHERE v.id = ? LIMIT 1`,
+    [variantId],
+  );
+  const row = rows[0];
+  if (!row) redirect(feedbackUrl(INVENTORY_URL, 'That variant no longer exists', 'warning'));
+  if (Number(row.reserved) > 0) {
+    redirect(feedbackUrl(
+      INVENTORY_URL,
+      `Cannot delete ${row.sku}: ${row.reserved} unit(s) are reserved for a live order`,
+      'warning',
+    ));
+  }
+
+  await query(`DELETE FROM product_variants WHERE id = ?`, [variantId]);
+  await audit({ action: 'inventory.variant_deleted', entityType: 'variant', entityId: variantId, before: { sku: row.sku } });
+  revalidateStorefront();
+  redirect(feedbackUrl(INVENTORY_URL, `Variant ${row.sku} deleted`));
 }
 
 /* ── Products ─────────────────────────────────────────────────────────── */
