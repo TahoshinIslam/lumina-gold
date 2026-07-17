@@ -15,12 +15,33 @@
  * `width` is the widest the image is ever PAINTED, doubled for a retina screen —
  * not the size it happens to be stored at.
  */
+/**
+ * Uploads live in Vercel Blob, so the thing to optimize is now an absolute URL
+ * on the blob host rather than a local /uploads path.
+ *
+ * This test is the whole reason the optimizer still gets used. It used to be
+ * `startsWith('/uploads/')`, and a blob URL fails that — which does not break
+ * anything visibly. It just hands the raw stored JPEG straight to the browser
+ * and quietly restores the 3.9 MB home page described above. A regression that
+ * only shows up as a slow LCP is one nobody notices for a month.
+ *
+ * Matched by shape, not by an env var: the store id is a subdomain, and the
+ * pattern must stay in step with `images.remotePatterns` in next.config.ts —
+ * the optimizer 400s on a host it has not been told to allow.
+ */
+const BLOB_URL = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//;
+
+/** `/uploads/` is kept for anything not yet migrated and for local fixtures. */
+function optimizable(src: string): boolean {
+  return src.startsWith('/uploads/') || BLOB_URL.test(src);
+}
+
 export function optimized(src: string | undefined, width: number): string | undefined {
   if (!src) return undefined;
-  // Only what we serve out of /uploads. A shipped still named in the stylesheet,
-  // or an absolute URL, is handed back untouched — the optimizer would refuse a
-  // path it has not been told to allow.
-  if (!src.startsWith('/uploads/')) return src;
+  // A shipped still named in the stylesheet, or a third-party URL, is handed
+  // back untouched — the optimizer would refuse a host it has not been told
+  // to allow.
+  if (!optimizable(src)) return src;
 
   /* Category tiles carry a cache-busting `?v=…`, because re-uploading one keeps
    * the same filename and the browser would otherwise show the old picture. The

@@ -49,6 +49,22 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
+    // Uploads are served from Vercel Blob, and the optimizer refuses any remote
+    // host that is not listed here — a missing entry is a 400 and a broken
+    // image, not a fallback. The pathname is left open because every upload area
+    // (products/, home/, categories/, journal/, avatars/, reviews/) lives under
+    // the same store.
+    //
+    // Keep in step with the BLOB_URL pattern in src/features/shared/optimized.ts:
+    // that decides what to SEND here, this decides what is accepted. If the two
+    // disagree the images break, so they are wrong together or right together.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+        pathname: "/**",
+      },
+    ],
     // The photographs ARE the page: 3.9 MB of JPEG was most of the home page's
     // transfer, and over a slow connection that is the Largest Contentful Paint
     // — the pixels simply have not arrived yet. AVIF first, WebP for anything
