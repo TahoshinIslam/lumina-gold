@@ -4,6 +4,8 @@ import "@/styles/tokens.css";
 import "./globals.css";
 import "./lumina.css";
 import { StoreProvider } from "@/stores/StoreContext";
+import { SiteConfigProvider } from "@/components/layout/SiteConfig";
+import { getSocialLinks } from "@/server/dal/settings";
 import PageBeacon from "@/components/analytics/PageBeacon";
 import WebVitals from "@/components/analytics/WebVitals";
 import ScrollToTop from "@/components/layout/ScrollToTop";
@@ -35,11 +37,15 @@ export const metadata: Metadata = {
     "Nahar Jewellers — haute joaillerie handcrafted in our Parisian ateliers since 1927.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Fetched once here (cached + resilient — see getSocialLinks) and handed to a
+  // client context, so the client Header can show them on every page without
+  // each page having to fetch and thread them through.
+  const social = await getSocialLinks();
   return (
     // data-scroll-behavior: the stylesheet sets `scroll-behavior: smooth` on
     // <html> on purpose — it is what makes the nav's "#collections" style links
@@ -49,7 +55,7 @@ export default function RootLayout({
     // top, through content the reader has not seen. Declaring it lets Next turn
     // smooth off for the duration of a navigation and put it straight back.
     <html lang="en" data-scroll-behavior="smooth" className={`${fraunces.variable} ${archivo.variable}`}>
-      <body><StoreProvider>{children}</StoreProvider><ScrollToTop /><PageBeacon /><WebVitals /></body>
+      <body><StoreProvider><SiteConfigProvider social={social}>{children}</SiteConfigProvider></StoreProvider><ScrollToTop /><PageBeacon /><WebVitals /></body>
     </html>
   );
 }

@@ -30,6 +30,7 @@ import { hit, reset, clientKey, LIMITS } from '@/server/security/rateLimit';
 import { audit } from '@/server/security/audit';
 import { deductStock, restoreStock, recordMovement, claimSerials, releaseSerials } from '@/server/dal/inventory';
 import { recordRefund } from '@/server/analytics';
+import { saveSocialLinks, SETTINGS_TAG } from '@/server/dal/settings';
 import type { ActionResult } from '@/features/admin/components/AdminFeedback';
 import type { PoolConnection } from 'mysql2/promise';
 
@@ -319,6 +320,39 @@ export async function deleteVariantAction(formData: FormData) {
   await audit({ action: 'inventory.variant_deleted', entityType: 'variant', entityId: variantId, before: { sku: row.sku } });
   revalidateStorefront();
   redirect(feedbackUrl(INVENTORY_URL, `Variant ${row.sku} deleted`));
+}
+
+/* ── Settings (social links) ──────────────────────────────────────────── */
+
+const SETTINGS_URL = '/admin/settings';
+// A link must be absolute http(s) — a bare "facebook.com" in an href resolves
+// against our own origin and 404s. Empty is allowed: it clears the icon.
+const URL_RE = /^https?:\/\/.+/i;
+
+export async function saveSocialAction(formData: FormData) {
+  const admin = await currentAdmin();
+  if (!admin) redirect('/admin/login');
+
+  const links = {
+    facebook: String(formData.get('facebook') || '').trim(),
+    instagram: String(formData.get('instagram') || '').trim(),
+    x: String(formData.get('x') || '').trim(),
+    youtube: String(formData.get('youtube') || '').trim(),
+  };
+
+  for (const value of Object.values(links)) {
+    if (value && !URL_RE.test(value)) {
+      redirect(feedbackUrl(SETTINGS_URL, 'Each link must start with http:// or https://', 'warning'));
+    }
+  }
+
+  await saveSocialLinks(links);
+  await audit({ action: 'settings.social_updated', entityType: 'settings', entityId: admin.id });
+  // The header reads these from the root layout, so purge the tag (the cached
+  // getSocialLinks) and the layout that renders it.
+  revalidateTag(SETTINGS_TAG, { expire: 0 });
+  revalidatePath('/', 'layout');
+  redirect(feedbackUrl(SETTINGS_URL, 'Social links saved'));
 }
 
 /* ── Products ─────────────────────────────────────────────────────────── */

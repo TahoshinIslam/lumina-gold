@@ -18,6 +18,7 @@ import {
   ShoppingBag,
   Star,
   TicketPercent,
+  Settings,
   Users, CalendarDays } from 'lucide-react';
 import {
   Sidebar,
@@ -51,6 +52,7 @@ const GROUPS = [
       { href: '/admin/home', label: 'Home Models', icon: Images },
       { href: '/admin/journal', label: 'Journal', icon: Newspaper },
       { href: '/admin/testimonials', label: 'Testimonials', icon: Quote },
+      { href: '/admin/settings', label: 'Settings', icon: Settings },
     ],
   },
   {

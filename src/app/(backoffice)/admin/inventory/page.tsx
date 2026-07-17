@@ -1,7 +1,9 @@
+import Link from 'next/link';
 import { query } from '@/server/db/client';
 import { AdminEmptyState } from '@/features/admin/components/AdminEmptyState';
 import { AdminInlineForm, ConfirmActionButton } from '@/features/admin/components/AdminFeedback';
 import { Pagination } from '@/features/admin/components/Pagination';
+import { DebouncedSearchInput } from '@/features/admin/components/DebouncedSearchInput';
 import { PackageOpen, Trash2, Check } from 'lucide-react';
 import { setStockAction, deleteVariantAction } from '../actions';
 
@@ -88,12 +90,14 @@ export default async function AdminInventoryPage({
         {total} variant{total === 1 ? '' : 's'} · {tot.units} units on hand · {bdt(tot.value)} stock value
       </p>
 
+      {/* AJAX: results filter as you type via router.replace — no reload,
+          no "Search" button. The page resets to 1 whenever the query changes,
+          since `page` is not a field in this form. */}
       <form className="adm-toolbar" method="get">
         <div className="adm-toolbar-search">
-          <input name="q" placeholder="Search product name or SKU…" defaultValue={q} />
+          <DebouncedSearchInput name="q" placeholder="Search product name or SKU…" defaultValue={q} />
         </div>
-        <button className="adm-btn ghost sm" type="submit">Search</button>
-        {q ? <a href="/admin/inventory" className="adm-toolbar-reset">Reset</a> : null}
+        {q ? <Link href="/admin/inventory" className="adm-toolbar-reset">Reset</Link> : null}
       </form>
 
       {rows.length === 0 ? (

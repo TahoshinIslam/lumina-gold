@@ -9,6 +9,7 @@ import {
   PrimaryNavItem,
 } from '@/config/navigation';
 import { useStore } from '@/stores/StoreContext';
+import { useSocialLinks } from '@/components/layout/SiteConfig';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import SearchBox from '@/features/search/components/SearchBox';
 import CartDrawer from '@/features/cart/components/CartDrawer';
@@ -26,6 +27,7 @@ import CartDrawer from '@/features/cart/components/CartDrawer';
 export default function Header({ variant = 'landing' }: { variant?: 'landing' | 'shop' }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { cartCount, wishCount, cartOpen, openCart, closeCart } = useStore();
+  const social = useSocialLinks();
   const isDesktop = useMediaQuery('(min-width: 900px)');
 
   // Close the mobile menu automatically when resizing back to desktop.
@@ -78,29 +80,39 @@ export default function Header({ variant = 'landing' }: { variant?: 'landing' | 
         {/* ── Row 1: contact · brand · icons ── */}
         <div className="lum-header-top">
           <div className="lum-header-contact">
+            {/* Links come from /admin/settings via the root layout; an unset
+                one simply renders nothing rather than a bare https://facebook.com. */}
             <div className="lum-header-social">
-              <a href="https://facebook.com" aria-label="Facebook" target="_blank" rel="noopener noreferrer">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14 8.5V6.8c0-.8.2-1.3 1.4-1.3H17V2.6C16.6 2.5 15.6 2.5 14.5 2.5c-2.3 0-3.9 1.4-3.9 4v2H8v3h2.6V21h3.4v-9.5h2.5l.4-3H14z" />
-                </svg>
-              </a>
-              <a href="https://instagram.com" aria-label="Instagram" target="_blank" rel="noopener noreferrer">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <rect x="3" y="3" width="18" height="18" rx="5" />
-                  <circle cx="12" cy="12" r="4" />
-                  <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
-                </svg>
-              </a>
-              <a href="https://x.com" aria-label="X" target="_blank" rel="noopener noreferrer">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18.2 2.5h3.3l-7.2 8.2 8.5 11.3h-6.6l-5.2-6.8-6 6.8H1.7l7.7-8.8L1.2 2.5h6.8l4.7 6.2 5.5-6.2zm-1.2 17.7h1.8L7.1 4.3H5.2l11.8 15.9z" />
-                </svg>
-              </a>
-              <a href="https://youtube.com" aria-label="YouTube" target="_blank" rel="noopener noreferrer">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M23 7.5c-.3-1.1-1-1.8-2.1-2.1C19 5 12 5 12 5s-7 0-8.9.4C2 5.7 1.3 6.4 1 7.5.6 9.4.6 12 .6 12s0 2.6.4 4.5c.3 1.1 1 1.8 2.1 2.1C5 19 12 19 12 19s7 0 8.9-.4c1.1-.3 1.8-1 2.1-2.1.4-1.9.4-4.5.4-4.5s0-2.6-.4-4.5zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z" />
-                </svg>
-              </a>
+              {social.facebook && (
+                <a href={social.facebook} aria-label="Facebook" target="_blank" rel="noopener noreferrer">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14 8.5V6.8c0-.8.2-1.3 1.4-1.3H17V2.6C16.6 2.5 15.6 2.5 14.5 2.5c-2.3 0-3.9 1.4-3.9 4v2H8v3h2.6V21h3.4v-9.5h2.5l.4-3H14z" />
+                  </svg>
+                </a>
+              )}
+              {social.instagram && (
+                <a href={social.instagram} aria-label="Instagram" target="_blank" rel="noopener noreferrer">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+                    <rect x="3" y="3" width="18" height="18" rx="5" />
+                    <circle cx="12" cy="12" r="4" />
+                    <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+                  </svg>
+                </a>
+              )}
+              {social.x && (
+                <a href={social.x} aria-label="X" target="_blank" rel="noopener noreferrer">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.2 2.5h3.3l-7.2 8.2 8.5 11.3h-6.6l-5.2-6.8-6 6.8H1.7l7.7-8.8L1.2 2.5h6.8l4.7 6.2 5.5-6.2zm-1.2 17.7h1.8L7.1 4.3H5.2l11.8 15.9z" />
+                  </svg>
+                </a>
+              )}
+              {social.youtube && (
+                <a href={social.youtube} aria-label="YouTube" target="_blank" rel="noopener noreferrer">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M23 7.5c-.3-1.1-1-1.8-2.1-2.1C19 5 12 5 12 5s-7 0-8.9.4C2 5.7 1.3 6.4 1 7.5.6 9.4.6 12 .6 12s0 2.6.4 4.5c.3 1.1 1 1.8 2.1 2.1C5 19 12 19 12 19s7 0 8.9-.4c1.1-.3 1.8-1 2.1-2.1.4-1.9.4-4.5.4-4.5s0-2.6-.4-4.5zM9.8 15.3V8.7l5.7 3.3-5.7 3.3z" />
+                  </svg>
+                </a>
+              )}
             </div>
             <span>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

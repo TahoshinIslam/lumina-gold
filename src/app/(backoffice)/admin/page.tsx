@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { query } from '@/server/db/client';
 import RevenueChart, { type Point } from './_dashboard/RevenueChart';
+import { DebouncedSearchInput, AutoSubmitSelect } from '@/features/admin/components/DebouncedSearchInput';
 import {
   bdt, compact, CardHead, Donut, Gauge, SortHead, StatusPill, Trend, type Slice,
 } from './_dashboard/panels';
@@ -445,14 +446,16 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
       <section className="adm-card dash-orders">
         <div className="adm-card-head dash-orders-head">
           <h2 className="adm-card-title">Recent Orders</h2>
+          {/* AJAX: typing / changing the category updates the URL via
+              router.replace (no full reload), and the dashboard re-renders in
+              place. days/sort survive because they ride in the same form. */}
           <form className="dash-orders-tools" action="/admin">
             {days !== 8 && <input type="hidden" name="days" value={days} />}
-            <input className="dash-search" type="search" name="q" defaultValue={q} placeholder="Search product, customer, etc" />
-            <select className="dash-select" name="cat" defaultValue={String(cat)}>
+            <DebouncedSearchInput name="q" className="dash-search" defaultValue={q} placeholder="Search product, customer, etc" />
+            <AutoSubmitSelect className="dash-select" name="cat" defaultValue={String(cat)}>
               <option value="0">All Categories</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <button className="adm-btn sm" type="submit">Filter</button>
+            </AutoSubmitSelect>
           </form>
         </div>
 
