@@ -85,8 +85,23 @@
 
 .adm-shell [data-slot='sidebar-group-label'] { font-family: inherit; font-size: 10px;
   text-transform: uppercase; letter-spacing: 0.18em; color: var(--text-muted); }
-.adm-shell [data-slot='sidebar-menu-button'] { font-size: 14px; color: var(--text-secondary); }
-.adm-shell [data-slot='sidebar-menu-button'][data-active='true'] { font-weight: 600; }
+.adm-shell [data-slot='sidebar-menu-button'] {
+  font-size: 14px; color: var(--text-secondary);
+  border-radius: 8px; transition: background 0.16s ease, color 0.16s ease;
+}
+.adm-shell [data-slot='sidebar-menu-button']:hover { color: var(--text-primary); }
+/* Active item: gold pill + a gold accent bar down its leading edge — a clearer
+   "you are here" than weight alone, and the champagne bar ties the nav to the
+   storefront's gold. */
+.adm-shell [data-slot='sidebar-menu-button'][data-active='true'] {
+  font-weight: 600; color: var(--gold-active); background: var(--gold-soft);
+  position: relative;
+}
+.adm-shell [data-slot='sidebar-menu-button'][data-active='true']::before {
+  content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px;
+  border-radius: 0 3px 3px 0; background: var(--gold-primary);
+}
+.adm-shell [data-slot='sidebar-menu-button'][data-active='true'] svg { color: var(--gold-primary); }
 
 /* Sign out sits in a <form>, so the button needs the row width itself. */
 .adm-shell [data-slot='sidebar-footer'] form { display: block; width: 100%; }
