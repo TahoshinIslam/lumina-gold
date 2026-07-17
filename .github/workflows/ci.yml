@@ -117,10 +117,18 @@ jobs:
   #   SSH_KNOWN_HOSTS  output of `ssh-keyscan <SSH_HOST>` — pins the server's
   #                    identity so a hijacked DNS record can't redirect the
   #                    deploy to an attacker's box. (Optional SSH_PORT if not 22.)
+  #
+  # The repository check pins production to ONE repo. This code is also mirrored
+  # to a private demo copy (TahoshinIslam/lumina-gold), and a mirror that pushes
+  # to the live server is not a mirror. Without this, every push to the demo
+  # tried to SSH into production.
   deploy:
     name: Deploy to VPS
     needs: [check, security]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: >-
+      ${{ github.event_name == 'push'
+          && github.ref == 'refs/heads/main'
+          && github.repository == 'leotechbd/nahar_jewellers' }}
     runs-on: ubuntu-latest
 
     # One deploy at a time, and NEVER cancel one mid-flight — a half-applied
@@ -136,7 +144,55 @@ jobs:
       url: https://naharjewellers.com
 
     steps:
+      # Preflight, because the failure this replaces was unreadable: with the
+      # secrets unset, every variable expanded to empty, the command collapsed to
+      # a bare `ssh`, and the job died on ssh's own usage text and exit 255 —
+      # which says nothing about the actual cause.
+      #
+      # `secrets` cannot be read from a job-level `if:` (GitHub does not expose
+      # that context there), so the check has to live in a step.
+      #
+      # Two outcomes, deliberately different:
+      #
+      #   NOTHING set  -> skip, with a warning on the run. There is no server
+      #                   yet; that is a real state, not a mistake, and a red X
+      #                   on every push to main is how a team learns to ignore
+      #                   CI. The warning is what keeps the skip honest — a
+      #                   silently green "deploy" that deployed nothing is worse
+      #                   than a red one.
+      #   SOME set     -> fail. Half a configuration is always a bug: a deleted
+      #                   or renamed secret must never look like "not set up
+      #                   yet" and quietly stop shipping.
+      - name: Check deploy secrets
+        id: preflight
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in SSH_HOST SSH_USER SSH_KEY SSH_KNOWN_HOSTS; do
+            [ -z "${!name:-}" ] && missing+=("$name")
+          done
+
+          if [ ${#missing[@]} -eq 4 ]; then
+            echo "::warning title=Deploy skipped::No deploy secrets are configured, so nothing was deployed. Set SSH_HOST, SSH_USER, SSH_KEY and SSH_KNOWN_HOSTS (see hosting-process.md §5b) to enable this job."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error title=Deploy misconfigured::Partially configured — missing: ${missing[*]}"
+            echo "Set them, or clear all four to disable the deploy." >&2
+            exit 1
+          fi
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
       - name: Deploy over SSH
+        if: steps.preflight.outputs.ready == 'true'
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
