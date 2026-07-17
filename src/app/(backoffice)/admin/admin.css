@@ -581,25 +581,55 @@
   .adm-main:has(.dash) { max-width: none; }
 }
 
-.dash { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; align-items: start; }
-.dash > .dash-title { grid-column: 1 / -1; margin: 0; }
-.dash-kpis { grid-column: span 9; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-.dash-cats { grid-column: span 3; grid-row: span 2; }
-.dash-rev { grid-column: span 6; }
-.dash-target { grid-column: span 3; display: flex; flex-direction: column; align-items: center; }
-.dash-active { grid-column: span 3; }
-.dash-conv { grid-column: span 6; }
-.dash-traffic { grid-column: span 3; }
-.dash-orders { grid-column: span 9; }
-.dash-activity { grid-column: span 3; }
-.dash-footer { grid-column: 1 / -1; }
+/* Dashboard layout.
+ *
+ * A 12-column grid where the card spans TILE the rows cleanly in source order —
+ * no masonry, no row-spans, so nothing lands 1-column wide or leaves a ragged
+ * gap (the old grid did both: .adm-stat-row had no placement and collapsed to a
+ * single column, and .dash-cats span-2 rows knocked everything below it out of
+ * alignment). `align-items: stretch` makes the two cards in a row match height.
+ *
+ * Full-width bands: title, the "today" tiles, the KPI trio, footer.
+ * Then four even rows of cards, each summing to 12 IN SOURCE ORDER
+ * (cats, rev, target, active, conv, traffic, orders, activity):
+ *   Categories 4 + Revenue 8
+ *   Target     4 + Active  8
+ *   Conversion 8 + Traffic 4
+ *   Orders     8 + Activity 4
+ */
+.dash { display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; align-items: stretch; }
+.dash > .dash-title,
+.dash > .adm-stat-row,
+.dash > .dash-kpis,
+.dash > .dash-footer { grid-column: 1 / -1; }
+.dash > .dash-title { margin: 0; }
+.dash > .adm-stat-row { margin: 0; }
+.dash-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 
-@media (max-width: 1400px) {
-  .dash-kpis, .dash-rev, .dash-conv, .dash-orders { grid-column: span 8; }
-  .dash-cats, .dash-target, .dash-active, .dash-traffic, .dash-activity { grid-column: span 4; }
-  .dash-cats { grid-row: auto; }
+.dash-cats { grid-column: span 4; }
+.dash-rev { grid-column: span 8; }
+.dash-target { grid-column: span 4; display: flex; flex-direction: column; align-items: center; }
+.dash-active { grid-column: span 8; }
+.dash-conv { grid-column: span 8; }
+.dash-traffic { grid-column: span 4; }
+.dash-orders { grid-column: span 8; }
+.dash-activity { grid-column: span 4; }
+
+/* Laptop / tablet: every card becomes an even half, so they tile 2-up with no
+   gaps (all spans equal → they always pair cleanly whatever the source order).
+   The wide charts and the orders table stay readable at ~half of 1200px, and
+   the table scrolls inside its own wrapper if it needs to. */
+@media (max-width: 1200px) {
+  .dash-cats, .dash-rev, .dash-target, .dash-active,
+  .dash-conv, .dash-traffic, .dash-orders, .dash-activity { grid-column: span 6; }
 }
-@media (max-width: 1000px) {
+/* Small tablet: KPI trio becomes two-up so the numbers don't crush. */
+@media (max-width: 900px) {
+  .dash-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+/* Phone: one column throughout. */
+@media (max-width: 640px) {
+  .dash { gap: 14px; }
   .dash > * { grid-column: 1 / -1 !important; }
   .dash-kpis { grid-template-columns: 1fr; }
 }

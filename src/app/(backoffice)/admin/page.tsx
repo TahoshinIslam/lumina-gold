@@ -21,6 +21,29 @@ function trend(cur: number, prev: number) {
   return { pct: Math.abs(Math.round(((c - p) / p) * 100)), up: c >= p };
 }
 
+/**
+ * A readable line for an audit event. The raw action is a dotted code like
+ * "admin.login" or "inventory.variant_deleted"; the old code did `${action}d`
+ * to fake a past tense and printed "admin.logind" / "variant_deletedd". This
+ * maps the known actions to real sentences, with a tidy fallback that drops the
+ * "<domain>." prefix and de-underscores the rest.
+ */
+const AUDIT_PHRASES: Record<string, string> = {
+  'admin.login': 'An administrator signed in.',
+  'admin.login_failed': 'A failed admin sign-in attempt.',
+  'admin.profile_updated': 'An administrator updated their profile.',
+  'admin.password_changed': 'An administrator changed their password.',
+  'admin.password_change_failed': 'A failed password-change attempt.',
+  'inventory.stock_set': 'Stock level was adjusted.',
+  'inventory.variant_deleted': 'A product variant was deleted.',
+};
+function auditText(action: string, entityType: string): string {
+  if (AUDIT_PHRASES[action]) return AUDIT_PHRASES[action];
+  const verb = (action.includes('.') ? action.slice(action.indexOf('.') + 1) : action).replace(/_/g, ' ');
+  const subject = entityType.replace(/_/g, ' ');
+  return `${subject.charAt(0).toUpperCase()}${subject.slice(1)}: ${verb}.`;
+}
+
 const COUNTRY: Record<string, string> = {
   BD: 'Bangladesh', US: 'United States', GB: 'United Kingdom', IN: 'India',
   ID: 'Indonesia', RU: 'Russia', AE: 'United Arab Emirates', CA: 'Canada',
@@ -223,7 +246,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
     })),
     ...auditLog.map(r => ({
       at: new Date(r.at), kind: 'audit',
-      text: `${r.entity_type.replace(/_/g, ' ')} ${r.action}d by an administrator.`,
+      text: auditText(r.action, r.entity_type),
     })),
     ...stockLog.map(r => ({
       at: new Date(r.at), kind: 'stock',
