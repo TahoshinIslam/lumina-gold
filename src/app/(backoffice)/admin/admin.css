@@ -12,6 +12,7 @@
 
 .adm-shell,
 .adm-login,
+.adm-404,
 /* Radix portals the drawer to <body>, i.e. OUTSIDE .adm-shell. Without its own
    copy of these tokens, every var() inside it either falls through to the
    storefront's value or resolves to nothing — and an unresolved var() makes the
@@ -1059,3 +1060,34 @@
 /* The dashboard's "today" tiles are links where a number is worth acting on. */
 a.adm-stat { display: block; text-decoration: none; transition: border-color 0.2s, transform 0.2s; }
 a.adm-stat:hover { border-color: var(--gold-primary); transform: translateY(-2px); }
+
+/* ── Admin 404 ────────────────────────────────────────────────────────── */
+.adm-404 {
+  min-height: 60vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px 24px;
+  background: var(--admin-background);
+  color: var(--text-primary);
+}
+.adm-404-card {
+  max-width: 480px; text-align: center;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 16px; padding: 44px 40px;
+  box-shadow: var(--card-shadow);
+}
+.adm-404-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--gold-soft); color: var(--gold-active); margin-bottom: 18px;
+}
+.adm-404-code {
+  font-family: 'Cinzel', Georgia, serif; font-size: 58px; line-height: 1;
+  font-weight: 500; color: var(--gold-primary); letter-spacing: 0.04em;
+}
+.adm-404-title {
+  font-family: 'Cinzel', Georgia, serif; font-size: 20px; font-weight: 500;
+  color: var(--text-primary); margin: 14px 0 8px;
+}
+.adm-404-text { font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin: 0 0 28px; }
+.adm-404-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
