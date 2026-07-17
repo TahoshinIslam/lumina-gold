@@ -1,0 +1,56 @@
+# Gitleaks configuration.
+#
+# The CI secret scan (.github/workflows/ci.yml, "Dependencies · Secrets") is what
+# stops a real ADMIN_PASSWORD or AUTH_SECRET being pasted into a commit "just for
+# testing". Everything below is written to keep that scan sharp, because every
+# failure mode here is silent: gitleaks does not warn when a config disables it.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# `useDefault = true` is load-bearing.
+#
+# Gitleaks REPLACES its entire built-in ruleset the moment a config file exists.
+# Without this line every default rule (AWS keys, GitHub tokens, private keys...)
+# switches off and CI goes green because it is no longer looking for anything. A
+# scanner that passes because it stopped scanning fails OPEN, and looks exactly
+# like a scanner that works.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[extend]
+useDefault = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The single allowlisted false positive.
+#
+# hosting-process.md §4 documents the cron that calls /api/cron/expire-holds:
+#
+#   curl -fsS -H "Authorization: Bearer YOUR_CRON_SECRET" ...
+#
+# The default `curl-auth-header` rule fires on any Authorization header in a curl
+# command whatever follows it, so it captures the literal placeholder
+# YOUR_CRON_SECRET as if it were the credential.
+#
+# WHY THIS IS A BARE ANCHORED REGEX AND NOT `paths`:
+#
+# The obvious fix — allowlist by path, narrowed with matchCondition = "AND" — is
+# a trap on gitleaks 8.24.3, and a trap that tests green:
+#
+#   * `[[allowlists]]` (plural) is parsed and then SILENTLY IGNORED. No error.
+#     The false positive simply keeps firing.
+#   * On the singular `[allowlist]`, `matchCondition` is ignored too: `paths` and
+#     `regexes` combine as OR. Verified by pointing `regexes` at a string that
+#     cannot occur and watching the finding vanish anyway — proof the `paths`
+#     entry alone was exempting the whole document. A deployment guide is exactly
+#     where someone pastes a real secret, so exempting the file is the one thing
+#     this must not do.
+#
+# Anchored on the secret alone, the hole is one exact string wide and applies to
+# no other value. Confirmed both ways: the placeholder passes, and a real 64-char
+# hex secret substituted onto that same line is still caught.
+#
+# Re-verify with the same version CI pins, from the repo root:
+#   gitleaks detect --no-banner --exit-code=2      # expect 0
+# ─────────────────────────────────────────────────────────────────────────────
+
+[allowlist]
+description = "Placeholder in the hosting-process.md cron example — not a credential"
+regexes = ['''^YOUR_CRON_SECRET$''']
